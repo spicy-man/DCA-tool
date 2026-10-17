@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-17T03:48:22.017Z",
+  "checkedAt": "2026-10-17T05:09:18.650Z",
   "expectedDate": "2026-10-16",
   "complete": true,
   "results": [
@@ -12,8 +12,9 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-16",
-      "checkedAt": "2026-10-17T03:48:22.017Z",
-      "lastSuccessAt": "2026-10-17T03:48:22.017Z"
+      "checkedAt": "2026-10-17T05:09:18.650Z",
+      "lastSuccessAt": "2026-10-17T03:48:22.017Z",
+      "skipped": true
     },
     {
       "symbol": "VOO",
@@ -23,8 +24,9 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-16",
-      "checkedAt": "2026-10-17T03:48:22.017Z",
-      "lastSuccessAt": "2026-10-17T03:48:22.017Z"
+      "checkedAt": "2026-10-17T05:09:18.650Z",
+      "lastSuccessAt": "2026-10-17T03:48:22.017Z",
+      "skipped": true
     },
     {
       "symbol": "QQQ",
@@ -34,8 +36,9 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-16",
-      "checkedAt": "2026-10-17T03:48:22.017Z",
-      "lastSuccessAt": "2026-10-17T03:48:22.017Z"
+      "checkedAt": "2026-10-17T05:09:18.650Z",
+      "lastSuccessAt": "2026-10-17T03:48:22.017Z",
+      "skipped": true
     }
   ]
 }
