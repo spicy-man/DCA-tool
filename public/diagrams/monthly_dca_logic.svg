@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1490" viewBox="0 0 1120 1490" role="img" aria-labelledby="title desc">
+<title id="title">月跌幅金字塔定投逻辑：每月一次，当日收盘判断并成交</title>
+<desc id="desc">初始买入 N，占首月一笔。之后每月首个交易日，在当日收盘以过去一个日历月的最高复权 High 计算回撤，将基础月投与所有达到的档位金额合并买入。成交后当月不再下单，下个月重新计算。相同收盘价判断与成交为理想化回测假设。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#73889a"/></marker>
+  <marker id="tealArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#168477"/></marker>
+  <style>
+    text{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;fill:#203448}
+    .title{font-size:36px;font-weight:700}.subtitle{font-size:18px;fill:#607487}
+    .heading{font-size:23px;font-weight:700}.body{font-size:18px}.small{font-size:16px;fill:#607487}
+    .number{font-size:15px;font-weight:700;fill:#168477}.money{font-size:19px;font-weight:700}
+    .line{fill:none;stroke:#73889a;stroke-width:2;marker-end:url(#arrow)}
+    .loop{fill:none;stroke:#168477;stroke-width:2;marker-end:url(#tealArrow)}
+    .card{fill:#fff;stroke:#dbe3e8;stroke-width:1.5}
+  </style>
+</defs>
+<rect width="1120" height="1490" fill="#f3f6f8"/>
+<rect x="56" y="50" width="6" height="76" rx="3" fill="#168477"/>
+<text x="82" y="85" class="title">月跌幅金字塔 · 定投逻辑</text>
+<text x="82" y="119" class="subtitle">每月一笔 · 窗口定金额 · 当日收盘判断与成交</text>
+<rect x="838" y="62" width="226" height="40" rx="20" fill="#deeee9"/>
+<text x="951" y="88" text-anchor="middle" font-size="16" fill="#168477">当前默认：same_close</text>
+
+<!-- Initial purchase bypasses the recurring pyramid calculation. -->
+<rect class="card" x="56" y="184" width="280" height="174" rx="16"/>
+<text x="80" y="218" class="number">首次进入回测</text>
+<text x="80" y="254" class="heading">初始买入 N</text>
+<text x="80" y="287" class="body">按首日复权收盘价成交</text>
+<text x="80" y="318" class="small">首月不再月投或额外加仓</text>
+<path class="line" d="M196 358 V402 H36 V1207 H389"/>
+<rect x="72" y="1182" width="248" height="48" rx="10" fill="#f3f6f8"/>
+<text x="196" y="1211" text-anchor="middle" class="small">初始买入后，也占用当月</text>
+
+<rect class="card" x="390" y="184" width="674" height="160" rx="16"/>
+<text x="418" y="216" class="number">01 / 每月一次的判断时点</text>
+<text x="418" y="254" class="heading">每月 1 日，非交易日顺延</text>
+<text x="418" y="287" class="body">在该交易日 T 的收盘时刻判断</text>
+<text x="418" y="317" class="small">仅在本月尚未下单时执行；其余交易日不买入</text>
+<path class="line" d="M727 344 V382"/>
+
+<rect class="card" x="390" y="386" width="674" height="180" rx="16"/>
+<text x="418" y="419" class="number">02 / 计算当日窗口回撤</text>
+<text x="418" y="453" class="body">窗口：T 往前一个日历月至 T，包含当天，月底对齐</text>
+<text x="418" y="485" class="body">H = 窗口内最高复权 High；C = T 的复权 Close</text>
+<rect x="418" y="505" width="380" height="42" rx="8" fill="#e8f3f0"/>
+<text x="438" y="533" class="money">回撤 D = 1 − C / H</text>
+<text x="818" y="532" class="small">初期使用已有记录</text>
+<path class="line" d="M727 566 V604"/>
+
+<rect class="card" x="390" y="608" width="674" height="300" rx="16"/>
+<text x="418" y="641" class="number">03 / 合并所有达到的档位</text>
+<rect x="414" y="656" width="626" height="38" rx="6" fill="#edf2f5"/>
+<text x="432" y="682" class="small">判断时回撤 D</text>
+<text x="660" y="682" class="small">额外投入</text>
+<text x="884" y="682" class="small">总买入金额</text>
+<g class="body">
+  <text x="432" y="725">D &lt; 5%</text><text x="660" y="725">0</text><text x="884" y="725" class="money">N</text>
+  <text x="432" y="759">5% ≤ D &lt; 10%</text><text x="660" y="759">N</text><text x="884" y="759" class="money">2N</text>
+  <text x="432" y="793">10% ≤ D &lt; 15%</text><text x="660" y="793">3N</text><text x="884" y="793" class="money">4N</text>
+  <text x="432" y="827">15% ≤ D &lt; 20%</text><text x="660" y="827">5N</text><text x="884" y="827" class="money">6N</text>
+  <text x="432" y="861">20% ≤ D &lt; 25%</text><text x="660" y="861">7N</text><text x="884" y="861" class="money">8N</text>
+</g>
+<text x="418" y="891" class="small">之后每增加 5 个百分点，再加 2N；默认档位到 95%</text>
+<path class="line" d="M727 908 V946"/>
+
+<rect x="390" y="950" width="674" height="146" rx="16" fill="#e8f3f0" stroke="#c9e2d9" stroke-width="1.5"/>
+<text x="418" y="983" class="number">04 / 一笔完成买入</text>
+<text x="418" y="1020" class="heading">总金额 = 基础月投 N + 累计额外投入</text>
+<text x="418" y="1053" class="body">按 T 的复权收盘价成交；判断日 = 成交日</text>
+<text x="418" y="1080" class="small">合成单位 = 总金额 / C；金额与档位均可修改</text>
+<path class="line" d="M727 1096 V1134"/>
+
+<rect class="card" x="390" y="1138" width="674" height="130" rx="16"/>
+<text x="418" y="1171" class="number">05 / 月度重置</text>
+<text x="418" y="1207" class="heading">记下成交年月，本月不再买入</text>
+<text x="418" y="1240" class="body">下个月重新计算窗口和全部档位，无需恢复高点</text>
+<path class="loop" d="M1064 1204 H1092 V265 H1066"/>
+<text x="838" y="1296" class="small">下一月回到步骤 01</text>
+
+<!-- An example explains why reset is calendar-based rather than price-based. -->
+<rect x="56" y="440" width="280" height="342" rx="16" fill="#edf2f5" stroke="#dbe3e8"/>
+<text x="80" y="479" class="heading">重置示例</text>
+<text x="80" y="523" class="body">二月判断回撤 10%</text>
+<text x="80" y="555" class="money">二月买一次 4N</text>
+<path d="M80 578 H312" stroke="#d0dae1"/>
+<text x="80" y="613" class="body">三月仍然回撤 10%</text>
+<text x="80" y="645" class="money">三月再买一次 4N</text>
+<text x="80" y="692" class="small">月内跌幅扩大，不追加第二笔</text>
+<text x="80" y="722" class="small">下月金额取下月当次判断</text>
+<text x="80" y="752" class="small">不继承上个月的已触发档位</text>
+
+<rect x="56" y="1330" width="1008" height="104" rx="14" fill="#e7edf1"/>
+<text x="80" y="1365" font-size="17" font-weight="700">成交假设 · 用最终收盘信息判断，并以同一收盘价成交，属于理想化回测。</text>
+<text x="80" y="1395" class="small">当前方案按用户指定实现；尚未确认是视频作者的真实规则。配置：config_monthly.json</text>
+<text x="56" y="1463" class="small">N = 每月基础投入金额 · 初始买入 N · 所有金额使用同一币种</text>
+</svg>

@@ -1,182 +1,61 @@
-# 候潮 · 行情、情绪与定投信号
+# 定投助手 · 定投信号
 
-参考用户截图搭建的独立网站，使用真实 CSV 数据，无需安装第三方依赖。Node.js 20 或更高版本即可运行。
+查看 VOO / QQQ 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。使用本地数据快照，无需安装第三方运行依赖。
 
-## 启动
+## 本地启动
 
-在项目目录运行 `node server.mjs`，打开 http://127.0.0.1:4173 。Windows 也可双击 start.cmd。
+需要 Node.js 20 或更高版本，在项目目录运行：
 
-环境变量 `PORT` 可修改端口。需要通过局域网访问时，设置 `HOST=0.0.0.0`（仅用于受信任网络；对公网发布请通过反向代理设置认证与限流）。
+```sh
+node server.mjs
+```
 
-## 功能
+打开 <http://127.0.0.1:4173>，Windows 也可双击 `start.cmd`。默认仅监听本机；端口可通过 `PORT` 修改，局域网访问及公网部署见[部署说明](docs/deployment.md)。
 
-时间范围、日/周/月频率、标准/加高图表、悬停历史读数、历史窗口拖动、Latest 回到最近日期、CSV 导出、可读数据表、刷新数据、手机布局。
+## 使用
 
-周/月频率取该周期最后一条已有记录，不是平均值。周从星期一开始。周末、节假日和缺失日期不补值。图表不会延伸到未来。右上角分数对应当前显示区间的最后一条记录。
+- 选择 VOO / QQQ、日期范围和日／周／月线，两张图共用时间窗口。默认显示近一年，采用展开布局。
+- **手机**：图表内双指张开放大、捏合缩小，单指左右拖动；图表外上下滑动页面。
+- **电脑**：滚轮缩放，左键拖动；Shift + 滚轮或触控板横向滚动平移，双击恢复预设范围。聚焦图表后可用方向键、加减键及 Home。
+- **回到最新**保留当前缩放宽度；手动缩放或拖动后范围显示“自定义”。最小窗口为 14 个自然日。
+- 设置每月定投日、基准金额 N（USD）及买入信号开关，设置保存在当前浏览器。日线显示 Buy 1x / Buy 2x 等标签，周线与月线仅保留明细。
+- 展开图表下方明细可查看数据、计算口径及导出 CSV。悬停或点击信号可查看详情。
+- 本地服务的“更新数据”抓取来源；静态站点的“检查更新”仅重新读取已发布快照。各来源日期和更新状态分别显示。
 
-## 数据来源
+## 数据与计算口径
 
-- 上游：https://github.com/whit3rabbit/fear-greed-data
-- 本地快照：public/data/fear-greed.csv
-- 2011-01-03 至 2021-01-29：仓库第三方历史合并存档。
-- 自 2021-02-01 起：仓库从 CNN 官方接口获得的数据。这个日期是上游采用的历史数据分界，不是本网站独立认证的准确性保证。
-- 当前更新流程优先尝试 CNN 历史接口，不可用或滞后时回退上游 fear-greed.csv；不会强制触发上游任务。上游声明工作日 UTC 23:00 更新。具体执行与 Pages 部署见文末。
-- 下载使用 25 秒超时，验证格式、取值范围、日期重复、记录数缩短和最新日期倒退，再以临时文件替换本地数据。失败保留原文件。页面按最近应有的已收盘交易日判断是否等待更新，并分别显示来源状态。
+### ETF 行情
 
-## 检查
+来源为 Yahoo Finance Chart API，缓存于 `public/data/voo.json`、`public/data/qqq.json`。保留来源 OHLC、Adj Close、成交量与复权因子，供核对。
 
-`node --test test/*.test.mjs`
+前复权价格 = 每日 OHLC × (Adj Close / Close) ÷ 最新完整交易日 (Adj Close / Close)。历史窗口变化不会重设复权基准；来源 OHLC 已含 Yahoo 拆股处理，成交量不做价格复权。
 
-## 文件
+周／月 K 线按复权日线聚合：首开、最高、最低、末收、成交量求和。窗口边缘的周期可能不完整。日期使用 America/New_York；未上市、缺失和未收盘日不补值。白色阳线表示收盘不低于开盘，黑色阴线表示收盘低于开盘。
 
-server.mjs 网站服务与刷新接口；public/index.html 页面；public/style.css 样式；public/app.mjs 图表和交互；public/data.mjs 数据解析与聚合；test/data.test.mjs 数据口径测试。
+### 恐慌与贪婪指数
 
-原始数据及相关权利归其来源所有，数据使用条件请查看上游仓库和 CNN。公网部署与状态以文末说明及 GitHub Actions 结果为准。
+本地快照为 `public/data/fear-greed.csv`。2011-01-03 至 2021-01-29 使用[上游仓库](https://github.com/whit3rabbit/fear-greed-data)的第三方历史合并存档，自 2021-02-01 起为上游从 CNN 接口取得的数据；此分界不代表本站独立认证准确性。
 
-## ETF 前复权行情
+更新时优先 CNN 历史接口，失败或滞后时回退存档。仅使用历史日期与分数，不以即时分数代替日终数据。周／月取周期内最后一条记录，周从星期一开始；休市和缺失日期不补值。图中红线固定为指数 10，右上角分数对应显示区间末条记录。
 
-新增 VOO / QQQ 可切换的黑白 K 线，与情绪指数共用日期范围、日/周/月频率及十字线。空心表示收盘不低于开盘，实心表示下跌。右上角显示当前窗口末根 K 线的收盘价；百分比相对窗口内上一根 K 线收盘计算。没有上一根时不显示涨跌幅。
+### 近月回撤金字塔信号
 
-行情来自 Yahoo Finance Chart API，保存为 public/data/voo.json 和 qqq.json。每个记录保留来源 OHLC、Adj Close、成交量及复权因子供核对。前复权公式：每日 OHLC × (Adj Close / Close) ÷ 最新完整交易日 (Adj Close / Close)。包含拆股、现金分红调整，并保证最新完整交易日价格等于来源报价。来源 OHLC 已含 Yahoo 的拆股处理，不应视为当年实际成交原价。成交量未做价格复权。切换历史日期不重新锚定前复权基准。
+回看前一个日历月（包含当天、月底对齐）的最高 high，以当日 close 计算回撤。回撤不足 5% 投入 N；其余每满 5% 增加 2N：5% 为 2N、10% 为 4N，最多 38N。
 
-周/月 K 线由区间内复权日线聚合：首开、最高、最低、末收及成交量求和；区间边界的周期可能不完整。QQQ 历史覆盖 1999 年起的可用交易日，上线前、缺失日及未收盘日不补造数据。交易日期使用 America/New_York。截图绿色买入标签未实现。
+不存在的定投日对齐月末，休市顺延；上月月末顺延至本月的买入占用本月的一次额度，每个实际执行月份仅买一次。按完整可用日线历史计算后筛选显示窗口，缩放和拖动不重置策略状态。初期历史不足一个月时使用当时已有数据。
 
-Refresh 同时尝试更新情绪指数、VOO 和 QQQ，三者独立验证与原子替换，部分失败会单独提示并保留该数据源缓存。行情刷新会重新下载全历史，确保后续分红调整传递到历史价格。页面分别记录行情日期与最近检查时间，不把下载成功等同于数据到齐。
+信号仅用于展示，不执行下单或发送通知。
 
-行情代理支持 MARKET_DATA_PROXY、HTTPS_PROXY/ALL_PROXY；Windows 无环境变量时使用已启用的系统 HTTP/HTTPS 代理，未配置则直连。MARKET_DATA_PROXY=direct 可强制直连。使用已有 curl 传输代理请求，不将代理认证信息放入命令参数或错误文本。
+## 开发与部署
 
-新增文件：market.mjs、public/market-data.mjs、public/market-chart.mjs、public/data/voo.json、public/data/qqq.json、test/market.test.mjs。更新文件：server.mjs、public/app.mjs、public/index.html、public/style.css、README.md。
+```sh
+node --test test/*.test.mjs     # 运行测试
+node scripts/update-data.mjs   # 手动更新各来源
+node scripts/build-site.mjs    # 构建静态站点到 dist/
+```
 
-## 图表缩放与拖动
+- [数据更新与部署](docs/deployment.md)：代理、来源切换、定时补抓、状态、锁和 GitHub Pages 配置。
+- [更新记录](CHANGELOG.md)：功能演进与历史修改。
+- 项目结构：`public/` 页面与图表，`test/` 测试，`scripts/` 更新与构建入口；`server.mjs` 启动本地服务，`updater.mjs` 管理数据更新。
 
-两张图都支持：滚轮以鼠标位置为锚点缩放；按住鼠标左键左右拖动；Shift + 滚轮或触控板横向滚动平移；双击恢复上次选择的预设范围并回到最新日期。聚焦图表后也可用左右方向键平移、加减键缩放、Home 重置。两图时间窗口同步，手动操作时 Range 显示 Custom；Latest 保留缩放宽度并移动到最新日期。范围限制在已有指数历史内，最小窗口 14 个自然日，不生成未来或缺失数据。
-
-K 线画布配色取自用户参考图：背景 #DBDBDB、黑色边线及影线、上涨白色实体、下跌黑色实体，去掉背景网格，保留细点状收盘价线。绿色标签仍未添加。隐藏的数据表仅在展开时更新，避免拖动时反复创建大量表格单元。
-
-本次新增 public/chart-navigation.mjs、test/navigation.test.mjs；修改 public/app.mjs、public/market-chart.mjs、public/index.html、public/style.css、README.md，无删除。
-
-## K 线绘制细节修正
-
-对照用户 TradingView 截图，重新核对交易日间距、实体占比、边框/影线像素宽度及主图比例，并参考 TradingView Lightweight Charts 官方渲染实现：https://github.com/tradingview/lightweight-charts/blob/master/src/renderers/candlesticks-renderer.ts 。本站仍使用自己的绘制代码，没有引入第三方图表运行库。
-
-- 两图共用交易周期坐标，周末不占横向槽位。以 VOO 可用交易日和情绪数据日期构造共用时间轴；周/月按周期映射，同周的不同末次记录仍在同一横向位置。
-- 主图使用设备像素绘制实体与上下影线，不再使用小数像素 strokeRect 叠加描边。实体与影线保持同奇偶宽度，确保居中，白色内芯仅在空间足够时绘制，十字星保留细实体。
-- 实体宽度随槽位缩放，取消原先 18 像素上限；收盘线仍为点线。图表背景 #DBDBDB、白色上涨实体、黑色下跌实体/边框/影线保持不变。
-- 主图增加到桌面宽度约 43% 的高度，手机 400 像素；右侧价格轴使用整洁刻度，最右保留 3 根 K 线槽位空白。
-- 默认范围改为一年，提高默认可读性。其余时间范围、VOO/QQQ、复权、导出与更新口径保持不变。
-
-本次新增 public/chart-geometry.mjs、test/geometry.test.mjs；修改 public/app.mjs、public/market-chart.mjs、public/chart-navigation.mjs、public/style.css、public/index.html、README.md，无删除。
-
-
-标的调整：QQQM 替换为 QQQ，新增 public/data/qqq.json（1999-03-10 起），删除旧 public/data/qqqm.json；更新 server.mjs、public/market-data.mjs、public/index.html、test/market.test.mjs 和 README.md。
-
-## 1140px 紧凑页面
-
-页面正文最大宽度 1140px，居中布局；收紧页头、筛选工具栏、卡片标题和上下留白。标准布局下，桌面两图高度按可用窗口高度分配（K 线约 62%、情绪图约 38%，设有最小和最大值），优先在一屏内完整展示两张图。来源说明仍在图表下方，展开数据表和 Expanded 布局允许页面滚动。手机保持上下排列与足够的操作高度。本次仅修改 public/style.css、README.md，无新增或删除文件。
-
-## 月跌幅金字塔定投信号
-
-按用户提供的 Pine v6 脚本逐日移植，使用已收盘的前复权日线。可在图表标题旁选择每月 1–31 日、设置 N（USD，默认 1000）及切换标签显示；选项保存在当前浏览器 localStorage。计算模块为 public/pyramid-strategy.mjs，图上标签、设置和信号导出由 public/strategy-overlay.mjs 管理。
-
-回看前一个日历月（包含当天、月底对齐）的最高 high，使用当日 close 计算 `max(0, 1 - close / high)`；`level=min(19,floor((drawdown+1e-10)/0.05))`；0 档为 1N，其余为 2×level×N。最低一档不满 5% 时也买入 N；最高 38N。当前日 high 也参与最高价计算。
-
-不存在的定投日先对齐当月最后一个自然日，休市顺延。严格保留 Pine 的 rolledDue 行为：如果上月月底尚未到期就结束了交易日，则本月首个交易日执行；每个实际执行月份只买一次，顺延买入后当月不会再额外买一次。初始历史不足整月时按当时已取得的日线计算，与 Pine 首条历史行为一致。
-
-先计算标的完整日线历史，再筛选显示窗口；拖动和缩放不重置策略状态。日 K 显示 Buy 1x、Buy 2x 等绿色标签，周/月 K 不显示并提示仅适用 1D。密集区间标签缩为三角，放大后显示文字；每个信号可悬停、聚焦或点击查看。行情明细中提供当前区间的信号表、合计投入和 CSV 导出，即使标签隐藏，明细仍保留计算结果。这里实现图表信号，不执行下单或发送通知。
-
-Tooltip 仅参考用户图片的左右两列排版：字段左对齐，数字右对齐并使用等宽数字；保留网站现有深色样式。普通日线展示开高低收，买入信号额外展示近月高点、回撤、倍数和金额。
-
-测试覆盖闰年、月末回看、跨月顺延、5% 临界值、38N 上限、每月去重和历史前缀不变性，并以 VOO / QQQ 全历史及六种定投日对照独立参考实现。浏览器验证设置保存、标签更新、Tooltip 两列对齐、周线限制、导出、缩放、手机宽度和 1366×768 两图同屏。
-
-本次新增 public/pyramid-strategy.mjs、public/strategy-overlay.mjs、public/tooltip.mjs、test/strategy.test.mjs；修改 public/index.html、public/market-chart.mjs、public/app.mjs、public/style.css、README.md，无删除。
-
-## 品牌、默认布局与术语
-
-名称改为“候潮”，页面标题“行情与定投信号”，浏览器标题“候潮 · 行情、情绪与定投信号”。新增 public/logo.svg，使用坐标轴和走势节点图形，页头及 favicon 共用同一图标。默认布局改为“展开”，仍可手动切回“紧凑”；此默认要求取代之前优先一屏显示的默认布局。
-
-定投日期、基准金额 N 和信号开关继续使用原 localStorage 存储键 seeker.pyramid.v1，避免更名丢失已保存设置。同一浏览器配置及同一来源地址（协议、主机和端口）会恢复这些值；数值验证与安全读取逻辑保持不变。浏览器实测覆盖刷新后恢复和关闭标签后新开同源标签恢复。
-
-中文界面统一范围、周期、布局、日期、市场情绪等级、表头、更新和导出按钮。“月跌幅”更正为“近月回撤”，避免与自然月涨跌幅混淆；“空心上涨／实心下跌”更正为“白色阳线／黑色阴线”，避免与相对前日涨跌混淆。保留 VOO、QQQ、ETF、USD、CSV 和数据源名称。CSV 导出列名、原始来源标签以及计算函数的机器标识保持不变，保证已有数据与测试兼容。
-
-本次新增 public/logo.svg、public/labels.mjs；修改 public/index.html、public/app.mjs、public/market-chart.mjs、public/strategy-overlay.mjs、public/style.css、README.md，无删除。
-
-最终品牌由用户选定为“候潮”，意为按节奏投入、等待市场起落。SVG 改为圆形潮汐曲线与小圆点，移除坐标轴和走势箭头，页头与浏览器图标同步替换。用户明确要求保持原标签文本，因此图上继续使用 Buy 1x / Buy 2x 等，不作中文翻译；其余中文术语调整继续保留。本地偏好的原存储键不变。
-
-## 图表设置分组
-
-范围、周期、布局、回到最新及日期区间整合到 K 线卡片顶部的共用工具栏，继续同步控制两张图。每月定投日、基准 N、USD 和买入信号开关移出标题行，在标的标题下单独成行。操作提示放到图表底部。仅调整 public/index.html、public/style.css、README.md；原有控件 ID、本地偏好与计算逻辑保持不变，无新增或删除项目文件。
-
-## 顶部投资提醒
-
-页头下方加入两则简短提醒，桌面左右排列、手机上下排列。巴菲特段采用“理念整理”，分批投资低成本宽基指数的内容参考 CNBC 的 2002 年股东大会记录，“回去工作”仅找到二手转述，已分别提供来源链接并明确不作逐字原话。林奇段为《战胜华尔街》公开出版社节选的意译，主要参考第一章定期投资与市场恐慌时持续买入的段落，不将其写成保证获胜的承诺。
-
-来源：
-- https://buffett.cnbc.com/video/2002/05/04/morning-session---2002-berkshire-hathaway-annual-meeting.html
-- https://www.yahoo.com/news/2013-12-30-warren-buffetts-super-simple-retirement-advice.html
-- https://www.simonandschuster.com/books/Beating-the-Street/Peter-Lynch/9781451687064#excerpt
-
-本项仅修改 public/index.html、public/style.css、README.md，无新增或删除项目文件。
-
-页面调整：页面背景改为白色 #FFFFFF；K 线画布保留 #DBDBDB。主标题改为“定投信号”，浏览器标题改为“候潮 · 定投信号”。本次修改 public/style.css、public/index.html、README.md，无新增或删除文件。已在浏览器核对页面背景及画布像素。
-
-更正背景范围：用户指的是引言背景。页面恢复 #DBDBDB，仅 .investment-notes 引言区域使用白底；主标题“定投信号”保持。本次修改 public/style.css、README.md，无新增或删除文件。
-
-页面底色按用户指定改为 #F5F6FA；顶部引言继续白底，K 线画布继续 #DBDBDB。本次修改 public/style.css、README.md，无新增或删除文件。
-
-引言正文字号缩小一档：桌面 13px → 12px，手机 12px → 11px；署名与其他区域保持不变。本次修改 public/style.css、README.md，无新增或删除文件。
-
-贪恐指数画布高度调整为原来的 80%（降低 20%）：展开模式 280px → 224px；桌面紧凑模式及手机标准模式同步按 80% 缩放，K 线高度不变。本次修改 public/style.css、README.md，无新增或删除文件。
-
-贪恐指数新增固定在数值 10 的红色水平参考线（#D05B4B，1.2px），绘制于走势下方，缩放或切换周期后保持同一指数位置。本次修改 public/app.mjs、README.md，无新增或删除项目文件。
-
-术语按用户偏好统一为“恐慌与贪婪指数”“恐慌”“极度恐慌”，同步标题、情绪等级、提示框、图内文字及可访问标签。英文原始数据和计算口径不变。本次修改 public/index.html、public/app.mjs、public/labels.mjs、README.md，无新增或删除文件。
-
-
-## 自动更新与 GitHub Pages（当前后端方案）
-
-目标仓库：https://github.com/spicy-man/DCA-tool 。预计 Pages 地址为 https://spicy-man.github.io/DCA-tool/ （以 GitHub 实际发布地址为准）。部署由仓库 main 分支的 GitHub Actions 工作流执行；实际状态可在仓库 Actions 与 Settings → Pages 查看。
-
-### 更新入口
-
-- 本地：运行 node server.mjs，页面“更新数据”通过同源 POST /api/refresh 调用 updater.mjs。
-- 命令：node scripts/update-data.mjs；数据不齐或来源失败退出码为 1。所有来源独立校验、独立原子替换，失败源保留原文件。
-- 定时补抓：node scripts/update-data.mjs --scheduled；只有前一轮已成功、实际快照日期满足目标交易日的来源才跳过网络。手动运行默认强制重新检查所有来源。
-- FEAR_GREED_SOURCE=auto（默认）优先 CNN 历史接口，失败或日期滞后时尝试第三方存档；cnn 只用 CNN，archive 只用存档。可用 GitHub 仓库变量 FEAR_GREED_SOURCE 配置。
-- 指数只使用 historical.data 中的历史日期与分数，不把即时分数当作日终数据。CNN 日期字段按 UTC 日期标签处理；2021-02-01 前保留现有第三方存档。
-- ETF 每个目标交易日首轮重新下载全历史和 Adj Close，重算整段前复权。已有日期丢失（即使总条数不变）、无效 OHLC、重复日期等均拒绝替换。暂时失败最多重试一次；明确返回拒绝访问或限流时不重试、不绕过。
-
-### 调度和状态
-
-.github/workflows/pages.yml 在北京时间每天 06:17、08:17、10:17 执行，并支持 main 推送与手动执行。按 America/New_York、周末、常规美股节假日与提前收盘计算目标日期；收盘后留 60 分钟缓冲。临时休市规则需要随交易所公告维护，不代表交易所实时日历服务。
-
-public/data/status.json 记录各来源的数据日期、来源、最近检查时间、最近成功时间、fresh 与 ok。下载成功但日期不足，仍标为未到齐并使任务失败。页面会根据当前时间重新判断目标日期，不盲信旧 manifest 的 fresh=true。日期到齐仅说明来源已提供该日数据，不保证上游以后不修订。
-
-同一进程合并并发请求，不同进程通过 public/data/.refresh.lock 排他写入；正常结束释放锁。异常退出若留下锁，必须先确认没有更新进程运行再移除，不能在任务运行中删锁。临时文件使用唯一名称。接口有 60 秒冷却并拒绝跨站调用。本地服务默认仅监听 127.0.0.1；不要直接作为公开 API 使用。
-
-### 发布
-
-1. 将项目上传到上述仓库的 main 分支（不上传 dist 和临时锁文件）。
-2. 在仓库 Settings → Pages → Build and deployment 中选择 GitHub Actions。
-3. 确保允许工作流写入仓库内容；若 main 保护规则禁止机器人直推，数据持久化步骤会失败，需按仓库规则授权或另行采用数据分支。
-4. 在 Actions 中运行 Update data and deploy Pages，检查更新、保存与部署步骤。定时任务可能延迟，不能承诺准点；GitHub 还可能在公开仓库长期无活动后停用定时任务。需要关注失败通知和页面日期。
-
-工作流先运行测试，再更新数据、保存有效快照与状态、打包并发布。来源失败时仍发布保留的数据和失败状态，随后将任务标记失败；部署本身失败时网站仍是上一版本，可从 Actions 查看。Git 推送失败不会强制覆盖远端。自动数据提交不会再次触发本工作流，避免循环。
-
-node scripts/build-site.mjs 生成 dist/，每次清理并重建这个固定输出目录。dist/deployment.json 标记静态模式，页面按钮变为“检查更新”，只重新读取已发布数据，不请求后台接口。资源均使用相对路径，兼容 /DCA-tool/。页面不包含 GitHub token、上游密钥或代理配置。普通访客不会触发数据源抓取。
-
-### 数据使用条件
-
-低频请求不等于获得采集或再分发许可。当前适配器不提供 Yahoo/CNN 的授权，也不承诺接口稳定可用；公开发布前应确认对应数据使用条件。第三方仓库代码的开源许可不能自动代表原始行情或指数的再分发许可。
-
-参考：
-- https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
-- https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
-- https://www.nyse.com/trade/hours-calendars
-- https://github.com/whit3rabbit/fear-greed-data
-- https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
-
-### 本次文件清单
-
-新增：updater.mjs、storage.mjs、http-server.mjs、scripts/update-data.mjs、scripts/build-site.mjs、public/trading-calendar.mjs、public/data-health.mjs、public/data/status.json、test/backend.test.mjs、.github/workflows/pages.yml。
-修改：market.mjs、server.mjs、public/market-data.mjs、public/app.mjs、public/market-chart.mjs、public/index.html、public/data/fear-greed.csv、public/data/voo.json、public/data/qqq.json、package.json、.gitignore、README.md。
-删除：无。dist/ 为忽略提交的本地发布包。原始改动文件备份保存在本次聊天的本地输出目录 backend-originals/，不放入发布包。
+原始数据及相关权利归来源方所有；公开发布前请核对 Yahoo、CNN 及上游的数据使用条件。数据日期到齐不保证来源以后不会修订。
