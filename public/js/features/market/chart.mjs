@@ -1,12 +1,14 @@
-import {updateSignals,drawSignalMarkers,getVisibleSignals,showMarketTooltip} from './strategy-overlay.mjs';
-import {createTradingScale,candleMetrics,paintCandle,chartInsets} from './chart-geometry.mjs';
-import {aggregateOHLC} from './market-data.mjs';
+import {appEvents,events} from '../../services/events.mjs';
+import {loadMarketSnapshot} from '../../services/data-client.mjs';
+import {updateSignals,drawSignalMarkers,getVisibleSignals,showMarketTooltip} from '../strategy/overlay.mjs';
+import {createTradingScale,candleMetrics,paintCandle,chartInsets} from '../../charts/geometry.mjs';
+import {aggregateOHLC} from '../../domain/market.mjs';
 const $=id=>document.getElementById(id),store=new Map();
 let settings,shown=[],frame,active=-1,loading=false,requestID=0;
 export async function loadMarket(force=false){
  const id=++requestID,symbol=$('symbol').value;loading=true;$('price-title').textContent=symbol+' · 前复权 K 线';$('price-close').textContent='—';$('price-asof').textContent='正在读取 '+symbol+' 行情…';
  try{
- if(force||!store.has(symbol)){const response=await fetch('./data/'+symbol.toLowerCase()+'.json',{cache:'no-store'});if(!response.ok)throw Error('本地行情尚未就绪，请点击“更新数据”');const data=await response.json();if(data.symbol!==symbol||!data.rows?.length)throw Error('行情文件格式无效');store.set(symbol,data);if(symbol==='VOO')window.dispatchEvent(new CustomEvent('market-calendar',{detail:data.rows.map(r=>r.date)}));}
+ if(force||!store.has(symbol)){const data=await loadMarketSnapshot(symbol);store.set(symbol,data);if(symbol==='VOO')appEvents.dispatchEvent(new CustomEvent(events.marketCalendar,{detail:data.rows.map(r=>r.date)}));}
  if(id!==requestID)return;loading=false;renderMarket(settings);
  }catch(error){if(id!==requestID)return;loading=false;$('price-asof').textContent=error.message;shown=[];$('price-close').textContent='—';$('price-change').textContent='—';$('price-observations').textContent='0 根 K 线';$('price-table').replaceChildren();updateSignals(null,null);drawPrice();}
 }
@@ -35,7 +37,7 @@ export function renderMarket(next){
 function renderPriceTable(){
  $('price-table').replaceChildren(...shown.slice().reverse().map(r=>{const tr=document.createElement('tr');for(const v of [r.date,...[r.open,r.high,r.low,r.close].map(n=>n.toFixed(2)),r.volume===null?'—':r.volume.toLocaleString()]){const td=document.createElement('td');td.textContent=v;tr.append(td);}return tr;}));
 }
-$('price-table').closest('details').addEventListener('toggle',()=>{if($('price-table').closest('details').open)renderPriceTable();});
+
 export function drawPrice(crossDate){
  const canvas=$('price-chart'),w=canvas.clientWidth,h=canvas.clientHeight,dpr=devicePixelRatio||1;canvas.width=w*dpr;canvas.height=h*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.fillStyle='#dbdbdb';c.fillRect(0,0,w,h);frame=null;
  $('price-empty').hidden=shown.length>0||loading;
@@ -63,18 +65,22 @@ export function drawPrice(crossDate){
  for(const tick of scale.ticks(w<500?3:6)){c.textAlign='center';const label=new Date(tick.date+'T00:00:00Z').toLocaleDateString('zh-CN',scale.dates.length<90?{month:'short',day:'numeric',timeZone:'UTC'}:{month:'short',year:'2-digit',timeZone:'UTC'});c.fillText(label,Math.max(c.measureText(label).width/2+2,tick.x),h-10);}
 
 }
-function hide(){active=-1;$('price-tooltip').hidden=true;drawPrice();window.dispatchEvent(new CustomEvent('market-hover',{detail:null}));}
+function hide(){active=-1;$('price-tooltip').hidden=true;drawPrice();appEvents.dispatchEvent(new CustomEvent(events.marketHover,{detail:null}));}
+export function initMarketChart(){
+$('price-table').closest('details').addEventListener('toggle',()=>{if($('price-table').closest('details').open)renderPriceTable();});
 $('price-chart').addEventListener('pointermove',event=>{
  if(!frame||!shown.length)return;const rect=$('price-chart').getBoundingClientRect(),mx=event.clientX-rect.left,my=event.clientY-rect.top;
  if(mx<frame.left||mx>frame.w-frame.right||my<frame.top||my>frame.h-frame.bottom){hide();return;}
  let closest=0;for(let i=1;i<shown.length;i++)if(Math.abs(frame.x(shown[i].date)-mx)<Math.abs(frame.x(shown[closest].date)-mx))closest=i;
  // Do not snap a cursor from years before an ETF's inception to its first candle.
  if(mx<frame.x(shown[0].date)-frame.scale.spacing/2||mx>frame.x(shown.at(-1).date)+frame.scale.spacing/2){hide();return;}
- active=closest;const r=shown[closest],tip=$('price-tooltip');showMarketTooltip(tip,r,{x:mx,y:my,width:rect.width,symbol:$('symbol').value,frequency:settings.frequency});drawPrice();window.dispatchEvent(new CustomEvent('market-hover',{detail:r.date}));
+ active=closest;const r=shown[closest],tip=$('price-tooltip');showMarketTooltip(tip,r,{x:mx,y:my,width:rect.width,symbol:$('symbol').value,frequency:settings.frequency});drawPrice();appEvents.dispatchEvent(new CustomEvent(events.marketHover,{detail:r.date}));
 });
 $('price-chart').addEventListener('pointerleave',hide);
 $('symbol').addEventListener('change',()=>{shown=[];updateSignals(null,null);$('price-tooltip').hidden=true;drawPrice();loadMarket();});
 $('price-download').addEventListener('click',()=>{if(!shown.length)return;const data=store.get($('symbol').value);const csv='Date,Open,High,Low,Close,Volume,Adjustment,AnchorDate\n'+shown.map(r=>[r.date,r.open,r.high,r.low,r.close,r.volume??'','QFQ',data.anchorDate].join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=data.symbol+'-qfq-'+settings.frequency+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-window.addEventListener('strategy-settings',()=>{if(settings)renderMarket(settings);});
+appEvents.addEventListener(events.strategySettings,()=>{if(settings)renderMarket(settings);});
 new ResizeObserver(()=>{document.getElementById('price-tooltip').hidden=true;drawPrice();}).observe($('price-wrap'));
 
+
+}

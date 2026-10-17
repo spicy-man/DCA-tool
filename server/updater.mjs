@@ -1,12 +1,12 @@
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {setTimeout as sleep} from 'node:timers/promises';
-import {fetchPublicText,yahooURL} from './market.mjs';
-import {normalizeYahoo,SYMBOLS} from './public/market-data.mjs';
-import {parseCSV,rating,OFFICIAL_START} from './public/data.mjs';
-import {latestClosedSession} from './public/trading-calendar.mjs';
+import {fetchPublicText,yahooURL} from './network.mjs';
+import {normalizeYahoo,SYMBOLS} from '../public/js/domain/market.mjs';
+import {parseCSV,rating,OFFICIAL_START} from '../public/js/domain/sentiment.mjs';
+import {latestClosedSession} from '../public/js/domain/trading-calendar.mjs';
 import {readOptional,atomicWrite,preserveHistory,withDataLock} from './storage.mjs';
-export const DEFAULT_DATA_DIR=fileURLToPath(new URL('./public/data/',import.meta.url));
+export const DEFAULT_DATA_DIR=fileURLToPath(new URL('../public/data/',import.meta.url));
 export const ARCHIVE_URL='https://raw.githubusercontent.com/whit3rabbit/fear-greed-data/main/fear-greed.csv';
 export const CNN_URL='https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2021-02-01';
 const pending=new Map();

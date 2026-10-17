@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createTradingScale,candleMetrics} from '../public/chart-geometry.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {createTradingScale,candleMetrics} from '../public/js/charts/geometry.mjs';
 test('周末不占空间；周五到周一与周一到周二等距',()=>{const scale=createTradingScale(['2026-10-09','2026-10-12','2026-10-13'],'daily',43,600);assert.equal(scale.x('2026-10-12')-scale.x('2026-10-09'),scale.x('2026-10-13')-scale.x('2026-10-12'));assert.ok(scale.x('2026-10-13')<643-scale.spacing*2);});
 test('同周不同交易日期映射到同一位置，保留两图联动',()=>{const scale=createTradingScale(['2026-10-08','2026-10-09','2026-10-12'],'weekly',43,600);assert.equal(scale.x('2026-10-08'),scale.x('2026-10-09'));assert.equal(scale.dates.length,2);});
 test('不同缩放和屏幕倍率的实体、影线对齐整数像素并保持居中',()=>{for(const dpr of [1,1.25,1.5,2,3])for(const spacing of [2,3,5,7,12,24]){const m=candleMetrics(spacing,dpr);assert.ok(Number.isInteger(m.body)&&Number.isInteger(m.wick));assert.equal(m.body%2,m.wick%2);assert.ok(m.body>=m.wick);if(spacing>=5)assert.ok(m.body<spacing*dpr);}});

@@ -3,7 +3,7 @@ import path from 'node:path';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {refreshAll} from './updater.mjs';
-const root=fileURLToPath(new URL('./public/',import.meta.url));
+const root=fileURLToPath(new URL('../public/',import.meta.url));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.csv':'text/csv; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
 export function createServer({publicDir=root,dataDir=path.join(publicDir,'data'),refresh=refreshAll,cooldownMs=60000}={}){
  let active,lastResult,lastRun=0;

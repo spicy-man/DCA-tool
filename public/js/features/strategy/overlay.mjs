@@ -1,9 +1,8 @@
-import {calculatePyramidSignals} from './pyramid-strategy.mjs';
-import {tooltipContent,positionTooltip} from './tooltip.mjs';
+import {appEvents,events} from '../../services/events.mjs';
+import {calculatePyramidSignals} from '../../domain/pyramid-strategy.mjs';
+import {tooltipContent,positionTooltip} from '../../ui/tooltip.mjs';
 const $=id=>document.getElementById(id),storageKey='seeker.pyramid.v1',cache=new WeakMap();
 const defaults={buyDay:1,baseAmount:1000,enabled:true};let state={...defaults},current=[],allCurrent=[],market=null,settings=null,candleMap=new Map();
-try{const saved=JSON.parse(localStorage.getItem(storageKey));if(saved&&Number.isInteger(saved.buyDay)&&saved.buyDay>=1&&saved.buyDay<=31&&Number.isFinite(saved.baseAmount)&&saved.baseAmount>=.01&&Number.isFinite(saved.baseAmount*38))state={...defaults,...saved,enabled:saved.enabled!==false};}catch{}
-$('buy-day').value=state.buyDay;$('base-amount').value=state.baseAmount;$('signals-enabled').checked=state.enabled;
 export function signalSettings(){return {...state};}
 export function getVisibleSignals(){return current;}
 export function signalForDate(date){return current.find(signal=>signal.date===date);}
@@ -38,13 +37,17 @@ function renderSignalTable(){
  $('signal-table').replaceChildren(...allCurrent.slice().reverse().map(signal=>{const tr=document.createElement('tr');for(const v of [signal.date,(signal.drawdown*100).toFixed(2)+'%',signal.multiple+'×',signal.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})]){const td=document.createElement('td');td.textContent=v;tr.append(td);}return tr;}));
  $('signal-total').textContent=`当前区间 ${allCurrent.length} 次 · 合计 ${allCurrent.reduce((sum,s)=>sum+s.amount,0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} USD`;
 }
-$('signal-table').closest('details').addEventListener('toggle',renderSignalTable);
+
 function apply(){
  const buyDay=Number($('buy-day').value),baseAmount=Number($('base-amount').value);
  if(!Number.isFinite(baseAmount)||baseAmount<.01||!Number.isFinite(baseAmount*38)){$('signal-error').textContent='N 请输入不小于 0.01 的有效金额';return;}
  $('signal-error').textContent='';state={buyDay,baseAmount,enabled:$('signals-enabled').checked};try{localStorage.setItem(storageKey,JSON.stringify(state));}catch{}
- window.dispatchEvent(new CustomEvent('strategy-settings'));
+ appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
 }
+export function initStrategyOverlay(){
+$('signal-table').closest('details').addEventListener('toggle',renderSignalTable);
+try{const saved=JSON.parse(localStorage.getItem(storageKey));if(saved&&Number.isInteger(saved.buyDay)&&saved.buyDay>=1&&saved.buyDay<=31&&Number.isFinite(saved.baseAmount)&&saved.baseAmount>=.01&&Number.isFinite(saved.baseAmount*38))state={...defaults,...saved,enabled:saved.enabled!==false};}catch{}
+$('buy-day').value=state.buyDay;$('base-amount').value=state.baseAmount;$('signals-enabled').checked=state.enabled;
 for(const id of ['buy-day','base-amount','signals-enabled'])$(id).addEventListener(id==='base-amount'?'input':'change',apply);
 $('signal-download').addEventListener('click',()=>{
  if(!market||!allCurrent.length)return;
@@ -52,3 +55,5 @@ $('signal-download').addEventListener('click',()=>{
 });
 
 
+
+}

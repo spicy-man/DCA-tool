@@ -46,6 +46,43 @@ node server.mjs
 
 信号仅用于展示，不执行下单或发送通知。
 
+## 技术栈
+
+| 层次 | 技术与用途 |
+| --- | --- |
+| 页面与交互 | HTML5、CSS、原生 JavaScript ES Modules；响应式布局，固定浅色模式 |
+| 图表 | Canvas 2D 自行绘制 K 线与情绪曲线；SVG 图标与逻辑图；Pointer Events 实现拖动和双指缩放 |
+| 浏览器能力 | Fetch API 加载快照，localStorage 保存定投设置，原生 dialog 展示策略说明，Blob 导出 CSV |
+| 本地服务与更新 | Node.js 20+；使用内置 HTTP、文件系统、子进程和测试模块；Fetch 下载外部数据，代理请求使用系统 curl |
+| 数据存储 | CSV / JSON 文件快照、来源状态清单、文件锁与临时文件原子替换 |
+| 测试与发布 | node:test / node:assert；GitHub Actions 运行测试、更新数据并构建，GitHub Pages 托管静态站点 |
+
+`package.json` 当前没有 `dependencies` 或 `devDependencies`，不需要 `npm install`。本地运行需要 Node.js；通过代理抓取数据还需要 PATH 中可用的 curl。静态站点访问者只需要浏览器。浏览器验收使用外部环境提供的 Playwright + Edge，不作为项目依赖安装或发布。
+
+## 开源项目与致谢
+
+| 项目 | 本项目的使用方式 | 上游许可证 |
+| --- | --- | --- |
+| [Node.js](https://github.com/nodejs/node) | 本地服务、数据更新、构建和测试的运行时 | [MIT，另含各组件声明](https://github.com/nodejs/node/blob/main/LICENSE) |
+| [curl](https://curl.se/) | `server/network.mjs` 调用系统 curl 下载数据，支持代理 | [curl license](https://curl.se/docs/copyright.html) |
+| [whit3rabbit/fear-greed-data](https://github.com/whit3rabbit/fear-greed-data) | 恐慌与贪婪指数历史存档与更新回退来源 | [MIT](https://github.com/whit3rabbit/fear-greed-data/blob/main/LICENSE)；原始数据权利需另外核对 |
+| [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts) | K 线像素对齐与实体／影线绘制细节的实现参考；当前未引入其运行库或分发库包 | [Apache-2.0](https://github.com/tradingview/lightweight-charts/blob/master/LICENSE)，另有 [NOTICE](https://github.com/tradingview/lightweight-charts/blob/master/NOTICE) |
+| [Playwright](https://github.com/microsoft/playwright) | 开发时的桌面与触摸交互验收，不属于运行依赖 | [Apache-2.0](https://github.com/microsoft/playwright/blob/main/LICENSE) |
+
+自动发布使用 GitHub 官方开源 Actions：`actions/checkout`、`actions/setup-node`、`actions/configure-pages`、`actions/upload-pages-artifact` 和 `actions/deploy-pages`；具体版本见 [工作流](.github/workflows/pages.yml)，各 Action 的许可见[第三方来源说明](THIRD_PARTY_NOTICES.md)。GitHub Pages 为托管服务。
+
+策略计算参考 **labmem004** 编写、用户提供的 Pine v6 脚本，逻辑 SVG 由用户提供。原始发布链接及授权尚未记录，不能将其默认认定为可按本项目协议再许可。来源与授权范围详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 许可证与数据使用
+
+**建议项目自有原创代码采用 [MIT License](https://opensource.org/license/mit)**：允许使用、修改、再分发和商业使用，要求保留版权与许可声明，并包含免责条款，适合这类可自行部署的小型工具。
+
+**当前授权状态：仓库尚未添加 LICENSE，MIT 是建议方案，尚未正式采用。** 公开可访问不等于已经授予开源使用许可；`package.json` 的 `private: true` 仅用于防止误发布到 npm，不是许可证。
+
+正式采用前需确认用户提供的 Pine 脚本及逻辑图的授权，并明确原创代码与第三方材料的边界。采用 MIT 也不会替换第三方原有协议；如果引入或改编第三方受许可代码，须按对应协议保留版权、许可及所需 NOTICE。
+
+CNN、Yahoo Finance 是外部数据服务，不是本项目的开源依赖。`public/data/` 快照、导出 CSV、引言引用及其他第三方内容不因代码采用 MIT 而取得再分发授权；数据及引用材料仍受原权利人条款约束。参考 [Yahoo 服务条款](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html)、[CNN 使用条款](https://www.cnn.com/terms)及上游声明。
+
 ## 开发与部署
 
 ```sh
@@ -56,6 +93,8 @@ node scripts/build-site.mjs    # 构建静态站点到 dist/
 
 - [数据更新与部署](docs/deployment.md)：代理、来源切换、定时补抓、状态、锁和 GitHub Pages 配置。
 - [更新记录](CHANGELOG.md)：功能演进与历史修改。
-- 项目结构：`public/` 页面与图表，`test/` 测试，`scripts/` 更新与构建入口；`server.mjs` 启动本地服务，`updater.mjs` 管理数据更新。
+- [提交与发版规范](COMMIT_GUIDE.md)：语义化版本、徽标同步、更新记录与发布校验。
+- [架构说明](docs/architecture.md)：目录职责、依赖方向、启动流程与维护约定。
+- 项目结构：`public/js/` 前端与共享计算，`public/css/` 样式，`server/` 本地服务和更新器，`scripts/` 命令入口，`test/` 测试；`server.mjs` 保留为启动入口。
 
 原始数据及相关权利归来源方所有；公开发布前请核对 Yahoo、CNN 及上游的数据使用条件。数据日期到齐不保证来源以后不会修订。

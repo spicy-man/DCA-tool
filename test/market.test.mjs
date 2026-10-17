@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
-import {normalizeYahoo,aggregateOHLC} from '../public/market-data.mjs';
+import {normalizeYahoo,aggregateOHLC} from '../public/js/domain/market.mjs';
 function fixture(){return {chart:{result:[{meta:{symbol:'VOO',currency:'USD'},timestamp:[Date.parse('2025-01-02T15:00:00Z')/1000,Date.parse('2025-01-03T15:00:00Z')/1000],indicators:{quote:[{open:[100,102],high:[110,108],low:[90,98],close:[100,104],volume:[10,20]}],adjclose:[{adjclose:[90,98.8]}]}}],error:null}};}
 test('前复权使用整根 K 线同一因子，最新价不变，非 1 基准因子正确归一',()=>{const data=normalizeYahoo(fixture(),'VOO',Date.parse('2025-01-06'));assert.equal(data.anchorDate,'2025-01-03');const r=data.rows[0];for(const key of ['Open','High','Low','Close'])assert.ok(Math.abs(r[key.toLowerCase()]-r['source'+key]*(.9/.95))<1e-9);assert.equal(data.rows.at(-1).close,104);assert.equal(r.volume,10);});
 test('缺少复权字段时拒绝回退到未复权价格；无效 OHLC 拒绝',()=>{const p=fixture();delete p.chart.result[0].indicators.adjclose;assert.throws(()=>normalizeYahoo(p,'VOO'));const bad=fixture();bad.chart.result[0].indicators.quote[0].high[0]=50;assert.throws(()=>normalizeYahoo(bad,'VOO'));});

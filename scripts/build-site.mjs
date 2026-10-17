@@ -1,3 +1,4 @@
+import {checkVersion} from './version.mjs';
 import {readFile,writeFile,lstat,rm,cp,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -5,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 const project=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(project,'dist');
 export async function buildSite(){
+ await checkVersion();
  if(path.dirname(output)!==path.resolve(project)||path.basename(output)!=='dist')throw Error('Invalid build output');
  try{if((await lstat(output)).isSymbolicLink())throw Error('dist 不能为链接');}catch(error){if(error.code!=='ENOENT')throw error;}
  await rm(output,{recursive:true,force:true});

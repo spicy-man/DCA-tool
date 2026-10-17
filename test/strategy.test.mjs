@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {daysInMonth,previousMonthCutoff,pyramidMultiple,calculatePyramidSignals} from '../public/pyramid-strategy.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {daysInMonth,previousMonthCutoff,pyramidMultiple,calculatePyramidSignals} from '../public/js/domain/pyramid-strategy.mjs';
 const bar=(date,close=100,high=100)=>({date,close,high});
 test('日历月回看包含边界，月底对齐，覆盖闰年和跨年',()=>{for(const [date,cutoff] of [['2025-02-28','2025-01-31'],['2024-02-29','2024-01-31'],['2024-03-31','2024-02-29'],['2025-03-30','2025-02-28'],['2025-04-30','2025-03-31'],['2025-01-31','2024-12-31']])assert.equal(previousMonthCutoff(date),cutoff);assert.equal(daysInMonth(2000,2),29);assert.equal(daysInMonth(2100,2),28);});
 test('回撤临界值与最高 38N 严格对应 Pine 规则',()=>{assert.deepEqual([0,.049999,.05,.10,.15,.20,.95,.999].map(v=>pyramidMultiple(v).multiple),[1,1,2,4,6,8,38,38]);assert.equal(pyramidMultiple(.05-1e-12).multiple,2);});

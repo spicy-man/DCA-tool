@@ -1,35 +1,20 @@
-import {healthSummary} from './data-health.mjs';
-import {sentimentLabel,sourceLabel} from './labels.mjs';
-import {tooltipContent,positionTooltip} from './tooltip.mjs';
-import {createTradingScale,chartInsets} from './chart-geometry.mjs';
-import {attachChartNavigation,constrainWindow} from './chart-navigation.mjs';
-import {loadMarket,renderMarket,drawPrice,invalidateMarket} from './market-chart.mjs';
-import {parseCSV,aggregate,selectRange,OFFICIAL_START,rating} from './data.mjs';
+import {appEvents,events} from './services/events.mjs';
+import {loadSentimentRows,loadSourceHealth,getDeploymentMode,requestSourceRefresh} from './services/data-client.mjs';
+import {healthSummary} from './domain/data-health.mjs';
+import {sentimentLabel,sourceLabel} from './ui/labels.mjs';
+import {tooltipContent,positionTooltip} from './ui/tooltip.mjs';
+import {drawSentiment,drawOverview} from './charts/sentiment.mjs';
+import {attachChartNavigation,constrainWindow} from './charts/navigation.mjs';
+import {loadMarket,renderMarket,drawPrice,invalidateMarket} from './features/market/chart.mjs';
+import {aggregate,selectRange,rating} from './domain/sentiment.mjs';
+
+export function initApplication(){
 const $=id=>document.getElementById(id), formatDate=d=>d;
 let rows=[],visible=[],plot,hover=-1,windowRange,crossDate,customWindow=null,lastPreset='12',marketCalendar=[];
 const iso=time=>new Date(time).toISOString().slice(0,10);
 const bounds=()=>({start:Date.parse(rows[0].date),end:Date.parse(rows.at(-1).date)});
-function context(canvas){const dpr=window.devicePixelRatio||1,w=canvas.clientWidth,h=canvas.clientHeight;canvas.width=w*dpr;canvas.height=h*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);return {c,w,h};}
-function draw(){
- if(!visible.length)return;
- const {c,w,h}=context($('chart')),{left,right}=chartInsets(w),top=10,bottom=32,pw=w-left-right,ph=h-top-bottom;
- const start=Date.parse(windowRange.start),end=Date.parse(windowRange.end),scale=createTradingScale(windowRange.calendar,windowRange.frequency,left,pw),x=scale.x,y=v=>top+(100-v)/100*ph;
- plot={left,right,top,bottom,pw,ph,x,y,w,h,start,end,scale};
- const bands=[[75,100,'#eaf5f1','Extreme greed'],[55,75,'#f2f8f5','Greed'],[45,55,'#f7f8f8','Neutral'],[25,45,'#fcf8ef','Fear'],[0,25,'#fcf1eb','Extreme fear']];
- c.save();c.font='8px Segoe UI, sans-serif';c.textAlign='right';c.textBaseline='middle';
- for(const [lo,hi,color,label] of bands){c.fillStyle=color;c.fillRect(left,y(hi),w-left,y(lo)-y(hi));c.fillStyle='#87948f';c.fillText(label,w-5,y((lo+hi)/2));}
- c.font='10px Segoe UI, sans-serif';c.textAlign='left';
- for(const tick of [0,25,50,75,100]){c.strokeStyle='#ffffff99';c.lineWidth=.6;c.beginPath();c.moveTo(left,y(tick));c.lineTo(w,y(tick));c.stroke();}
- c.restore();c.font='10px Segoe UI, sans-serif';
- c.save();c.strokeStyle='#d05b4b';c.lineWidth=1.2;c.setLineDash([]);c.beginPath();c.moveTo(left,y(10));c.lineTo(w-right,y(10));c.stroke();c.restore();
- const cutoff=Date.parse(OFFICIAL_START);if(cutoff>start&&cutoff<end){c.save();c.setLineDash([4,4]);c.strokeStyle='#819da8';c.beginPath();c.moveTo(x(OFFICIAL_START),top);c.lineTo(x(OFFICIAL_START),h-bottom);c.stroke();c.restore();c.fillStyle='#5d7b88';c.textAlign='left';c.fillText('CNN 官方数据 →',x(OFFICIAL_START)+6,top+12);}
- c.strokeStyle='#273e46';c.lineWidth=1.25;c.lineJoin='round';c.beginPath();visible.forEach((r,i)=>i?c.lineTo(x(r.date),y(r.score)):c.moveTo(x(r.date),y(r.score)));c.stroke();
- c.fillStyle='#8b959c';for(const tick of scale.ticks(w<500?3:6)){c.textAlign='center';const d=new Date(tick.date+'T00:00:00Z');const label=d.toLocaleDateString('zh-CN',scale.dates.length<90?{month:'short',day:'numeric',timeZone:'UTC'}:{month:'short',year:'2-digit',timeZone:'UTC'});c.fillText(label,Math.max(c.measureText(label).width/2+2,tick.x),h-9);}
-
- if(crossDate){c.save();c.setLineDash([3,4]);c.strokeStyle='#7f949d';c.beginPath();c.moveTo(x(crossDate),top);c.lineTo(x(crossDate),h-bottom);c.stroke();c.restore();}
- if(hover>=0&&visible[hover]){const r=visible[hover],px=x(r.date),py=y(r.score);c.save();c.setLineDash([3,4]);c.strokeStyle='#7f949d';c.beginPath();c.moveTo(px,top);c.lineTo(px,h-bottom);c.stroke();c.restore();c.fillStyle='#19374a';c.beginPath();c.arc(px,py,3,0,Math.PI*2);c.fill();}
-}
-function mini(){const {c,w,h}=context($('mini'));c.strokeStyle='#91a8b5';c.lineWidth=.8;c.beginPath();rows.forEach((r,i)=>{const x=i/(rows.length-1)*w,y=3+(100-r.score)/100*(h-6);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();}
+function draw(){plot=drawSentiment($('chart'),{visible,windowRange,hover,crossDate});}
+function mini(){drawOverview($('mini'),rows);}
 function render(){
  if(!rows.length)return;
  const end=rows[Number($('timeline').value)]?.date||rows.at(-1).date;
@@ -49,7 +34,7 @@ function renderDataTable(){
  $('data-table').replaceChildren(...visible.slice().reverse().map(r=>{const tr=document.createElement('tr');for(const value of [r.date,r.score.toFixed(2),sentimentLabel(r.score),sourceLabel(r.source)]){const td=document.createElement('td');td.textContent=value;tr.append(td);}return tr;}));
 }
 $('data-table').closest('details').addEventListener('toggle',()=>{if($('data-table').closest('details').open)renderDataTable();});
-async function load(){const response=await fetch('./data/fear-greed.csv',{cache:'no-store'});if(!response.ok)throw Error('无法读取本地数据');const parsed=parseCSV(await response.text());rows=parsed;$('timeline').min=Math.min(30,rows.length-1);$('timeline').max=rows.length-1;$('timeline').value=rows.length-1;render();await loadHealth();}
+async function load(){rows=await loadSentimentRows();$('timeline').min=Math.min(30,rows.length-1);$('timeline').max=rows.length-1;$('timeline').value=rows.length-1;render();await loadHealth();}
 $('range').addEventListener('change',()=>{if($('range').value==='custom')return;lastPreset=$('range').value;customWindow=null;render();});
 $('frequency').addEventListener('change',render);
 function applyLayout(){$('chart-wrap').classList.toggle('expanded',$('layout').value==='expanded');$('price-wrap').classList.toggle('expanded',$('layout').value==='expanded');draw();drawPrice();}
@@ -64,12 +49,9 @@ $('chart').addEventListener('pointermove',e=>{
 });
 function hideHover(){hover=-1;crossDate=null;$('tooltip').hidden=true;draw();drawPrice();}
 $('chart').addEventListener('pointerleave',hideHover);
-const deploymentReady=fetch('./deployment.json',{cache:'no-store'}).then(async response=>{
- if(!response.ok)throw Error('无法确认部署模式');
- const data=await response.json();return data.mode==='local'?'local':'static';
-}).catch(()=>'static');
+const deploymentReady=getDeploymentMode();
 async function loadHealth(){
- try{const response=await fetch('./data/status.json',{cache:'no-store'});$('status').textContent=healthSummary(response.ok?await response.json():null);}
+ try{$('status').textContent=healthSummary(await loadSourceHealth());}
  catch{$('status').textContent='无法检查数据更新状态，请核对各图的数据日期。';}
 }
 deploymentReady.then(mode=>{$('refresh').querySelector('span').textContent=mode==='static'?'检查更新':'更新数据';});
@@ -79,8 +61,7 @@ $('refresh').addEventListener('click',async()=>{
  try{
   if(mode==='local'){
    $('status').textContent='正在同步情绪指数与 ETF 行情…';
-   const response=await fetch('./api/refresh',{method:'POST'}),result=await response.json();
-   if(!response.ok)throw Error(result.error||'更新失败，已保留本地数据');
+   await requestSourceRefresh();
   }
   await load();await invalidateMarket();await loadHealth();
  }catch(error){$('status').textContent=error.message||'检查失败，已保留本地数据。';}
@@ -88,7 +69,7 @@ $('refresh').addEventListener('click',async()=>{
 });
 $('download').addEventListener('click',()=>{const csv='Date,Fear Greed,Rating,Source\n'+visible.map(r=>[r.date,r.score,rating(r.score),r.source].join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='fear-greed-'+visible[0].date+'-'+visible.at(-1).date+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 new ResizeObserver(()=>{if(rows.length){draw();mini();}}).observe($('chart-wrap'));
-window.addEventListener('market-hover',event=>{hover=-1;crossDate=event.detail;$('tooltip').hidden=true;draw();});
+appEvents.addEventListener(events.marketHover,event=>{hover=-1;crossDate=event.detail;$('tooltip').hidden=true;draw();});
 
 function applyWindow(view){
  customWindow=constrainWindow(view,bounds());
@@ -102,14 +83,10 @@ for(const id of ['price-chart','chart'])attachChartNavigation($(id),{
  getWindow:()=>rows.length&&windowRange?(customWindow||{start:Date.parse(windowRange.start),end:Date.parse(windowRange.end)}):null,
  getBounds:bounds,onChange:applyWindow,onReset:resetWindow
 });
-window.addEventListener('market-calendar',event=>{marketCalendar=event.detail;if(rows.length)render();});
+appEvents.addEventListener(events.marketCalendar,event=>{marketCalendar=event.detail;if(rows.length)render();});
 loadMarket();
 load().catch(error=>{$('status').textContent=error.message+'。请检查本地数据文件后刷新页面。';});
 
 
-const strategyDialog=$('strategy-dialog'),diagramScroll=strategyDialog.querySelector('.strategy-diagram-scroll');
-$('strategy-help').addEventListener('click',()=>{strategyDialog.showModal();document.body.classList.add('strategy-dialog-open');});
-$('strategy-dialog-close').addEventListener('click',()=>strategyDialog.close());
-strategyDialog.addEventListener('close',()=>{document.body.classList.remove('strategy-dialog-open');diagramScroll.classList.remove('is-zoomed');$('strategy-diagram-zoom').textContent='放大查看';$('strategy-diagram-zoom').setAttribute('aria-pressed','false');diagramScroll.scrollTo(0,0);});
-strategyDialog.addEventListener('click',event=>{if(event.target!==strategyDialog)return;const r=strategyDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)strategyDialog.close();});
-$('strategy-diagram-zoom').addEventListener('click',event=>{const zoomed=diagramScroll.classList.toggle('is-zoomed');event.currentTarget.textContent=zoomed?'适应宽度':'放大查看';event.currentTarget.setAttribute('aria-pressed',String(zoomed));});
+
+}

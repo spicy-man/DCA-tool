@@ -1,4 +1,4 @@
-import {refreshAll} from '../updater.mjs';
+import {refreshAll} from '../server/updater.mjs';
 try{
  const status=await refreshAll({skipFresh:process.argv.includes('--scheduled')});
  console.log(JSON.stringify(status,null,2));

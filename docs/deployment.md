@@ -6,7 +6,7 @@
 
 ### 更新入口
 
-- 本地：运行 node server.mjs，页面“更新数据”通过同源 POST /api/refresh 调用 updater.mjs。
+- 本地：运行 node server.mjs，页面“更新数据”通过同源 POST /api/refresh 调用 server/updater.mjs。
 - 命令：node scripts/update-data.mjs；数据不齐或来源失败退出码为 1。所有来源独立校验、独立原子替换，失败源保留原文件。
 - 定时补抓：node scripts/update-data.mjs --scheduled；只有前一轮已成功、实际快照日期满足目标交易日的来源才跳过网络。手动运行默认强制重新检查所有来源。
 - FEAR_GREED_SOURCE=auto（默认）优先 CNN 历史接口，失败或日期滞后时尝试第三方存档；cnn 只用 CNN，archive 只用存档。可用 GitHub 仓库变量 FEAR_GREED_SOURCE 配置。

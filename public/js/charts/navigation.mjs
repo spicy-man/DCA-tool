@@ -1,4 +1,4 @@
-import {chartInsets} from './chart-geometry.mjs';
+import {chartInsets} from './geometry.mjs';
 const DAY=86400000;
 export function constrainWindow(view,bounds,minSpan=14*DAY){
  const full=bounds.end-bounds.start;
