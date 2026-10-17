@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "checkedAt": "2026-10-17T03:43:25.870Z",
+  "expectedDate": "2026-10-16",
+  "complete": true,
+  "results": [
+    {
+      "symbol": "Fear & Greed",
+      "date": "2026-10-16",
+      "count": 3948,
+      "source": "whit3rabbit/fear-greed-data",
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-16",
+      "checkedAt": "2026-10-17T03:43:25.870Z",
+      "lastSuccessAt": "2026-10-17T03:41:26.791Z",
+      "skipped": true
+    },
+    {
+      "symbol": "VOO",
+      "date": "2026-10-16",
+      "count": 4051,
+      "source": "Yahoo Finance",
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-16",
+      "checkedAt": "2026-10-17T03:43:25.870Z",
+      "lastSuccessAt": "2026-10-17T03:41:26.791Z",
+      "skipped": true
+    },
+    {
+      "symbol": "QQQ",
+      "date": "2026-10-16",
+      "count": 6945,
+      "source": "Yahoo Finance",
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-16",
+      "checkedAt": "2026-10-17T03:43:25.870Z",
+      "lastSuccessAt": "2026-10-17T03:41:26.791Z",
+      "skipped": true
+    }
+  ]
+}

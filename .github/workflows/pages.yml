@@ -1,0 +1,78 @@
+name: Update data and deploy Pages
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'public/data/**'
+  schedule:
+    # UTC -> Beijing 06:17, 08:17, 10:17. Latest closed session handles holidays/DST.
+    - cron: '17 22 * * *'
+    - cron: '17 0 * * *'
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Refresh all sources even if already current
+        type: boolean
+        default: true
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages-and-data
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test
+        run: node --test test/*.test.mjs
+      - name: Update sources
+        id: update
+        continue-on-error: true
+        env:
+          FEAR_GREED_SOURCE: ${{ vars.FEAR_GREED_SOURCE || 'auto' }}
+          FORCE_REFRESH: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
+        run: |
+          if [ "$FORCE_REFRESH" = "true" ]; then
+            node scripts/update-data.mjs
+          else
+            node scripts/update-data.mjs --scheduled
+          fi
+      - name: Save valid snapshots and source status
+        id: save
+        continue-on-error: true
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/data/fear-greed.csv public/data/voo.json public/data/qqq.json
+          if [ -f public/data/status.json ]; then
+            git add public/data/status.json
+          fi
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update market snapshots and freshness status'
+            git push
+          fi
+      - name: Build static site
+        run: node scripts/build-site.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - name: Deploy valid data including failure status
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Report incomplete update or persistence failure
+        if: steps.update.outcome == 'failure' || steps.save.outcome == 'failure'
+        run: |
+          echo 'Sources are incomplete or snapshots could not be saved. Inspect data/status.json and the preceding steps.'
+          exit 1
