@@ -2,7 +2,7 @@ import {createTradingScale,chartInsets} from './geometry.mjs';
 import {OFFICIAL_START} from '../domain/sentiment.mjs';
 
 export function chartContext(canvas){const dpr=window.devicePixelRatio||1,w=canvas.clientWidth,h=canvas.clientHeight;canvas.width=w*dpr;canvas.height=h*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);return {c,w,h};}
-export function drawSentiment(canvas,{visible,windowRange,hover=-1,crossDate=null}){
+export function drawSentiment(canvas,{visible,windowRange,hover=-1,crossDate=null,threshold=10}){
  if(!visible.length)return null;
  let plot;
  const {c,w,h}=chartContext(canvas),{left,right}=chartInsets(w),top=10,bottom=32,pw=w-left-right,ph=h-top-bottom;
@@ -14,7 +14,7 @@ export function drawSentiment(canvas,{visible,windowRange,hover=-1,crossDate=nul
  c.font='10px Segoe UI, sans-serif';c.textAlign='left';
  for(const tick of [0,25,50,75,100]){c.strokeStyle='#ffffff99';c.lineWidth=.6;c.beginPath();c.moveTo(left,y(tick));c.lineTo(w,y(tick));c.stroke();}
  c.restore();c.font='10px Segoe UI, sans-serif';
- c.save();c.strokeStyle='#d05b4b';c.lineWidth=1.2;c.setLineDash([]);c.beginPath();c.moveTo(left,y(10));c.lineTo(w-right,y(10));c.stroke();c.restore();
+ c.save();c.strokeStyle='#d05b4b';c.lineWidth=1.2;c.setLineDash([]);c.beginPath();c.moveTo(left,y(threshold));c.lineTo(w-right,y(threshold));c.stroke();c.restore();
  const cutoff=Date.parse(OFFICIAL_START);if(cutoff>start&&cutoff<end){c.save();c.setLineDash([4,4]);c.strokeStyle='#819da8';c.beginPath();c.moveTo(x(OFFICIAL_START),top);c.lineTo(x(OFFICIAL_START),h-bottom);c.stroke();c.restore();c.fillStyle='#5d7b88';c.textAlign='left';c.fillText('CNN 官方数据 →',x(OFFICIAL_START)+6,top+12);}
  c.strokeStyle='#273e46';c.lineWidth=1.25;c.lineJoin='round';c.beginPath();visible.forEach((r,i)=>i?c.lineTo(x(r.date),y(r.score)):c.moveTo(x(r.date),y(r.score)));c.stroke();
  c.fillStyle='#8b959c';for(const tick of scale.ticks(w<500?3:6)){c.textAlign='center';const d=new Date(tick.date+'T00:00:00Z');const label=d.toLocaleDateString('zh-CN',scale.dates.length<90?{month:'short',day:'numeric',timeZone:'UTC'}:{month:'short',year:'2-digit',timeZone:'UTC'});c.fillText(label,Math.max(c.measureText(label).width/2+2,tick.x),h-9);}

@@ -113,3 +113,5 @@
 
 /* No sentiment value axis: fill the former gutter and align the navigator. */
 .chart-card .navigator{margin-right:0}
+
+.buy-marker.is-fear{background:#2563eb}.buy-marker.is-fear:before{border-bottom-color:#2563eb}.buy-marker.is-fear:hover{background:#1d4ed8}

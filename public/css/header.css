@@ -12,3 +12,5 @@
 .brand-identity{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .version-badge{display:inline-block;white-space:nowrap;font-size:10px;line-height:1.4;letter-spacing:0;font-weight:500;font-variant-numeric:tabular-nums;padding:2px 6px;border:1px solid #dbe3e8;border-radius:4px;background:#eaf0f4;color:#607487}
 @media(max-width:360px){.brand-identity{gap:6px}.version-badge{font-size:9px;padding:2px 5px}}
+
+#status{white-space:pre-line}

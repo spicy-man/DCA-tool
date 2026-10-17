@@ -45,7 +45,7 @@ export function drawPrice(crossDate){
  const {left,right}=chartInsets(w),top=20,bottom=32,pw=w-left-right,ph=h-top-bottom,start=Date.parse(settings.start),end=Date.parse(settings.end);
  let low=Math.min(...shown.map(r=>r.low)),high=Math.max(...shown.map(r=>r.high));const pad=Math.max((high-low)*.1,high*.002);low-=pad;high+=pad;
  const scale=createTradingScale(settings.calendar,settings.frequency,left,pw);
- const labelSpace=getVisibleSignals().length?26:0;
+ const labelSpace=getVisibleSignals().length?52:0;
  const x=scale.x,y=v=>top+(high-v)/(high-low)*(ph-labelSpace);frame={left,right,top,bottom,pw,ph,start,end,w,h,x,y,scale};
  c.font='11px Segoe UI, sans-serif';c.textAlign='left';
  const target=(high-low)/Math.max(3,Math.floor(ph/85)),unit=10**Math.floor(Math.log10(target));

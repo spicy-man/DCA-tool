@@ -8,5 +8,5 @@ export function healthSummary(status,now=Date.now()){
   return `${names[r.symbol]||r.symbol}：${r.date||'无数据'}${!r.ok?'（最近更新失败）':!fresh?'（等待更新）':''}`;
  });
  const time=status.checkedAt?new Date(status.checkedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'未知';
- return lines.join(' · ')+'。最近检查：'+time+'（北京时间）；应有数据截至 '+expected+'。';
+ return lines.join(' · ')+'。\n最近检查：'+time+'（北京时间）；应有数据截至 '+expected+'。';
 }

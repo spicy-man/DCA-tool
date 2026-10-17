@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1490" viewBox="0 0 1120 1490" role="img" aria-labelledby="title desc">
 <title id="title">月跌幅金字塔定投逻辑：每月一次，当日收盘判断并成交</title>
-<desc id="desc">初始买入 N，占首月一笔。之后每月首个交易日，在当日收盘以过去一个日历月的最高复权 High 计算回撤，将基础月投与所有达到的档位金额合并买入。成交后当月不再下单，下个月重新计算。相同收盘价判断与成交为理想化回测假设。</desc>
+<desc id="desc">初始买入 N，占首月一笔。之后每月首个交易日，在当日收盘以过去一个日历月的最高复权 High 计算回撤，将基础月投与所有达到的档位金额合并买入。每个计划月份各买一次，跨月顺延不占下月额度。相同收盘价判断与成交为理想化回测假设。</desc>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#73889a"/></marker>
   <marker id="tealArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#168477"/></marker>
@@ -29,13 +29,13 @@
 <text x="80" y="318" class="small">首月不再月投或额外加仓</text>
 <path class="line" d="M196 358 V402 H36 V1207 H389"/>
 <rect x="72" y="1182" width="248" height="48" rx="10" fill="#f3f6f8"/>
-<text x="196" y="1211" text-anchor="middle" class="small">初始买入后，也占用当月</text>
+<text x="196" y="1211" text-anchor="middle" class="small">首次买入计入对应计划月份</text>
 
 <rect class="card" x="390" y="184" width="674" height="160" rx="16"/>
 <text x="418" y="216" class="number">01 / 每月一次的判断时点</text>
-<text x="418" y="254" class="heading">每月 1 日，非交易日顺延</text>
+<text x="418" y="254" class="heading">每月所选定投日，休市顺延</text>
 <text x="418" y="287" class="body">在该交易日 T 的收盘时刻判断</text>
-<text x="418" y="317" class="small">仅在本月尚未下单时执行；其余交易日不买入</text>
+<text x="418" y="317" class="small">短月份对齐月末；顺延不占用下月的定投额度</text>
 <path class="line" d="M727 344 V382"/>
 
 <rect class="card" x="390" y="386" width="674" height="180" rx="16"/>
@@ -72,8 +72,8 @@
 
 <rect class="card" x="390" y="1138" width="674" height="130" rx="16"/>
 <text x="418" y="1171" class="number">05 / 月度重置</text>
-<text x="418" y="1207" class="heading">记下成交年月，本月不再买入</text>
-<text x="418" y="1240" class="body">下个月重新计算窗口和全部档位，无需恢复高点</text>
+<text x="418" y="1207" class="heading">记下所属月份，该月计划已完成</text>
+<text x="418" y="1240" class="body">下月计划独立保留；执行时重算窗口和档位</text>
 <path class="loop" d="M1064 1204 H1092 V265 H1066"/>
 <text x="838" y="1296" class="small">下一月回到步骤 01</text>
 
@@ -85,9 +85,9 @@
 <path d="M80 578 H312" stroke="#d0dae1"/>
 <text x="80" y="613" class="body">三月仍然回撤 10%</text>
 <text x="80" y="645" class="money">三月再买一次 4N</text>
-<text x="80" y="692" class="small">月内跌幅扩大，不追加第二笔</text>
+<text x="80" y="692" class="small">每个计划月份仅一笔</text>
 <text x="80" y="722" class="small">下月金额取下月当次判断</text>
-<text x="80" y="752" class="small">不继承上个月的已触发档位</text>
+<text x="80" y="752" class="small">跨月顺延不抵扣下月额度</text>
 
 <rect x="56" y="1330" width="1008" height="104" rx="14" fill="#e7edf1"/>
 <text x="80" y="1365" font-size="17" font-weight="700">成交假设 · 用最终收盘信息判断，并以同一收盘价成交，属于理想化回测。</text>

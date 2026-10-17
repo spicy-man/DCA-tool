@@ -1,3 +1,4 @@
+import {setSignalSentiment,signalSettings} from './features/strategy/overlay.mjs';
 import {appEvents,events} from './services/events.mjs';
 import {loadSentimentRows,loadSourceHealth,getDeploymentMode,requestSourceRefresh} from './services/data-client.mjs';
 import {healthSummary} from './domain/data-health.mjs';
@@ -13,7 +14,7 @@ const $=id=>document.getElementById(id), formatDate=d=>d;
 let rows=[],visible=[],plot,hover=-1,windowRange,crossDate,customWindow=null,lastPreset='12',marketCalendar=[];
 const iso=time=>new Date(time).toISOString().slice(0,10);
 const bounds=()=>({start:Date.parse(rows[0].date),end:Date.parse(rows.at(-1).date)});
-function draw(){plot=drawSentiment($('chart'),{visible,windowRange,hover,crossDate});}
+function draw(){plot=drawSentiment($('chart'),{visible,windowRange,hover,crossDate,threshold:signalSettings().fearThreshold});}
 function mini(){drawOverview($('mini'),rows);}
 function render(){
  if(!rows.length)return;
@@ -34,7 +35,7 @@ function renderDataTable(){
  $('data-table').replaceChildren(...visible.slice().reverse().map(r=>{const tr=document.createElement('tr');for(const value of [r.date,r.score.toFixed(2),sentimentLabel(r.score),sourceLabel(r.source)]){const td=document.createElement('td');td.textContent=value;tr.append(td);}return tr;}));
 }
 $('data-table').closest('details').addEventListener('toggle',()=>{if($('data-table').closest('details').open)renderDataTable();});
-async function load(){rows=await loadSentimentRows();$('timeline').min=Math.min(30,rows.length-1);$('timeline').max=rows.length-1;$('timeline').value=rows.length-1;render();await loadHealth();}
+async function load(){rows=await loadSentimentRows();setSignalSentiment(rows);$('timeline').min=Math.min(30,rows.length-1);$('timeline').max=rows.length-1;$('timeline').value=rows.length-1;render();await loadHealth();}
 $('range').addEventListener('change',()=>{if($('range').value==='custom')return;lastPreset=$('range').value;customWindow=null;render();});
 $('frequency').addEventListener('change',render);
 function applyLayout(){$('chart-wrap').classList.toggle('expanded',$('layout').value==='expanded');$('price-wrap').classList.toggle('expanded',$('layout').value==='expanded');draw();drawPrice();}
@@ -84,6 +85,7 @@ for(const id of ['price-chart','chart'])attachChartNavigation($(id),{
  getBounds:bounds,onChange:applyWindow,onReset:resetWindow
 });
 appEvents.addEventListener(events.marketCalendar,event=>{marketCalendar=event.detail;if(rows.length)render();});
+appEvents.addEventListener(events.strategySettings,()=>{if(rows.length)draw();});
 loadMarket();
 load().catch(error=>{$('status').textContent=error.message+'。请检查本地数据文件后刷新页面。';});
 
