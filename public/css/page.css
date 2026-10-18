@@ -240,7 +240,7 @@ canvas {
   line-height: 1.7;
   font-size: 11px;
   white-space: nowrap;
-  z-index: 2;
+  z-index: 4;
 }
 
 .tooltip strong {
@@ -1221,8 +1221,8 @@ footer {
 
 .chart-controls {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
+  flex-direction: column;
   gap: 16px;
   margin-bottom: 14px;
   padding: 12px 0;
@@ -1230,7 +1230,7 @@ footer {
   border-bottom: 1px solid var(--border);
 }
 
-.chart-controls>.chart-toolbar {
+.price-wrap>.chart-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1242,27 +1242,27 @@ footer {
   box-shadow: none;
 }
 
-.chart-controls .chart-toolbar label {
+.price-wrap .chart-toolbar label {
   gap: 7px;
   font-size: 11px;
 }
 
-.chart-controls .chart-toolbar select {
+.price-wrap .chart-toolbar select {
   min-width: 76px;
   height: 30px;
   padding-left: 9px;
   padding-right: 23px;
 }
 
-.chart-controls .chart-toolbar #range {
+.price-wrap .chart-toolbar #range {
   min-width: 106px;
 }
 
-.chart-controls .date-tools {
+.price-wrap .date-tools {
   margin-left: 0;
 }
 
-.chart-controls .date-tools button {
+.price-wrap .date-tools button {
   height: 30px;
   padding: 0 10px;
   font-size: 11px;
@@ -1272,9 +1272,9 @@ footer {
   flex-wrap: wrap;
   gap: 14px;
   margin: 0;
-  padding: 0 0 0 18px;
+  padding: 16px 0 0;
   border: 0;
-  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   font-size: 11px;
 }
 
@@ -1393,7 +1393,7 @@ footer {
     margin-bottom: 12px;
   }
 
-  .chart-controls>.chart-toolbar {
+  .price-wrap>.chart-toolbar {
     display: flex;
     flex-wrap: nowrap;
     gap: 10px;
@@ -1402,27 +1402,27 @@ footer {
     padding-bottom: 2px;
   }
 
-  .chart-controls .chart-toolbar>label,.chart-controls .chart-toolbar>.date-tools {
+  .price-wrap .chart-toolbar>label,.price-wrap .chart-toolbar>.date-tools {
     flex-shrink: 0;
   }
 
-  .chart-controls .chart-toolbar label {
+  .price-wrap .chart-toolbar label {
     display: flex;
     gap: 6px;
     min-width: 0;
   }
 
-  .chart-controls .chart-toolbar select {
+  .price-wrap .chart-toolbar select {
     width: 76px;
     min-width: 0;
   }
 
-  .chart-controls .chart-toolbar #range {
+  .price-wrap .chart-toolbar #range {
     width: 98px;
     min-width: 0;
   }
 
-  .chart-controls .date-tools {
+  .price-wrap .date-tools {
     justify-content: flex-end;
     width: auto;
     margin-left: auto;
@@ -1530,4 +1530,75 @@ footer {
   margin-right: 6px;
   font-weight: 550;
   color: #607487;
+}
+
+/* Keep strategy labels and fields together on one desktop row. */
+@media(min-width:801px) {
+  .chart-controls>.strategy-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .chart-controls .strategy-row>label,
+  .chart-controls .strategy-help {
+    flex-shrink: 0;
+  }
+
+  .chart-controls .strategy-row label:not(.signal-toggle) {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-controls .strategy-row #buy-day {
+    width: 74px;
+    min-width: 74px;
+  }
+
+  .chart-controls .strategy-row #base-amount {
+    width: 90px;
+  }
+
+  .chart-controls .strategy-row #fear-threshold,
+  .chart-controls .strategy-row #fear-buy-count {
+    width: 54px;
+  }
+}
+/* Chart navigation travels with the K-line chart, including its floating view. */
+.price-wrap>.chart-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  width: calc(100% - 24px);
+  flex-wrap: nowrap;
+  gap: 12px;
+  overflow-x: auto;
+  background: transparent;
+}
+
+.price-wrap .chart-toolbar>label,
+.price-wrap .chart-toolbar>.date-tools {
+  flex-shrink: 0;
+}
+
+.price-wrap .date-tools {
+  margin-left: 0;
+}
+
+.chart-controls>.strategy-row {
+  border-top: 0;
+  padding-top: 0;
+}
+
+@media(max-width:800px) {
+  .price-wrap>.chart-toolbar {
+    gap: 8px;
+    width: calc(100% - 24px);
+  }
 }

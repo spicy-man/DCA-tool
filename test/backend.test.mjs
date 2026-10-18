@@ -7,7 +7,7 @@ import {once} from 'node:events';
 import {refreshAll,parseCNN,CNN_URL,ARCHIVE_URL} from '../server/updater.mjs';
 import {withDataLock} from '../server/storage.mjs';
 import {latestClosedSession,sessionClose,isTradingDay} from '../public/js/domain/trading-calendar.mjs';
-import {normalizeYahoo} from '../public/js/domain/market.mjs';
+import {normalizeYahoo,SYMBOLS} from '../public/js/domain/market.mjs';
 import {healthSummary} from '../public/js/domain/data-health.mjs';
 import {createServer} from '../server/http-server.mjs';
 const now=Date.parse('2025-01-06T23:00:00Z');
@@ -16,8 +16,8 @@ const csv=ds=>'Date,Fear Greed,Rating\n2021-01-29,40,Fear\n'+ds.map(d=>d+',50,Ne
 function yahoo(symbol,ds=dates){return {chart:{result:[{meta:{symbol,currency:'USD'},timestamp:ds.map(d=>Date.parse(d+'T15:00:00Z')/1000),indicators:{quote:[{open:ds.map(()=>100),high:ds.map(()=>110),low:ds.map(()=>90),close:ds.map(()=>100),volume:ds.map(()=>10)}],adjclose:[{adjclose:ds.map(()=>95)}]}}],error:null}};}
 const cnn=ds=>({fear_and_greed_historical:{data:ds.map(d=>({x:Date.parse(d+'T00:00:00Z'),y:50}))}});
 async function dir(t){const d=await mkdtemp(path.join(os.tmpdir(),'dca-backend-'));t.after(()=>rm(d,{recursive:true,force:true}));return d;}
-async function seed(d){await writeFile(path.join(d,'fear-greed.csv'),csv(dates.slice(0,2)));for(const symbol of ['VOO','QQQ'])await writeFile(path.join(d,symbol.toLowerCase()+'.json'),JSON.stringify(normalizeYahoo(yahoo(symbol,dates.slice(0,2)),symbol,now)));}
-function source(url){if(url===CNN_URL)return JSON.stringify(cnn(dates));if(url===ARCHIVE_URL)return csv(dates);return JSON.stringify(yahoo(url.includes('/VOO?')?'VOO':'QQQ'));}
+async function seed(d){await writeFile(path.join(d,'fear-greed.csv'),csv(dates.slice(0,2)));for(const symbol of SYMBOLS)await writeFile(path.join(d,symbol.toLowerCase()+'.json'),JSON.stringify(normalizeYahoo(yahoo(symbol,dates.slice(0,2)),symbol,now)));}
+function source(url){if(url===CNN_URL)return JSON.stringify(cnn(dates));if(url===ARCHIVE_URL)return csv(dates);return JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1)));}
 const opts=d=>({dataDir:d,now,wait:async()=>{}});
 test('交易日历：夏冬时、收盘缓冲、周末及未来调度',()=>{
  assert.equal(sessionClose('2026-10-16'),Date.parse('2026-10-16T20:00Z'));
@@ -43,17 +43,17 @@ test('CNN UTC 日期标签不会错移一天，排除盘中，拒绝空分数与
  const bad=cnn(dates);bad.fear_and_greed_historical.data[0].y=null;assert.throws(()=>parseCNN(bad,now));
  assert.throws(()=>parseCNN(cnn([dates[0],dates[0]]),now));
 });
-test('三源更新成功，写入可追溯状态并保留早期历史',async t=>{
+test('指数与全部ETF更新成功，写入可追溯状态并保留早期历史',async t=>{
  const d=await dir(t);await seed(d);const status=await refreshAll({...opts(d),fetchText:async url=>source(url)});
  assert.equal(status.complete,true);assert.equal(status.expectedDate,'2025-01-06');
  assert.equal(status.results[0].source,'CNN');
  assert.ok((await readFile(path.join(d,'fear-greed.csv'),'utf8')).includes('2021-01-29'));
  assert.deepEqual(JSON.parse(await readFile(path.join(d,'status.json'),'utf8')),status);
- assert.equal(JSON.parse(await readFile(path.join(d,'voo.json'),'utf8')).rows.at(-1).close,100);
+ for(const symbol of SYMBOLS){const data=JSON.parse(await readFile(path.join(d,symbol.toLowerCase()+'.json'),'utf8'));assert.equal(data.symbol,symbol);assert.equal(data.rows.at(-1).close,100);}assert.deepEqual(status.results.map(r=>r.symbol),['Fear & Greed',...SYMBOLS]);
 });
 test('HTTP 成功但仍是昨天的数据，任务不得宣称已到齐',async t=>{
  const d=await dir(t);await seed(d);
- const status=await refreshAll({...opts(d),sentimentSource:'archive',fetchText:async url=>url===ARCHIVE_URL?csv(dates.slice(0,2)):JSON.stringify(yahoo(url.includes('/VOO?')?'VOO':'QQQ',dates.slice(0,2)))});
+ const status=await refreshAll({...opts(d),sentimentSource:'archive',fetchText:async url=>url===ARCHIVE_URL?csv(dates.slice(0,2)):JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1),dates.slice(0,2)))});
  assert.equal(status.complete,false);assert.ok(status.results.every(r=>r.ok&&!r.fresh));
  assert.match(healthSummary(status,now),/等待更新/);
 });
@@ -91,7 +91,7 @@ test('已到齐的补抓跳过网络；手动更新仍请求各源',async t=>{
  const d=await dir(t);await seed(d);await refreshAll({...opts(d),fetchText:async url=>source(url)});
  const result=await refreshAll({...opts(d),skipFresh:true,fetchText:async()=>{throw Error('should not fetch');}});
  assert.equal(result.complete,true);assert.ok(result.results.every(r=>r.skipped));
- let calls=0;await refreshAll({...opts(d),fetchText:async url=>{calls++;return source(url);}});assert.equal(calls,3);
+ let calls=0;await refreshAll({...opts(d),fetchText:async url=>{calls++;return source(url);}});assert.equal(calls,4);
 });
 test('进程内合并并发；跨进程锁阻止第二个写入者，结束释放锁',async t=>{
  const d=await dir(t);await seed(d);let release;const gate=new Promise(r=>{release=r;});

@@ -49,18 +49,21 @@ export function initApplication() {
   }
 
   function mini() {
-    drawOverview($('mini'), rows);
-    if (!windowRange || !rows.length) return;
-    const state = navigatorState({
-      start: Date.parse(windowRange.start),
-      end: Date.parse(windowRange.end)
-    }, bounds(), $('mini').clientWidth);
-    const timeline = $('timeline');
-    timeline.min = state.min;
-    timeline.max = state.max;
-    timeline.value = state.value;
-    timeline.style.setProperty('--window-width', state.thumbWidth + 'px');
-    timeline.setAttribute('aria-valuetext', windowRange.start + ' 至 ' + windowRange.end);
+    for (const [canvasID, timelineID] of [['mini', 'timeline'], ['backtest-mini', 'backtest-timeline']]) {
+      const canvas = $(canvasID);
+      drawOverview(canvas, rows);
+      if (!windowRange || !rows.length) continue;
+      const state = navigatorState({
+        start: Date.parse(windowRange.start),
+        end: Date.parse(windowRange.end)
+      }, bounds(), canvas.clientWidth);
+      const timeline = $(timelineID);
+      timeline.min = state.min;
+      timeline.max = state.max;
+      timeline.value = state.value;
+      timeline.style.setProperty('--window-width', state.thumbWidth + 'px');
+      timeline.setAttribute('aria-valuetext', windowRange.start + ' 至 ' + windowRange.end);
+    }
   }
 
   function render() {
@@ -175,12 +178,14 @@ export function initApplication() {
     render();
   });
 
-  $('timeline').addEventListener('input', () => {
-    if (!windowRange || !rows.length) return;
-    const end = Number($('timeline').value);
-    const span = Date.parse(windowRange.end) - Date.parse(windowRange.start);
-    applyWindow({ start: end - span, end });
-  });
+  for (const id of ['timeline', 'backtest-timeline']) {
+    $(id).addEventListener('input', event => {
+      if (!windowRange || !rows.length) return;
+      const end = Number(event.currentTarget.value);
+      const span = Date.parse(windowRange.end) - Date.parse(windowRange.start);
+      applyWindow({ start: end - span, end });
+    });
+  }
 
   function showSentimentHover(date, pointer = null) {
     crossDate = date;

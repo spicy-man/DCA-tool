@@ -1,5 +1,7 @@
+import { updateBacktest, initBacktest } from './backtest.mjs';
 import { appEvents, events } from '../../services/events.mjs';
-import { calculateFearSignals } from '../../domain/fear-strategy.mjs';
+import { evaluateFearStrategy } from '../../domain/fear-strategy.mjs';
+import { renderStrategySummary } from './summary.mjs';
 import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
 import { downloadCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
@@ -7,7 +9,7 @@ import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 const $ = id => document.getElementById(id);
 const storageKey = 'seeker.pyramid.v1';
 const cache = new WeakMap();
-const defaults = { buyDay: 1, baseAmount: 1000, enabled: true, fearThreshold: 10 };
+const defaults = { buyDay: 1, baseAmount: 1000, enabled: true, fearThreshold: 10, fearBuyCount: 1 };
 
 let state = { ...defaults };
 let current = [];
@@ -38,6 +40,8 @@ export function updateSignals(data, next) {
   market = data;
   settings = next;
   if (!data || !next) {
+    renderStrategySummary(null, null, state);
+    updateBacktest(null);
     current = [];
     allCurrent = [];
     candleMap = new Map();
@@ -60,12 +64,15 @@ export function updateSignals(data, next) {
     computed.set(key, calculatePyramidSignals(data.rows, state));
   }
 
-  allCurrent = [
+  const fear = evaluateFearStrategy(data.rows, sentimentRows, state);
+  const history = [
     ...computed.get(key).map(s => ({ ...s, type: 'monthly' })),
-    ...calculateFearSignals(data.rows, sentimentRows, state)
+    ...fear.signals
   ]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .filter(r => r.date >= next.start && r.date <= next.end);
+    .sort((a, b) => a.date.localeCompare(b.date));
+  renderStrategySummary(data, next, state, history, fear);
+  updateBacktest({ rows: data.rows, monthlySignals: computed.get(key), fearSignals: fear.signals, range: next, baseAmount: state.baseAmount, symbol: data.symbol, sentiment: sentimentRows });
+  allCurrent = history.filter(r => r.date >= next.start && r.date <= next.end);
 
   current = state.enabled && next.frequency === 'daily' ? allCurrent : [];
   candleMap = new Map(data.rows.map(r => [r.date, r]));
@@ -84,14 +91,14 @@ export function signalTooltipRows(signal) {
     signal.amount.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }) + ' USD';
+    });
   if (signal.type === 'fear') {
     return [
       ['信号类型', '恐慌加投'],
       ['指数信号日', signal.signalDate],
       ['F&G 下穿', signal.previousScore.toFixed(2) + ' → ' + signal.score.toFixed(2)],
       ['触发 / 重置', signal.fearThreshold + ' / ' + signal.rearmThreshold],
-      ['买入倍数', '1 × N'],
+      ['买入倍数', signal.multiple + ' × N'],
       ['投入金额', amountFormatted]
     ];
   }
@@ -116,7 +123,7 @@ export function showMarketTooltip(tip, row, { x, y, width, symbol, frequency, si
       ['收盘价', row.close.toFixed(2)],
       ...(signal ? signalTooltipRows(signal) : [])
     ],
-    footer: 'USD · 前复权 · ' + (frequency === 'daily' ? '日线' : frequency === 'weekly' ? '周线' : '月线')
+    footer: '前复权 · ' + (frequency === 'daily' ? '日线' : frequency === 'weekly' ? '周线' : '月线')
   });
   positionTooltip(tip, x, y, width);
 }
@@ -132,6 +139,7 @@ export function drawSignalMarkers(frame) {
   const points = current
     .map(signal => ({ signal, x: frame.x(signal.date), row: candleMap.get(signal.date) }))
     .filter(p => p.row);
+  const floating = !!layer.closest('.floating-charts');
   // Cache rendered values and coordinates, including corrections to historical data.
   // Equal row counts and last dates do not identify the same snapshot or calendar.
   const layout = JSON.stringify([
@@ -139,6 +147,7 @@ export function drawSignalMarkers(frame) {
     frame.w,
     frame.h,
     frame.bottom,
+    floating,
     points.map(({ signal, x, row }) => [signal, row, x, frame.y(row.low)])
   ]);
 
@@ -148,6 +157,10 @@ export function drawSignalMarkers(frame) {
 
   const dense = points.some((p, i) => i && p.x > points[i - 1].x && p.x - points[i - 1].x < 54);
   const sameDateCounts = new Map();
+  const totalsByDate = new Map();
+  for (const { signal } of points) {
+    totalsByDate.set(signal.date, (totalsByDate.get(signal.date) || 0) + 1);
+  }
 
   for (const p of points) {
     const slot = sameDateCounts.get(p.signal.date) || 0;
@@ -163,10 +176,12 @@ export function drawSignalMarkers(frame) {
     marker.dataset.multiple = p.signal.multiple;
     marker.setAttribute(
       'aria-label',
-      `${p.signal.date} ${p.signal.type === 'fear' ? '恐慌加投' : '月度定投'} 买入 ${p.signal.multiple} 倍，${p.signal.amount.toFixed(2)} USD`
+      `${p.signal.date} ${p.signal.type === 'fear' ? '恐慌加投' : '月度定投'} 买入 ${p.signal.multiple} 倍，${p.signal.amount.toFixed(2)}`
     );
     marker.style.left = p.x + 'px';
-    marker.style.top = Math.min(frame.h - frame.bottom - 47, frame.y(p.row.low) + 8) + slot * 24 + 'px';
+    marker.style.top = (floating
+      ? Math.min(frame.h - frame.bottom - 12 - (totalsByDate.get(p.signal.date) - 1) * 12, frame.y(p.row.low) + 3) + slot * 12
+      : Math.min(frame.h - frame.bottom - 47, frame.y(p.row.low) + 8) + slot * 24) + 'px';
 
     const show = () =>
       showMarketTooltip($('price-tooltip'), p.row, {
@@ -180,7 +195,8 @@ export function drawSignalMarkers(frame) {
     marker.addEventListener('pointerenter', show);
     marker.addEventListener('focus', show);
     marker.addEventListener('click', show);
-    marker.addEventListener('pointerleave', () => {
+    marker.addEventListener('pointerleave', event => {
+      if (event.relatedTarget?.closest?.('#price-tooltip')) return;
       $('price-tooltip').hidden = true;
     });
     marker.addEventListener('blur', () => {
@@ -221,13 +237,14 @@ function renderSignalTable() {
   const totalAmount = allCurrent
     .reduce((sum, s) => sum + s.amount, 0)
     .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  $('signal-total').textContent = `当前区间 ${allCurrent.length} 笔 · 合计 ${totalAmount} USD`;
+  $('signal-total').textContent = `当前区间 ${allCurrent.length} 笔 · 合计 ${totalAmount}`;
 }
 
 function apply() {
   const buyDay = Number($('buy-day').value);
   const baseAmount = Number($('base-amount').value);
   const fearThreshold = Number($('fear-threshold').value);
+  const fearBuyCount = Number($('fear-buy-count').value);
   if (!Number.isInteger(buyDay) || buyDay < 1 || buyDay > 31) {
     $('signal-error').textContent = '定投日须为 1–31 的整数';
     return;
@@ -240,8 +257,12 @@ function apply() {
     $('signal-error').textContent = 'F&G 阈值请输入大于 0 且不超过 95 的数值';
     return;
   }
+  if (!Number.isSafeInteger(fearBuyCount) || fearBuyCount < 1 || !Number.isFinite(baseAmount * fearBuyCount)) {
+    $('signal-error').textContent = '恐慌加投笔数须为不小于 1 的整数，且加投金额须在可计算范围内';
+    return;
+  }
   $('signal-error').textContent = '';
-  state = { buyDay, baseAmount, fearThreshold, enabled: $('signals-enabled').checked };
+  state = { buyDay, baseAmount, fearThreshold, fearBuyCount, enabled: $('signals-enabled').checked };
   try {
     localStorage.setItem(storageKey, JSON.stringify(state));
   } catch {}
@@ -249,6 +270,8 @@ function apply() {
 }
 
 export function initStrategyOverlay() {
+  initBacktest();
+  $('price-tooltip').addEventListener('pointerleave', () => { $('price-tooltip').hidden = true; });
   $('signal-table').closest('details').addEventListener('toggle', renderSignalTable);
 
   try {
@@ -266,6 +289,8 @@ export function initStrategyOverlay() {
         ...defaults,
         ...saved,
         enabled: saved.enabled !== false,
+        fearBuyCount: Number.isSafeInteger(saved.fearBuyCount) && saved.fearBuyCount >= 1 && Number.isFinite(saved.baseAmount * saved.fearBuyCount)
+          ? saved.fearBuyCount : 1,
         fearThreshold:
           Number.isFinite(saved.fearThreshold) && saved.fearThreshold > 0 && saved.fearThreshold <= 95
             ? saved.fearThreshold
@@ -275,12 +300,13 @@ export function initStrategyOverlay() {
   } catch {}
 
   $('fear-threshold').value = state.fearThreshold;
+  $('fear-buy-count').value = state.fearBuyCount;
   $('buy-day').value = state.buyDay;
   $('base-amount').value = state.baseAmount;
   $('signals-enabled').checked = state.enabled;
 
-  for (const id of ['buy-day', 'base-amount', 'fear-threshold', 'signals-enabled']) {
-    const eventType = id === 'base-amount' || id === 'fear-threshold' ? 'input' : 'change';
+  for (const id of ['buy-day', 'base-amount', 'fear-threshold', 'fear-buy-count', 'signals-enabled']) {
+    const eventType = id === 'base-amount' || id === 'fear-threshold' || id === 'fear-buy-count' ? 'input' : 'change';
     $(id).addEventListener(eventType, apply);
   }
 

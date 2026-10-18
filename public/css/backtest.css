@@ -1,0 +1,31 @@
+.backtest-panel { margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.backtest-panel > #backtest-heading { margin: 0; padding: 15px 20px; font-size: 14px; font-weight: 650; color: var(--navy); }
+.backtest-content { padding: 0 20px 18px; }
+.backtest-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.backtest-toolbar p, .backtest-note { margin: 0; font-size: 11px; color: #607487; line-height: 1.8; }
+.backtest-toolbar label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.backtest-toolbar select { max-width: 100%; }
+.backtest-table { width: 100%; min-width: 1040px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.backtest-table td, .backtest-table thead th { text-align: right; white-space: nowrap; }
+.backtest-table th:first-child { text-align: left; }
+.backtest-table tbody th { font-weight: 500; white-space: nowrap; }
+.backtest-table tbody th::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--strategy-color); margin-right: 7px; }
+.backtest-note { margin: 12px 0 20px; }
+.backtest-chart-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.backtest-chart-heading h3 { margin: 0; font-size: 12px; }
+.backtest-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; color: #607487; }
+.backtest-legend span::before { content: ''; display: inline-block; width: 16px; height: 2px; vertical-align: middle; margin-right: 6px; background: #607487; }
+.backtest-legend span:nth-child(2)::before { background: #0d9488; }
+.backtest-legend span:nth-child(3)::before { background: #2563eb; }
+.backtest-plot { display: block; width: 100%; height: 280px; margin-top: 8px; }
+.backtest-method { border-top: 1px solid var(--border); padding-top: 10px; font-size: 11px; line-height: 1.9; color: #607487; }
+.backtest-method summary { cursor: pointer; }
+.backtest-method ul { padding-left: 18px; margin-bottom: 0; }
+@media(max-width: 600px) {
+  .backtest-panel > #backtest-heading { padding: 14px 12px; }
+  .backtest-content { padding: 0 12px 14px; }
+  .backtest-toolbar { align-items: flex-start; }
+  .backtest-table { min-width: 1040px; }
+}
+
+.backtest-content > .backtest-navigator { margin: 14px 0 0; }

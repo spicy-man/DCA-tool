@@ -27,6 +27,12 @@ export function tooltipContent(tip, { title, rows, footer }) {
 
 export function positionTooltip(tip, x, y, width) {
   tip.hidden = false;
+  if (tip.closest('.floating-charts')) {
+    const rect = tip.parentElement.getBoundingClientRect();
+    tip.style.left = Math.max(12, Math.min(rect.left + x + 14, innerWidth - tip.offsetWidth - 12)) + 'px';
+    tip.style.top = Math.max(12, Math.min(rect.top + y - tip.offsetHeight - 12, innerHeight - tip.offsetHeight - 12)) + 'px';
+    return;
+  }
   tip.style.left = Math.max(0, Math.min(x + 14, width - tip.offsetWidth - 5)) + 'px';
   tip.style.top = Math.max(0, y - tip.offsetHeight - 12) + 'px';
 }

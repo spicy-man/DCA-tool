@@ -1,0 +1,50 @@
+.floating-charts[hidden], .floating-chart-anchor[hidden] { display: none; }
+.floating-chart-anchor {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 16px; box-sizing: border-box; text-align: center;
+  color: #607487; font-size: 12px; line-height: 1.8;
+}
+.floating-charts {
+  position: fixed; right: 18px; bottom: 18px; z-index: 40;
+  width: 440px; max-width: calc(100vw - 24px);
+  border: 1px solid #bccbd5; border-radius: 8px;
+  background: #fff; box-shadow: 0 8px 32px #19374a30; overflow: visible;
+}
+.floating-charts-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 7px 10px; background: #f5f7fa; border-bottom: 1px solid var(--border);
+  cursor: grab; touch-action: none; user-select: none;
+}
+.floating-charts-header:active { cursor: grabbing; }
+#floating-charts-title { color: var(--navy); font-size: 12px; font-weight: 600; }
+#floating-charts-title:focus-visible { outline: 2px solid #3b8499; outline-offset: 3px; }
+.floating-charts-actions { display: flex; align-items: center; gap: 5px; }
+.floating-charts-actions button { height: 26px; padding: 0 8px; font-size: 11px; }
+#floating-charts-close { width: 28px; padding: 0; font-size: 18px; }
+.floating-charts-body { padding: 7px; display: grid; gap: 7px; }
+.floating-charts #price-wrap, .floating-charts #chart-wrap {
+  width: 100%; margin: 0; border-radius: 3px; min-height: 0;
+}
+.floating-charts #price-wrap { height: min(200px, 34vh); }
+.floating-charts #chart-wrap { height: min(120px, 22vh); }
+@media(max-width: 1023px), (hover: none), (pointer: coarse) {
+  .floating-charts { display: none; }
+}
+
+.floating-charts-identity { display: flex; align-items: center; gap: 9px; }
+#floating-charts-symbol { height: 26px; min-width: 78px; padding: 0 20px 0 8px; font-size: 12px; cursor: pointer; }
+.floating-charts .buy-marker {
+  width: 10px; min-width: 10px; height: 10px; padding: 0;
+  border-radius: 0; font-size: 0; line-height: 0;
+  color: #089981; background: currentColor;
+  clip-path: polygon(50% 0, 100% 50%, 70% 50%, 70% 100%, 30% 100%, 30% 50%, 0 50%);
+}
+.floating-charts .buy-marker:before { display: none; }
+.floating-charts .buy-marker.is-fear { color: #2563eb; }
+.floating-charts .buy-marker:hover { color: #087f6e; }
+.floating-charts .buy-marker.is-fear:hover { color: #1d4ed8; }
+
+.floating-charts .tooltip {
+  position: fixed; max-height: calc(100dvh - 24px); box-sizing: border-box;
+  overflow-y: auto; pointer-events: auto; overscroll-behavior: contain;
+}

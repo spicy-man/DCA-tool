@@ -1,3 +1,4 @@
+import {initFloatingCharts} from './ui/floating-charts.mjs';
 import {initApplication} from './application.mjs';
 import {initMarketChart} from './features/market/chart.mjs';
 import {initStrategyOverlay} from './features/strategy/overlay.mjs';
@@ -8,3 +9,5 @@ initStrategyOverlay();
 initMarketChart();
 initStrategyDialog();
 initApplication();
+
+initFloatingCharts();

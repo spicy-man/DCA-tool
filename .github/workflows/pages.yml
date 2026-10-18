@@ -54,7 +54,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/data/fear-greed.csv public/data/voo.json public/data/qqq.json
+          git add public/data/fear-greed.csv public/data/voo.json public/data/qqq.json public/data/vgt.json
           if [ -f public/data/status.json ]; then
             git add public/data/status.json
           fi

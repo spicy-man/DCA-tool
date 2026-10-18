@@ -80,7 +80,7 @@ export function renderMarket(next) {
   hoverY = null;
   $('price-tooltip').hidden = true;
   $('price-title').textContent = symbol + ' · 前复权 K 线';
-  $('price-asof').textContent = 'Yahoo Finance · 数据截至 ' + data.anchorDate + ' · USD';
+  $('price-asof').textContent = 'Yahoo Finance · 数据截至 ' + data.anchorDate;
 
   const last = shown.at(-1);
   const previous = shown.at(-2);
@@ -147,7 +147,7 @@ export function drawPrice(crossDate) {
   }
 
   const { left, right } = chartInsets(w);
-  const top = 20;
+  const top = 24 + (document.querySelector('#price-wrap .chart-toolbar')?.offsetHeight || 0);
   const bottom = 32;
   const pw = w - left - right;
   const ph = h - top - bottom;
@@ -328,7 +328,10 @@ export function initMarketChart() {
     appEvents.dispatchEvent(new CustomEvent(events.marketHover, { detail: date }));
   });
 
-  $('price-chart').addEventListener('pointerleave', hide);
+  $('price-chart').addEventListener('pointerleave', event => {
+    if (event.relatedTarget?.closest?.('#price-tooltip')) return;
+    hide();
+  });
 
   $('symbol').addEventListener('change', () => {
     shown = [];
