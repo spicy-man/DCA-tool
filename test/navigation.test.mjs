@@ -48,3 +48,20 @@ test('鼠标拖动与左侧绘图区仍可使用',t=>{
  const n=navigation(t);n.send('pointerdown',1,10,100,{pointerType:'mouse'});n.send('pointermove',1,50,100,{pointerType:'mouse'});n.flush();assert.ok(n.window.start<view.start);
  n.send('pointerup',1,50,100,{pointerType:'mouse'});assert.equal(n.classes.has('is-dragging'),false);
 });
+
+
+import { navigatorState } from '../public/js/charts/navigation.mjs';
+
+test('概览选区宽度和位置对应真实日期跨度，最早、最新、全部历史准确对齐', () => {
+  const total = { start: 0, end: 1000 * day };
+  for (const [start, end] of [[0, 100], [300, 500], [900, 1000], [0, 1000], [450, 464]]) {
+    const state = navigatorState({ start: start * day, end: end * day }, total, 1000);
+    assert.equal(state.thumbWidth, end - start);
+    const left = state.max === state.min ? 0 : (state.value - state.min) / (state.max - state.min) * (1000 - state.thumbWidth);
+    assert.ok(Math.abs(left - start) < 1e-9);
+    assert.ok(Math.abs(left + state.thumbWidth - end) < 1e-9);
+  }
+  assert.deepEqual(navigatorState({ start: day, end: day }, { start: day, end: day }, 600), {
+    min: day, max: day, value: day, thumbWidth: 600
+  });
+});

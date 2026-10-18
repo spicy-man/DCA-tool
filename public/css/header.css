@@ -77,3 +77,64 @@
 #status {
   white-space: pre-line;
 }
+
+/* Keep source health beside the refresh action without crowding the title. */
+.title-row {
+  gap: 24px;
+}
+
+.title-row h1 {
+  flex-shrink: 0;
+}
+
+.title-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.title-actions #status {
+  max-width: 640px;
+  margin: 0;
+  padding: 0;
+  font-size: 10px;
+  line-height: 1.6;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.title-actions .primary {
+  flex-shrink: 0;
+}
+
+@media (max-width: 800px) {
+  .title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+
+  .title-actions {
+    display: contents;
+  }
+
+  .title-actions .primary {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .title-actions #status {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    max-width: none;
+    font-size: 9px;
+    text-align: left;
+  }
+
+  .title-actions #status:empty {
+    display: none;
+  }
+}

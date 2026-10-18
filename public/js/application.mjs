@@ -11,7 +11,7 @@ import { sentimentLabel, sourceLabel } from './ui/labels.mjs';
 import { downloadCSV } from './ui/download.mjs';
 import { tooltipContent, positionTooltip } from './ui/tooltip.mjs';
 import { drawSentiment, drawOverview } from './charts/sentiment.mjs';
-import { attachChartNavigation, constrainWindow } from './charts/navigation.mjs';
+import { attachChartNavigation, constrainWindow, navigatorState } from './charts/navigation.mjs';
 import { loadMarket, renderMarket, drawPrice, invalidateMarket } from './features/market/chart.mjs';
 import { aggregate, selectRange, rating } from './domain/sentiment.mjs';
 
@@ -47,11 +47,22 @@ export function initApplication() {
 
   function mini() {
     drawOverview($('mini'), rows);
+    if (!windowRange || !rows.length) return;
+    const state = navigatorState({
+      start: Date.parse(windowRange.start),
+      end: Date.parse(windowRange.end)
+    }, bounds(), $('mini').clientWidth);
+    const timeline = $('timeline');
+    timeline.min = state.min;
+    timeline.max = state.max;
+    timeline.value = state.value;
+    timeline.style.setProperty('--window-width', state.thumbWidth + 'px');
+    timeline.setAttribute('aria-valuetext', windowRange.start + ' 至 ' + windowRange.end);
   }
 
   function render() {
     if (!rows.length) return;
-    const end = rows[Number($('timeline').value)]?.date || rows.at(-1).date;
+    const end = iso(Number($('timeline').value));
     const raw = customWindow
       ? rows.filter(r => r.date >= iso(customWindow.start) && r.date <= iso(customWindow.end))
       : selectRange(rows, $('range').value, end);
@@ -124,9 +135,9 @@ export function initApplication() {
   async function load() {
     rows = await loadSentimentRows();
     setSignalSentiment(rows);
-    $('timeline').min = Math.min(30, rows.length - 1);
-    $('timeline').max = rows.length - 1;
-    $('timeline').value = rows.length - 1;
+    $('timeline').min = Date.parse(rows[0].date);
+    $('timeline').max = Date.parse(rows.at(-1).date);
+    $('timeline').value = Date.parse(rows.at(-1).date);
     render();
     await loadHealth();
   }
@@ -156,17 +167,15 @@ export function initApplication() {
       const span = customWindow.end - customWindow.start;
       customWindow = constrainWindow({ start: bounds().end - span, end: bounds().end }, bounds());
     }
-    $('timeline').value = rows.length - 1;
+    $('timeline').value = Date.parse(rows.at(-1).date);
     render();
   });
 
   $('timeline').addEventListener('input', () => {
-    if (customWindow) {
-      const end = Date.parse(rows[Number($('timeline').value)].date);
-      const span = customWindow.end - customWindow.start;
-      customWindow = constrainWindow({ start: end - span, end }, bounds());
-    }
-    render();
+    if (!windowRange || !rows.length) return;
+    const end = Number($('timeline').value);
+    const span = Date.parse(windowRange.end) - Date.parse(windowRange.start);
+    applyWindow({ start: end - span, end });
   });
 
   $('chart').addEventListener('pointermove', e => {
@@ -270,15 +279,13 @@ export function initApplication() {
   function applyWindow(view) {
     customWindow = constrainWindow(view, bounds());
     $('range').value = 'custom';
-    const index = rows.findIndex(r => r.date >= iso(customWindow.end));
-    $('timeline').value = index < 0 ? rows.length - 1 : index;
     render();
   }
 
   function resetWindow() {
     customWindow = null;
     $('range').value = lastPreset;
-    $('timeline').value = rows.length - 1;
+    $('timeline').value = Date.parse(rows.at(-1).date);
     render();
   }
 

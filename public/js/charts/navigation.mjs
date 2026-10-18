@@ -22,6 +22,23 @@ export function panWindow(view, fraction, bounds) {
   return constrainWindow({ start: view.start + delta, end: view.end + delta }, bounds);
 }
 
+// Native range thumbs travel across the track minus their own width.
+// Use window end times and a matching minimum so the thumb covers [start, end].
+export function navigatorState(view, bounds, width) {
+  const full = bounds.end - bounds.start;
+  if (full <= 0) {
+    return { min: bounds.end, max: bounds.end, value: bounds.end, thumbWidth: width };
+  }
+  const span = Math.max(0, Math.min(full, view.end - view.start));
+  const min = bounds.start + span;
+  return {
+    min,
+    max: bounds.end,
+    value: Math.max(min, Math.min(bounds.end, view.end)),
+    thumbWidth: width * span / full
+  };
+}
+
 export function attachChartNavigation(canvas, { getWindow, getBounds, onChange, onReset }) {
   let drag = null;
   let pinch = null;

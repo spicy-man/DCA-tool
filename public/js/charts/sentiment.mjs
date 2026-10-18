@@ -138,8 +138,10 @@ export function drawOverview(canvas, rows) {
   c.strokeStyle = '#91a8b5';
   c.lineWidth = 0.8;
   c.beginPath();
+  const start = Date.parse(rows[0].date);
+  const span = Date.parse(rows.at(-1).date) - start;
   rows.forEach((r, i) => {
-    const x = rows.length > 1 ? (i / (rows.length - 1)) * w : w / 2;
+    const x = span > 0 ? ((Date.parse(r.date) - start) / span) * w : w / 2;
     const y = 3 + ((100 - r.score) / 100) * (h - 6);
     i ? c.lineTo(x, y) : c.moveTo(x, y);
   });
