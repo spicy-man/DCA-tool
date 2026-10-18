@@ -1,4 +1,5 @@
-.strategy-help{height:28px;padding:0 9px;font-size:11px;white-space:nowrap}
+.strategy-help{height:30px;padding:0 10px;font-size:11px;white-space:nowrap;background:var(--navy);border-color:var(--navy);color:#fff}
+.strategy-help:hover{background:#254d65;border-color:#254d65}
 .strategy-dialog{width:min(1100px,calc(100% - 32px));max-width:none;height:90dvh;max-height:90dvh;box-sizing:border-box;padding:0;border:1px solid var(--border);border-radius:10px;background:#fff;color:#20333f;box-shadow:0 20px 70px #19374a30;overflow:hidden}
 .strategy-dialog[open]{display:flex;flex-direction:column}
 .strategy-dialog::backdrop{background:#19374a66}

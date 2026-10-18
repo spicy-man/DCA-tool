@@ -3,17 +3,18 @@ import { loadMarketSnapshot } from '../../services/data-client.mjs';
 import {
   updateSignals,
   drawSignalMarkers,
-  getVisibleSignals,
   showMarketTooltip
 } from '../strategy/overlay.mjs';
 import {
   createTradingScale,
   candleMetrics,
   paintCandle,
-  chartInsets
+  chartInsets,
+  periodKey
 } from '../../charts/geometry.mjs';
 import { aggregateOHLC } from '../../domain/market.mjs';
 import { downloadCSV } from '../../ui/download.mjs';
+import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 
 const $ = id => document.getElementById(id);
 const store = new Map();
@@ -21,6 +22,8 @@ let settings;
 let shown = [];
 let frame;
 let active = -1;
+let hoverDate = null;
+let hoverY = null;
 let loading = false;
 let requestID = 0;
 
@@ -73,6 +76,8 @@ export function renderMarket(next) {
   const daily = data.rows.filter(r => r.date >= next.start && r.date <= next.end);
   shown = aggregateOHLC(daily, next.frequency);
   active = -1;
+  hoverDate = null;
+  hoverY = null;
   $('price-tooltip').hidden = true;
   $('price-title').textContent = symbol + ' · 前复权 K 线';
   $('price-asof').textContent = 'Yahoo Finance · 数据截至 ' + data.anchorDate + ' · USD';
@@ -149,16 +154,17 @@ export function drawPrice(crossDate) {
   const start = Date.parse(settings.start);
   const end = Date.parse(settings.end);
 
-  let low = Math.min(...shown.map(r => r.low));
-  let high = Math.max(...shown.map(r => r.high));
+  const lowest = shown.reduce((best, row) => row.low < best.low ? row : best);
+  const highest = shown.reduce((best, row) => row.high > best.high ? row : best);
+  let low = lowest.low;
+  let high = highest.high;
   const pad = Math.max((high - low) * 0.1, high * 0.002);
   low -= pad;
   high += pad;
 
   const scale = createTradingScale(settings.calendar, settings.frequency, left, pw);
-  const labelSpace = getVisibleSignals().length ? 52 : 0;
   const x = scale.x;
-  const y = v => top + ((high - v) / (high - low)) * (ph - labelSpace);
+  const y = v => top + ((high - v) / (high - low)) * ph;
   frame = { left, right, top, bottom, pw, ph, start, end, w, h, x, y, scale };
 
   c.font = '11px Segoe UI, sans-serif';
@@ -214,17 +220,52 @@ export function drawPrice(crossDate) {
   c.stroke();
   c.restore();
 
-  const cross = crossDate || (active >= 0 ? shown[active]?.date : null);
+  const cross = crossDate || hoverDate || (active >= 0 ? shown[active]?.date : null);
   if (cross) {
     c.setLineDash([3, 4]);
     c.strokeStyle = '#859aa5';
     c.beginPath();
     c.moveTo(x(cross), top);
     c.lineTo(x(cross), h - bottom);
+    if (Number.isFinite(hoverY)) {
+      c.moveTo(left, hoverY);
+      c.lineTo(w - right, hoverY);
+    }
     c.stroke();
   }
   c.restore();
 
+  // Keep extrema labels near their candles and inside the plot.
+  c.save();
+  c.font = '11px Segoe UI, Microsoft YaHei, sans-serif';
+  c.textAlign = 'left';
+  c.textBaseline = 'middle';
+  c.setLineDash([]);
+  for (const [row, value, title, labelY] of [
+    [highest, highest.high, '最高', Math.max(12, y(highest.high) - 12)],
+    [lowest, lowest.low, '最低', Math.min(h - bottom - 12, y(lowest.low) - 2)]
+  ]) {
+    const text = value.toFixed(2);
+    const width = c.measureText(text).width + 12;
+    const pointX = x(row.date);
+    const offset = 8;
+    const preferredX = pointX + offset + width < w - right
+      ? pointX + offset
+      : pointX - offset - width;
+    const labelX = Math.max(left + 2, Math.min(preferredX, w - right - width - 2));
+    const anchorX = Math.max(labelX + 4, Math.min(pointX, labelX + width - 4));
+    c.strokeStyle = '#607487';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(pointX, y(value));
+    c.lineTo(anchorX, labelY);
+    c.stroke();
+    c.fillStyle = '#f3f6f8';
+    c.fillRect(labelX, labelY - 9, width, 18);
+    c.fillStyle = '#19374a';
+    c.fillText(text, labelX + 6, labelY);
+  }
+  c.restore();
   drawSignalMarkers(frame);
   c.fillStyle = '#666666';
   for (const tick of scale.ticks(w < 500 ? 3 : 6)) {
@@ -233,10 +274,38 @@ export function drawPrice(crossDate) {
   }
 }
 
-function hide() {
-  active = -1;
-  $('price-tooltip').hidden = true;
+// Match the selected period exactly; missing sessions must not borrow another day's price.
+export function setMarketHover(date, pointer = null) {
+  hoverDate = date;
+  active = date && settings
+    ? shown.findIndex(row => periodKey(row.date, settings.frequency) === periodKey(date, settings.frequency))
+    : -1;
+  const row = shown[active];
+  hoverY = pointer?.y ?? (row && frame ? frame.y(row.close) : null);
+  const tip = $('price-tooltip');
+  if (!date || !frame || !settings) {
+    tip.hidden = true;
+    drawPrice();
+    return;
+  }
+  const position = {
+    x: pointer?.x ?? frame.x(date),
+    y: hoverY ?? frame.top + 50,
+    width: frame.w,
+    symbol: $('symbol').value,
+    frequency: settings.frequency
+  };
+  if (row) {
+    showMarketTooltip(tip, row, position);
+  } else {
+    tooltipContent(tip, { title: position.symbol + ' · ' + date, rows: [['行情', '该日期无行情记录']] });
+    positionTooltip(tip, position.x, position.y, position.width);
+  }
   drawPrice();
+}
+
+function hide() {
+  setMarketHover(null);
   appEvents.dispatchEvent(new CustomEvent(events.marketHover, { detail: null }));
 }
 
@@ -254,32 +323,9 @@ export function initMarketChart() {
       hide();
       return;
     }
-    let closest = 0;
-    for (let i = 1; i < shown.length; i++) {
-      if (Math.abs(frame.x(shown[i].date) - mx) < Math.abs(frame.x(shown[closest].date) - mx)) {
-        closest = i;
-      }
-    }
-    // Do not snap a cursor from years before an ETF's inception to its first candle.
-    if (
-      mx < frame.x(shown[0].date) - frame.scale.spacing / 2 ||
-      mx > frame.x(shown.at(-1).date) + frame.scale.spacing / 2
-    ) {
-      hide();
-      return;
-    }
-    active = closest;
-    const r = shown[closest];
-    const tip = $('price-tooltip');
-    showMarketTooltip(tip, r, {
-      x: mx,
-      y: my,
-      width: rect.width,
-      symbol: $('symbol').value,
-      frequency: settings.frequency
-    });
-    drawPrice();
-    appEvents.dispatchEvent(new CustomEvent(events.marketHover, { detail: r.date }));
+    const date = frame.scale.dateAt(mx);
+    setMarketHover(date, { x: mx, y: my });
+    appEvents.dispatchEvent(new CustomEvent(events.marketHover, { detail: date }));
   });
 
   $('price-chart').addEventListener('pointerleave', hide);

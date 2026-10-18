@@ -11,8 +11,9 @@ import { sentimentLabel, sourceLabel } from './ui/labels.mjs';
 import { downloadCSV } from './ui/download.mjs';
 import { tooltipContent, positionTooltip } from './ui/tooltip.mjs';
 import { drawSentiment, drawOverview } from './charts/sentiment.mjs';
+import { periodKey } from './charts/geometry.mjs';
 import { attachChartNavigation, constrainWindow, navigatorState } from './charts/navigation.mjs';
-import { loadMarket, renderMarket, drawPrice, invalidateMarket } from './features/market/chart.mjs';
+import { loadMarket, renderMarket, drawPrice, setMarketHover, invalidateMarket } from './features/market/chart.mjs';
 import { aggregate, selectRange, rating } from './domain/sentiment.mjs';
 
 export function initApplication() {
@@ -26,6 +27,7 @@ export function initApplication() {
   let hover = -1;
   let windowRange;
   let crossDate;
+  let crossY = null;
   let customWindow = null;
   let lastPreset = '12';
   let marketCalendar = [];
@@ -41,6 +43,7 @@ export function initApplication() {
       windowRange,
       hover,
       crossDate,
+      crossY,
       threshold: signalSettings().fearThreshold
     });
   }
@@ -82,6 +85,7 @@ export function initApplication() {
     visible = aggregate(raw, $('frequency').value);
     hover = -1;
     crossDate = null;
+    crossY = null;
     $('tooltip').hidden = true;
 
     const last = visible.at(-1);
@@ -178,6 +182,32 @@ export function initApplication() {
     applyWindow({ start: end - span, end });
   });
 
+  function showSentimentHover(date, pointer = null) {
+    crossDate = date;
+    hover = date && windowRange
+      ? visible.findIndex(row => periodKey(row.date, windowRange.frequency) === periodKey(date, windowRange.frequency))
+      : -1;
+    const row = visible[hover];
+    crossY = pointer?.y ?? (row && plot ? plot.y(row.score) : null);
+    const tip = $('tooltip');
+    if (!date || !windowRange) {
+      tip.hidden = true;
+      draw();
+      return;
+    }
+    tooltipContent(tip, {
+      title: formatDate(row?.date || date),
+      rows: row ? [
+        ['情绪指数', row.score.toFixed(2)],
+        ['市场情绪', sentimentLabel(row.score)],
+        ['来源', sourceLabel(row.source)]
+      ] : [['情绪指数', '该日期无指数记录']]
+    });
+    positionTooltip(tip, pointer?.x ?? plot?.x(date) ?? $('chart').clientWidth / 2,
+      crossY ?? 60, $('chart').clientWidth);
+    draw();
+  }
+
   $('chart').addEventListener('pointermove', e => {
     if (!plot || !visible.length) return;
     const rect = $('chart').getBoundingClientRect();
@@ -187,34 +217,14 @@ export function initApplication() {
       hideHover();
       return;
     }
-    hover = 0;
-    for (let i = 1; i < visible.length; i++) {
-      if (Math.abs(plot.x(visible[i].date) - mx) < Math.abs(plot.x(visible[hover].date) - mx)) {
-        hover = i;
-      }
-    }
-    const r = visible[hover];
-    const tip = $('tooltip');
-    tooltipContent(tip, {
-      title: formatDate(r.date),
-      rows: [
-        ['情绪指数', r.score.toFixed(2)],
-        ['市场情绪', sentimentLabel(r.score)],
-        ['来源', sourceLabel(r.source)]
-      ]
-    });
-    positionTooltip(tip, mx, my, rect.width);
-    crossDate = null;
-    draw();
-    drawPrice(r.date);
+    const date = plot.scale.dateAt(mx);
+    showSentimentHover(date, { x: mx, y: my });
+    setMarketHover(date);
   });
 
   function hideHover() {
-    hover = -1;
-    crossDate = null;
-    $('tooltip').hidden = true;
-    draw();
-    drawPrice();
+    showSentimentHover(null);
+    setMarketHover(null);
   }
 
   $('chart').addEventListener('pointerleave', hideHover);
@@ -270,10 +280,7 @@ export function initApplication() {
   }).observe($('chart-wrap'));
 
   appEvents.addEventListener(events.marketHover, event => {
-    hover = -1;
-    crossDate = event.detail;
-    $('tooltip').hidden = true;
-    draw();
+    showSentimentHover(event.detail);
   });
 
   function applyWindow(view) {

@@ -508,7 +508,7 @@ th {
 
 
 #price-chart,#chart {
-  cursor: grab;
+  cursor: crosshair;
   touch-action: none;
   user-select: none;
 }
@@ -1287,8 +1287,17 @@ footer {
   font-size: 12px;
 }
 
-.chart-controls .strategy-row input[type=number] {
+.chart-controls .strategy-row #buy-day {
+  width: 74px;
+  min-width: 74px;
+}
+
+.chart-controls .strategy-row #base-amount {
   width: 76px;
+}
+
+.chart-controls .strategy-row #fear-threshold {
+  width: 54px;
 }
 
 .chart-controls .strategy-row input[type=checkbox] {
@@ -1450,6 +1459,15 @@ footer {
   .chart-controls .strategy-row .signal-toggle {
     grid-column: 1 / -1;
     margin-left: 0;
+  }
+
+  .chart-controls .strategy-row label:not(.signal-toggle) {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+
+  .chart-controls .strategy-row #base-amount {
+    margin-left: auto;
   }
 }
 

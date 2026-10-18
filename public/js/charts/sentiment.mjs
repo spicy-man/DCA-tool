@@ -12,7 +12,7 @@ export function chartContext(canvas) {
   return { c, w, h };
 }
 
-export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossDate = null, threshold = 10 }) {
+export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossDate = null, crossY = null, threshold = 10 }) {
   const { c, w, h } = chartContext(canvas);
   if (!windowRange) return null;
 
@@ -107,6 +107,10 @@ export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossD
     c.beginPath();
     c.moveTo(x(crossDate), top);
     c.lineTo(x(crossDate), h - bottom);
+    if (Number.isFinite(crossY)) {
+      c.moveTo(left, crossY);
+      c.lineTo(w - right, crossY);
+    }
     c.stroke();
     c.restore();
   }
@@ -119,8 +123,12 @@ export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossD
     c.setLineDash([3, 4]);
     c.strokeStyle = '#7f949d';
     c.beginPath();
-    c.moveTo(px, top);
-    c.lineTo(px, h - bottom);
+    if (!crossDate) {
+      c.moveTo(px, top);
+      c.lineTo(px, h - bottom);
+      c.moveTo(left, Number.isFinite(crossY) ? crossY : py);
+      c.lineTo(w - right, Number.isFinite(crossY) ? crossY : py);
+    }
     c.stroke();
     c.restore();
     c.fillStyle = '#19374a';

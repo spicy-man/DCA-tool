@@ -87,7 +87,7 @@ export function signalTooltipRows(signal) {
     }) + ' USD';
   if (signal.type === 'fear') {
     return [
-      ['信号类型', '恐慌加投（额外）'],
+      ['信号类型', '恐慌加投'],
       ['指数信号日', signal.signalDate],
       ['F&G 下穿', signal.previousScore.toFixed(2) + ' → ' + signal.score.toFixed(2)],
       ['触发 / 重置', signal.fearThreshold + ' / ' + signal.rearmThreshold],
