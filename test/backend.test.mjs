@@ -117,3 +117,36 @@ test('本地 HTTP：部署模式、快照、跨站保护、方法及冷却防重
  assert.equal((await fetch(base+'/api/refresh',{method:'POST'})).status,200);assert.equal(calls,1);
  assert.equal((await fetch(base+'/data/.refresh.lock')).status,403);
 });
+
+
+test('刷新全部或部分失败可立即重试，成功后才进入冷却，并发仍合并', async t => {
+  for (const partial of [false, true]) {
+    let calls = 0;
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    const server = createServer({ refresh: async () => {
+      calls++;
+      if (calls === 1) {
+        await gate;
+        return { complete: false, results: [
+          { symbol: 'VOO', ok: partial, fresh: partial },
+          { symbol: 'QQQ', ok: false, fresh: false }
+        ] };
+      }
+      return { complete: true, results: [{ symbol: 'VOO', ok: true, fresh: true }] };
+    } });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const url = 'http://127.0.0.1:' + server.address().port + '/api/refresh';
+    const first = fetch(url, { method: 'POST' });
+    // Wait until the request enters refresh, without depending on a fixed delay.
+    while (!calls) await new Promise(resolve => setImmediate(resolve));
+    release();
+    assert.equal((await first).status, partial ? 200 : 502);
+    assert.equal((await fetch(url, { method: 'POST' })).status, 200);
+    assert.equal(calls, 2);
+    await fetch(url, { method: 'POST' });
+    assert.equal(calls, 2);
+  }
+});

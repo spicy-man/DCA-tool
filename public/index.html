@@ -1,26 +1,311 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="only light"><meta name="theme-color" content="#f5f6fa"><meta name="description" content="查看 VOO / QQQ 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。"><title>定投助手 · 定投信号</title><link rel="icon" type="image/svg+xml" href="./logo.svg?v=dca"><style>html{color-scheme:light;color-scheme:only light;background-color:#f5f6fa;color:#20333f}body{margin:0;background-color:#f5f6fa;color:#20333f}</style><link rel="stylesheet" href="./style.css?v=1.2.2"></head>
-<body><div class="shell">
-<header class="masthead"><div class="brand-identity"><a href="./" class="brand" aria-label="定投助手首页"><span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手</a><span class="version-badge" aria-label="版本 1.2.2">v1.2.2</span></div><span class="brand-caption">行情 · 情绪 · 定投</span><span id="updated" class="updated">正在读取数据…</span><label class="header-layout">布局<select id="layout"><option value="standard">紧凑</option><option value="expanded" selected>展开</option></select></label></header>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <meta name="theme-color" content="#f5f6fa">
+  <meta name="description" content="查看 VOO / QQQ 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。">
+  <title>定投助手 · 定投信号</title>
+  <link rel="icon" type="image/svg+xml" href="./logo.svg?v=dca">
+  <style>
+    html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
+    body { margin: 0; background-color: #f5f6fa; color: #20333f; }
+  </style>
+  <link rel="stylesheet" href="./style.css?v=1.2.3">
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <div class="brand-identity">
+        <a href="./" class="brand" aria-label="定投助手首页">
+          <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
+        </a>
+        <span class="version-badge" aria-label="版本 1.2.3">v1.2.3</span>
+      </div>
+      <span class="brand-caption">行情 · 情绪 · 定投</span>
+      <span id="updated" class="updated">正在读取数据…</span>
+      <label class="header-layout">布局
+        <select id="layout">
+          <option value="standard">紧凑</option>
+          <option value="expanded" selected>展开</option>
+        </select>
+      </label>
+    </header>
 
-<main><div class="title-row"><h1>定投信号</h1><button id="refresh" class="primary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg><span>更新数据</span></button></div>
+    <main>
+      <div class="title-row">
+        <h1>定投信号</h1>
+        <button id="refresh" class="primary">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/>
+          </svg>
+          <span>更新数据</span>
+        </button>
+      </div>
 
-<p id="status" role="status" aria-live="polite"></p>
-<section class="chart-card price-card" aria-labelledby="price-title"><div class="chart-heading"><div><div class="price-title-row"><h2 id="price-title" class="sr-only">VOO · 前复权 K 线</h2><label class="symbol-control"><span class="sr-only">ETF 标的</span><select id="symbol" aria-label="ETF 标的"><option value="VOO">VOO · 标普 500</option><option value="QQQ">QQQ · 纳斯达克 100</option></select></label></div><p id="price-asof">正在读取 ETF 行情…</p></div><div class="score-block"><div><strong id="price-close">—</strong><span> USD</span></div><span id="price-change">—</span></div></div><div class="chart-controls"><div class="toolbar chart-toolbar" aria-label="两图共用的显示设置"><label>范围<select id="range"><option value="3">近 3 个月</option><option value="6">近 6 个月</option><option value="12" selected>近 1 年</option><option value="24">近 2 年</option><option value="custom" hidden>自定义</option><option value="60">近 5 年</option><option value="all">全部历史</option></select></label><label>周期<select id="frequency"><option value="daily">日线</option><option value="weekly">周线</option><option value="monthly">月线</option></select></label><div class="date-tools"><button id="latest">回到最新</button></div></div><div class="signal-controls strategy-row" aria-label="近月回撤金字塔定投设置"><label>每月定投日<select id="buy-day" aria-label="每月定投日期"><option value="1">1 日</option><option value="2">2 日</option><option value="3">3 日</option><option value="4">4 日</option><option value="5">5 日</option><option value="6">6 日</option><option value="7">7 日</option><option value="8">8 日</option><option value="9">9 日</option><option value="10">10 日</option><option value="11">11 日</option><option value="12">12 日</option><option value="13">13 日</option><option value="14">14 日</option><option value="15">15 日</option><option value="16">16 日</option><option value="17">17 日</option><option value="18">18 日</option><option value="19">19 日</option><option value="20">20 日</option><option value="21">21 日</option><option value="22">22 日</option><option value="23">23 日</option><option value="24">24 日</option><option value="25">25 日</option><option value="26">26 日</option><option value="27">27 日</option><option value="28">28 日</option><option value="29">29 日</option><option value="30">30 日</option><option value="31">31 日</option></select></label><label>定投金额<input id="base-amount" aria-label="定投金额（美元，基准 N）" type="number" min="0.01" step="any" value="1000" inputmode="decimal"><span>USD</span></label><label>恐慌指数加投阈值<input id="fear-threshold" title="跌破此值额外加投 1×N；回升至阈值 +5 后重置" aria-label="恐慌指数加投阈值" type="number" min="0.01" max="95" step="any" value="10" inputmode="decimal"></label><label class="signal-toggle"><input id="signals-enabled" type="checkbox" checked>买入信号</label><button type="button" id="strategy-help" class="strategy-help" aria-haspopup="dialog" aria-controls="strategy-dialog">策略说明</button></div></div><div class="chart-wrap price-wrap expanded" id="price-wrap"><canvas id="price-chart" aria-describedby="chart-help" role="img" aria-label="ETF 前复权开高低收 K 线图"></canvas><div id="signal-layer" class="signal-layer"></div><div id="price-tooltip" class="tooltip" hidden></div><p id="price-empty" class="price-empty" hidden></p></div><div class="chart-caption"><span id="price-note">前复权 K 线 · 白色阳线 · 黑色阴线 · 分红及拆股复权</span><span class="signal-summary"><span id="signal-error" role="status"></span><span id="signal-note"></span><span id="date-range">—</span><span id="price-observations">—</span></span></div><p class="chart-help" id="chart-help">双指缩放 · 单指左右拖动 · 滚轮缩放 · 双击重置 · Shift + 滚轮平移</p><details class="accessible-data"><summary>查看行情、定投明细与计算口径</summary><p class="adjustment-note">数据源：Yahoo Finance。每日开、高、低、收四价同乘（调整后收盘价 ÷ 收盘价）÷ 最新完整交易日因子，以最新交易日价格为基准。周线／月线 由复权后的日线聚合；历史窗口不改变复权基准。成交量为来源原始成交量。未上市、缺失或尚未收盘的交易日不补值。</p><p id="price-anchor"></p><div class="table-scroll"><table><thead><tr><th>日期</th><th>开盘价</th><th>最高价</th><th>最低价</th><th>收盘价</th><th>成交量</th></tr></thead><tbody id="price-table"></tbody></table></div><button id="price-download">导出行情 CSV</button><a id="price-source" class="price-source" href="https://finance.yahoo.com/quote/VOO/history/" target="_blank" rel="noreferrer">Yahoo Finance ↗</a><section class="strategy-details" aria-labelledby="strategy-heading"><h3 id="strategy-heading">近月回撤金字塔买入信号</h3><p>回看前一个日历月（包含当天、月底对齐）的最高价，以当日收盘价计算回撤。不足 5% 投入 N；5% 为 2N；10% 为 4N；15% 为 6N，之后每多 5% 增加 2N，最多 38N。</p><p>不存在的定投日对齐当月月末，非交易日顺延。每个定投所属月份各买一次；上月顺延到本月的买入不占用本月额度，因此同一执行月份可能有两笔月度定投。月度额度不限制恐慌加投。仅在完整日线上显示信号。按全部已取得的历史日线计算，缩放和拖动不会重新触发定投。</p><p>F&G 日终指数从不低于阈值跌至阈值下方时，额外加投 1×N（蓝色 Buy 1x），与绿色月度定投独立累加。默认阈值 10，可调整；触发后须回升到阈值 +5 才可再次触发，避免临界值附近重复买入。这是策略缓冲带，并非统计置信区间。信号在指数日期之后的首个可用 ETF 交易日展示；无后续完整行情时暂不生成买入。</p><p id="signal-total"></p><div class="table-scroll"><table><thead><tr><th>买入日期</th><th>信号类型</th><th>距近月高点回撤</th><th>倍数</th><th>投入金额 USD</th></tr></thead><tbody id="signal-table"></tbody></table></div><button id="signal-download">导出定投信号 CSV</button></section></details></section>
-<section class="chart-card" aria-labelledby="chart-title"><div class="chart-heading"><div><div class="eyebrow">市场情绪</div><h2 id="chart-title">恐慌与贪婪指数</h2><p>指数范围 0–100，数值越高代表越贪婪</p></div><div class="score-block"><div><strong id="score">—</strong><span> / 100</span></div><span id="rating">—</span></div></div>
-<div class="chart-wrap expanded" id="chart-wrap"><canvas id="chart" aria-describedby="chart-help" aria-label="恐慌与贪婪指数历史折线图" role="img"></canvas><div id="tooltip" class="tooltip" hidden></div></div>
-<div class="navigator"><canvas id="mini" aria-hidden="true"></canvas><label class="sr-only" for="timeline">历史窗口结束日期</label><input id="timeline" type="range" min="0" value="100" max="100" aria-label="拖动查看历史窗口"></div>
-<div class="chart-caption"><span id="sample-note">日线数据 · 周末及缺失日期不补值</span><span id="observations">—</span></div>
-<details class="accessible-data"><summary>查看当前区间数据</summary><div class="table-scroll"><table><thead><tr><th>日期</th><th>指数</th><th>情绪</th><th>来源</th></tr></thead><tbody id="data-table"></tbody></table></div><button id="download">导出指数 CSV</button></details>
-</section>
-<section class="investment-notes" aria-label="长期投资提醒">
-<article class="investment-note"><p>对不以投资为业的人，分批买入低成本指数基金，长期持有；<strong>然后回去认真工作。</strong></p><div class="note-attribution"><span>巴菲特 · 理念整理</span><a href="https://buffett.cnbc.com/video/2002/05/04/morning-session---2002-berkshire-hathaway-annual-meeting.html" target="_blank" rel="noreferrer">股东大会记录 ↗</a><a href="https://www.yahoo.com/news/2013-12-30-warren-buffetts-super-simple-retirement-advice.html" target="_blank" rel="noreferrer" title="“回去工作”见二手转述；本段为理念整理，不作逐字引文">转述出处 ↗</a></div></article>
-<article class="investment-note"><p>在下跌时仍坚持按计划买入的人，长期往往比在恐慌中卖出、反复进出市场的人<strong>更有优势。</strong></p><div class="note-attribution"><span>彼得·林奇 ·《战胜华尔街》意译</span><a href="https://www.simonandschuster.com/books/Beating-the-Street/Peter-Lynch/9781451687064#excerpt" target="_blank" rel="noreferrer">出版社节选 ↗</a></div></article>
-</section>
-<section class="provenance" aria-labelledby="provenance-title"><h2 id="provenance-title" class="eyebrow">数据来源</h2><div class="source-columns"><div><h3>2021-02-01 至今</h3><p>CNN 官方接口数据</p><span>自此日起采用 CNN 原始分数与情绪标签。</span></div><div><h3>2011-01-03 至 2021-01-29</h3><p>第三方历史存档</p><span>来自仓库的合并存档，不等同于官方历史数据。</span></div><div><h3>可追溯的公开数据</h3><p><a href="https://github.com/whit3rabbit/fear-greed-data" target="_blank" rel="noreferrer">whit3rabbit / fear-greed-data ↗</a></p><span>自动更新优先尝试 CNN，第三方仓库备用；各来源状态独立显示，失败保留上次有效数据。</span></div></div></section>
-</main><footer><span>数据来源：CNN Business、Yahoo Finance；指数历史存档由 whit3rabbit 整理。</span><span>恐慌与贪婪指数 · 0–100</span></footer></div><dialog id="strategy-dialog" class="strategy-dialog" aria-labelledby="strategy-dialog-title" aria-describedby="strategy-diagram-note"><div class="strategy-dialog-heading"><h2 id="strategy-dialog-title">定投策略 · 逻辑说明</h2><div class="strategy-dialog-actions"><button type="button" id="strategy-diagram-zoom" aria-pressed="false">放大查看</button><button type="button" id="strategy-dialog-close" aria-label="关闭策略说明">关闭</button></div></div><p id="strategy-diagram-note" class="strategy-diagram-note">左图保留首次建仓买入 N 的参考设定，月度定投按所选日期执行。本站按所选定投日展示信号，未单独模拟初始建仓；右图为恐慌加投逻辑（手机端见下方），与月度定投独立累加。</p><div class="strategy-dialog-body"><div class="strategy-diagram-scroll"><img id="strategy-diagram" src="./diagrams/monthly_dca_logic.svg" alt="月跌幅金字塔定投流程：初始投入、月度判断、近月回撤、投入档位和月度重置" width="1120" height="1490" loading="lazy"></div><section class="strategy-fear-panel" aria-label="恐慌买入逻辑"><p class="strategy-fear-settings" id="strategy-fear-settings"></p><div class="strategy-diagram-scroll"><img src="./diagrams/fear_dca_logic.svg" alt="恐慌买入流程：读取日终指数、下穿阈值、额外买入 N、暂停触发、回升重置，与月度定投独立累加" width="1120" height="1490" loading="lazy"></div></section></div></dialog><script type="module" src="./js/app.mjs"></script></body></html>
+      <p id="status" role="status" aria-live="polite"></p>
 
+      <section class="chart-card price-card" aria-labelledby="price-title">
+        <div class="chart-heading">
+          <div>
+            <div class="price-title-row">
+              <h2 id="price-title" class="sr-only">VOO · 前复权 K 线</h2>
+              <label class="symbol-control">
+                <span class="sr-only">ETF 标的</span>
+                <select id="symbol" aria-label="ETF 标的">
+                  <option value="VOO">VOO · 标普 500</option>
+                  <option value="QQQ">QQQ · 纳斯达克 100</option>
+                </select>
+              </label>
+            </div>
+            <p id="price-asof">正在读取 ETF 行情…</p>
+          </div>
+          <div class="score-block">
+            <div><strong id="price-close">—</strong><span> USD</span></div>
+            <span id="price-change">—</span>
+          </div>
+        </div>
 
+        <div class="chart-controls">
+          <div class="toolbar chart-toolbar" aria-label="两图共用的显示设置">
+            <label>范围
+              <select id="range">
+                <option value="3">近 3 个月</option>
+                <option value="6">近 6 个月</option>
+                <option value="12" selected>近 1 年</option>
+                <option value="24">近 2 年</option>
+                <option value="custom" hidden>自定义</option>
+                <option value="60">近 5 年</option>
+                <option value="all">全部历史</option>
+              </select>
+            </label>
+            <label>周期
+              <select id="frequency">
+                <option value="daily">日线</option>
+                <option value="weekly">周线</option>
+                <option value="monthly">月线</option>
+              </select>
+            </label>
+            <div class="date-tools">
+              <button id="latest">回到最新</button>
+            </div>
+          </div>
 
+          <div class="signal-controls strategy-row" aria-label="近月回撤金字塔定投设置">
+            <label>每月定投日
+              <select id="buy-day" aria-label="每月定投日期">
+                <option value="1">1 日</option>
+                <option value="2">2 日</option>
+                <option value="3">3 日</option>
+                <option value="4">4 日</option>
+                <option value="5">5 日</option>
+                <option value="6">6 日</option>
+                <option value="7">7 日</option>
+                <option value="8">8 日</option>
+                <option value="9">9 日</option>
+                <option value="10">10 日</option>
+                <option value="11">11 日</option>
+                <option value="12">12 日</option>
+                <option value="13">13 日</option>
+                <option value="14">14 日</option>
+                <option value="15">15 日</option>
+                <option value="16">16 日</option>
+                <option value="17">17 日</option>
+                <option value="18">18 日</option>
+                <option value="19">19 日</option>
+                <option value="20">20 日</option>
+                <option value="21">21 日</option>
+                <option value="22">22 日</option>
+                <option value="23">23 日</option>
+                <option value="24">24 日</option>
+                <option value="25">25 日</option>
+                <option value="26">26 日</option>
+                <option value="27">27 日</option>
+                <option value="28">28 日</option>
+                <option value="29">29 日</option>
+                <option value="30">30 日</option>
+                <option value="31">31 日</option>
+              </select>
+            </label>
+            <label>定投金额
+              <input id="base-amount" aria-label="定投金额（美元，基准 N）" type="number" min="0.01" step="any" value="1000" inputmode="decimal">
+              <span>USD</span>
+            </label>
+            <label>恐慌指数加投阈值
+              <input id="fear-threshold" title="跌破此值额外加投 1×N；回升至阈值 +5 后重置" aria-label="恐慌指数加投阈值" type="number" min="0.01" max="95" step="any" value="10" inputmode="decimal">
+            </label>
+            <label class="signal-toggle">
+              <input id="signals-enabled" type="checkbox" checked>买入信号
+            </label>
+            <button type="button" id="strategy-help" class="strategy-help" aria-haspopup="dialog" aria-controls="strategy-dialog">策略说明</button>
+          </div>
+        </div>
 
+        <div class="chart-wrap price-wrap expanded" id="price-wrap">
+          <canvas id="price-chart" aria-describedby="chart-help" role="img" aria-label="ETF 前复权开高低收 K 线图"></canvas>
+          <div id="signal-layer" class="signal-layer"></div>
+          <div id="price-tooltip" class="tooltip" hidden></div>
+          <p id="price-empty" class="price-empty" hidden></p>
+        </div>
 
+        <div class="chart-caption">
+          <span id="price-note">前复权 K 线 · 白色阳线 · 黑色阴线 · 分红及拆股复权</span>
+          <span class="signal-summary">
+            <span id="signal-error" role="status"></span>
+            <span id="signal-note"></span>
+            <span id="date-range">—</span>
+            <span id="price-observations">—</span>
+          </span>
+        </div>
+
+        <p class="chart-help" id="chart-help">双指缩放 · 单指左右拖动 · 滚轮缩放 · 双击重置 · Shift + 滚轮平移</p>
+
+        <details class="accessible-data">
+          <summary>查看行情、定投明细与计算口径</summary>
+          <p class="adjustment-note">数据源：Yahoo Finance。每日开、高、低、收四价同乘（调整后收盘价 ÷ 收盘价）÷ 最新完整交易日因子，以最新交易日价格为基准。周线／月线 由复权后的日线聚合；历史窗口不改变复权基准。成交量为来源原始成交量。未上市、缺失或尚未收盘的交易日不补值。</p>
+          <p id="price-anchor"></p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>日期</th><th>开盘价</th><th>最高价</th><th>最低价</th><th>收盘价</th><th>成交量</th></tr>
+              </thead>
+              <tbody id="price-table"></tbody>
+            </table>
+          </div>
+          <button id="price-download">导出行情 CSV</button>
+          <a id="price-source" class="price-source" href="https://finance.yahoo.com/quote/VOO/history/" target="_blank" rel="noreferrer">Yahoo Finance ↗</a>
+
+          <section class="strategy-details" aria-labelledby="strategy-heading">
+            <h3 id="strategy-heading">近月回撤金字塔买入信号</h3>
+            <p>回看前一个日历月（包含当天、月底对齐）的最高价，以当日收盘价计算回撤。不足 5% 投入 N；5% 为 2N；10% 为 4N；15% 为 6N，之后每多 5% 增加 2N，最多 38N。</p>
+            <p>不存在的定投日对齐当月月末，非交易日顺延。每个定投所属月份各买一次；上月顺延到本月的买入不占用本月额度，因此同一执行月份可能有两笔月度定投。月度额度不限制恐慌加投。仅在完整日线上显示信号。按全部已取得的历史日线计算，缩放和拖动不会重新触发定投。</p>
+            <p>F&amp;G 日终指数从不低于阈值跌至阈值下方时，额外加投 1×N（蓝色 Buy 1x），与绿色月度定投独立累加。默认阈值 10，可调整；触发后须回升到阈值 +5 才可再次触发，避免临界值附近重复买入。这是策略缓冲带，并非统计置信区间。信号在指数日期之后的首个可用 ETF 交易日展示；无后续完整行情时暂不生成买入。</p>
+            <p id="signal-total"></p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr><th>买入日期</th><th>信号类型</th><th>距近月高点回撤</th><th>倍数</th><th>投入金额 USD</th></tr>
+                </thead>
+                <tbody id="signal-table"></tbody>
+              </table>
+            </div>
+            <button id="signal-download">导出定投信号 CSV</button>
+          </section>
+        </details>
+      </section>
+
+      <section class="chart-card" aria-labelledby="chart-title">
+        <div class="chart-heading">
+          <div>
+            <div class="eyebrow">市场情绪</div>
+            <h2 id="chart-title">恐慌与贪婪指数</h2>
+            <p>指数范围 0–100，数值越高代表越贪婪</p>
+          </div>
+          <div class="score-block">
+            <div><strong id="score">—</strong><span> / 100</span></div>
+            <span id="rating">—</span>
+          </div>
+        </div>
+
+        <div class="chart-wrap expanded" id="chart-wrap">
+          <canvas id="chart" aria-describedby="chart-help" aria-label="恐慌与贪婪指数历史折线图" role="img"></canvas>
+          <div id="tooltip" class="tooltip" hidden></div>
+        </div>
+
+        <div class="navigator">
+          <canvas id="mini" aria-hidden="true"></canvas>
+          <label class="sr-only" for="timeline">历史窗口结束日期</label>
+          <input id="timeline" type="range" min="0" value="100" max="100" aria-label="拖动查看历史窗口">
+        </div>
+
+        <div class="chart-caption">
+          <span id="sample-note">日线数据 · 周末及缺失日期不补值</span>
+          <span id="observations">—</span>
+        </div>
+
+        <details class="accessible-data">
+          <summary>查看当前区间数据</summary>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>日期</th><th>指数</th><th>情绪</th><th>来源</th></tr>
+              </thead>
+              <tbody id="data-table"></tbody>
+            </table>
+          </div>
+          <button id="download">导出指数 CSV</button>
+        </details>
+      </section>
+
+      <section class="investment-notes" aria-label="长期投资提醒">
+        <article class="investment-note">
+          <p>对不以投资为业的人，分批买入低成本指数基金，长期持有；<strong>然后回去认真工作。</strong></p>
+          <div class="note-attribution">
+            <span>巴菲特 · 理念整理</span>
+            <a href="https://buffett.cnbc.com/video/2002/05/04/morning-session---2002-berkshire-hathaway-annual-meeting.html" target="_blank" rel="noreferrer">股东大会记录 ↗</a>
+            <a href="https://www.yahoo.com/news/2013-12-30-warren-buffetts-super-simple-retirement-advice.html" target="_blank" rel="noreferrer" title="“回去工作”见二手转述；本段为理念整理，不作逐字引文">转述出处 ↗</a>
+          </div>
+        </article>
+        <article class="investment-note">
+          <p>在下跌时仍坚持按计划买入的人，长期往往比在恐慌中卖出、反复进出市场的人<strong>更有优势。</strong></p>
+          <div class="note-attribution">
+            <span>彼得·林奇 ·《战胜华尔街》意译</span>
+            <a href="https://www.simonandschuster.com/books/Beating-the-Street/Peter-Lynch/9781451687064#excerpt" target="_blank" rel="noreferrer">出版社节选 ↗</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="provenance" aria-labelledby="provenance-title">
+        <h2 id="provenance-title" class="eyebrow">数据来源</h2>
+        <div class="source-columns">
+          <div>
+            <h3>2021-02-01 至今</h3>
+            <p>CNN 官方接口数据</p>
+            <span>自此日起采用 CNN 原始分数与情绪标签。</span>
+          </div>
+          <div>
+            <h3>2011-01-03 至 2021-01-29</h3>
+            <p>第三方历史存档</p>
+            <span>来自仓库的合并存档，不等同于官方历史数据。</span>
+          </div>
+          <div>
+            <h3>可追溯的公开数据</h3>
+            <p><a href="https://github.com/whit3rabbit/fear-greed-data" target="_blank" rel="noreferrer">whit3rabbit / fear-greed-data ↗</a></p>
+            <span>自动更新优先尝试 CNN，第三方仓库备用；各来源状态独立显示，失败保留上次有效数据。</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>数据来源：CNN Business、Yahoo Finance；指数历史存档由 whit3rabbit 整理。</span>
+      <span>恐慌与贪婪指数 · 0–100</span>
+    </footer>
+  </div>
+
+  <dialog id="strategy-dialog" class="strategy-dialog" aria-labelledby="strategy-dialog-title" aria-describedby="strategy-diagram-note">
+    <div class="strategy-dialog-heading">
+      <h2 id="strategy-dialog-title">定投策略 · 逻辑说明</h2>
+      <div class="strategy-dialog-actions">
+        <button type="button" id="strategy-diagram-zoom" aria-pressed="false">放大查看</button>
+        <button type="button" id="strategy-dialog-close" aria-label="关闭策略说明">关闭</button>
+      </div>
+    </div>
+    <p id="strategy-diagram-note" class="strategy-diagram-note">左图保留首次建仓买入 N 的参考设定，月度定投按所选日期执行。本站按所选定投日展示信号，未单独模拟初始建仓；右图为恐慌加投逻辑（手机端见下方），与月度定投独立累加。</p>
+    <div class="strategy-dialog-body">
+      <div class="strategy-diagram-scroll">
+        <img id="strategy-diagram" src="./diagrams/monthly_dca_logic.svg" alt="月跌幅金字塔定投流程：初始投入、月度判断、近月回撤、投入档位和月度重置" width="1120" height="1490" loading="lazy">
+      </div>
+      <section class="strategy-fear-panel" aria-label="恐慌买入逻辑">
+        <p class="strategy-fear-settings" id="strategy-fear-settings"></p>
+        <div class="strategy-diagram-scroll">
+          <img src="./diagrams/fear_dca_logic.svg" alt="恐慌买入流程：读取日终指数、下穿阈值、额外买入 N、暂停触发、回升重置，与月度定投独立累加" width="1120" height="1490" loading="lazy">
+        </div>
+      </section>
+    </div>
+  </dialog>
+
+  <script type="module" src="./js/app.mjs"></script>
+</body>
+</html>

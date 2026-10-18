@@ -53,7 +53,7 @@ docs/                           架构和部署说明
 
 ## 样式与资源
 
-style.css 按 page.css → header.css → strategy-dialog.css 的顺序加载，保留已有级联结果；页面始终声明浅色模式，背景色不依赖系统偏好。页面样式仍包含历史响应式覆盖规则，本次仅按职责拆分，后续视觉整理应配合多尺寸截图验证。
+style.css 按 page.css → header.css → strategy-dialog.css 的顺序加载，保留已有级联结果；页面始终声明浅色模式，背景色不依赖系统偏好。页面样式保留响应式级联顺序，已清理被后续同选择器覆盖的声明；后续视觉整理应配合多尺寸计算样式和截图验证。
 
 数据、SVG 原图、来源链接、本地偏好键 seeker.pyramid.v1 和数据文件格式保持稳定。后续改文件位置时，同时更新 ES Module 引用、测试、README 和第三方来源说明；历史 CHANGELOG 中的旧路径保留为当时记录。
 

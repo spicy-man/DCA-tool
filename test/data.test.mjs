@@ -3,3 +3,17 @@ test('真实快照完整、有序，来源分界正确',async()=>{const rows=par
 test('分区边界',()=>{assert.deepEqual([0,24.99,25,44.99,45,54.99,55,74.99,75,100].map(rating),['Extreme Fear','Extreme Fear','Fear','Fear','Neutral','Neutral','Greed','Greed','Extreme Greed','Extreme Greed']);});
 test('拒绝空值、越界与重复日期',()=>{for(const row of ['2025-01-01,,fear','2025-01-01,101,fear','2025-01-01,30,fear\n2025-01-01,31,fear'])assert.throws(()=>parseCSV('Date,Fear Greed,Rating\n'+row));});
 test('周月频率采用最后一条，跨年周正确合并',()=>{const rows=parseCSV('Date,Fear Greed,Rating\n2024-12-30,30,fear\n2025-01-01,40,fear\n2025-01-03,50,neutral\n2025-01-06,60,greed');assert.deepEqual(aggregate(rows,'weekly').map(r=>r.score),[50,60]);assert.deepEqual(aggregate(rows,'monthly').map(r=>r.score),[30,60]);assert.equal(selectRange(rows,'all','2025-01-01').length,2);});
+
+
+test('预设月份回看对齐月末，保留平闰年及跨年边界', () => {
+  for (const [end, range, boundary] of [
+    ['2025-05-31', '3', '2025-02-28'],
+    ['2024-05-31', '3', '2024-02-29'],
+    ['2025-03-31', '3', '2024-12-31'],
+    ['2025-02-28', '3', '2024-11-28']
+  ]) {
+    const before = new Date(Date.parse(boundary) - 86400000).toISOString().slice(0, 10);
+    const rows = [before, boundary, end].map(date => ({ date, score: 50 }));
+    assert.deepEqual(selectRange(rows, range, end).map(r => r.date), [boundary, end]);
+  }
+});
