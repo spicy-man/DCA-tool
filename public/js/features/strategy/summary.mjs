@@ -42,13 +42,14 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     return;
   }
   set('funding-range', funding.start + ' — ' + funding.end + ' · ' + funding.count + ' 笔信号');
-  set('funding-total', money(funding.total));
-  set('funding-average', money(funding.average));
-  set('funding-peak', money(funding.peak));
+  const fundingMoney = value => money(value) + '（' + (value / settings.baseAmount).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'N）';
+  set('funding-total', fundingMoney(funding.total));
+  set('funding-average', fundingMoney(funding.average));
+  set('funding-peak', fundingMoney(funding.peak));
   set('funding-split', [
-    '普通定投（基础） ' + money(funding.regularAmount) + ' · ' + funding.monthlyCount + ' 笔',
-    '金字塔额外加投 ' + money(funding.pyramidExtraAmount) + ' · 其中 ' + funding.pyramidCount + ' 笔加投',
-    '恐慌额外加投 ' + money(funding.fearAmount) + ' · ' + funding.fearCount + ' 笔'
+    '普通定投（基础） ' + fundingMoney(funding.regularAmount) + ' · ' + funding.monthlyCount + ' 笔',
+    '金字塔额外加投 ' + fundingMoney(funding.pyramidExtraAmount) + ' · 其中 ' + funding.pyramidCount + ' 笔加投',
+    '恐慌额外加投 ' + fundingMoney(funding.fearAmount) + ' · ' + funding.fearCount + ' 笔'
   ].join('\n'));
   set('funding-average-note', '覆盖 ' + funding.months + ' 个自然月，包含零投入月份');
   set('funding-peak-note', funding.peak > 0 ? funding.peakMonths[0] + (funding.peakMonths.length > 1 ? ' 等 ' + funding.peakMonths.length + ' 个月并列' : '') : '区间内无投入信号');
