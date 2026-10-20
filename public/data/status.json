@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-20T07:46:51.723Z",
+  "checkedAt": "2026-10-20T13:31:10.503Z",
   "expectedDate": "2026-10-19",
   "complete": true,
   "results": [
@@ -13,9 +13,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T07:46:51.723Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
-      "skipped": true
+      "checkedAt": "2026-10-20T13:31:10.503Z",
+      "lastSuccessAt": "2026-10-20T13:31:10.503Z"
     },
     {
       "symbol": "VOO",
