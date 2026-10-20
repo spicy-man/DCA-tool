@@ -4,25 +4,6 @@ export function initStrategyDialog() {
   const diagramScroll = strategyDialog.querySelector('.strategy-dialog-body');
 
   $('strategy-help').addEventListener('click', () => {
-    const threshold = Number($('fear-threshold').value);
-    const amount = Number($('base-amount').value);
-    const count = Number($('fear-buy-count').value);
-    const valid =
-      Number.isFinite(threshold) &&
-      threshold > 0 &&
-      threshold <= 95 &&
-      Number.isFinite(amount) &&
-      amount >= 0.01 &&
-      Number.isSafeInteger(count) && count >= 1 && Number.isFinite(amount * count);
-    $('strategy-fear-settings').textContent = valid
-      ? '当前阈值 ' +
-        threshold +
-        ' · 重置 ' +
-        (threshold + 5) +
-        ' · 每次加投 ' +
-        (amount * count).toLocaleString('en-US') +
-        '（' + count + ' × N）'
-      : '阈值与基准 N 以主图有效设置为准';
     strategyDialog.showModal();
     document.body.classList.add('strategy-dialog-open');
   });
@@ -43,10 +24,10 @@ export function initStrategyDialog() {
     }
   });
 
-  $('strategy-diagram-original').addEventListener('click', () => {
-    strategyDialog.querySelectorAll('.strategy-diagram-scroll img').forEach(img => {
+  strategyDialog.querySelectorAll('.strategy-diagram-original').forEach(button => {
+    button.addEventListener('click', () => {
       const viewer = new URL('../../diagram.html', import.meta.url);
-      viewer.searchParams.set('image', new URL(img.src).pathname.split('/').at(-1));
+      viewer.searchParams.set('image', button.dataset.image);
       window.open(viewer.href, '_blank', 'noopener,noreferrer');
     });
   });

@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.5.1">
+  <link rel="stylesheet" href="./style.css?v=1.5.2">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.5.1">v1.5.1</span>
+        <span class="version-badge" aria-label="版本 1.5.2">v1.5.2</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
       <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
@@ -378,17 +378,19 @@
     <div class="strategy-dialog-heading">
       <h2 id="strategy-dialog-title">定投策略 · 逻辑说明</h2>
       <div class="strategy-dialog-actions">
-        <button type="button" id="strategy-diagram-original" title="在两个新标签页中分别打开月度定投和恐慌加投原图">查看原图</button>
         <button type="button" id="strategy-dialog-close" aria-label="关闭策略说明">关闭</button>
       </div>
     </div>
     <p id="strategy-diagram-note" class="strategy-diagram-note">左图为月度金字塔逻辑，按所选定投日展示收盘信号，回测于后续交易日开盘成交，区间开始时持仓为零；右图为恐慌加投逻辑（手机端见下方），与月度定投独立累加。</p>
     <div class="strategy-dialog-body">
-      <div class="strategy-diagram-scroll">
+      <section class="strategy-diagram-panel" aria-label="月度定投逻辑">
+        <div class="strategy-diagram-toolbar"><button type="button" class="strategy-diagram-original" data-image="monthly_dca_logic.svg" aria-label="查看月度定投原图">查看原图</button></div>
+        <div class="strategy-diagram-scroll">
         <img id="strategy-diagram" src="./diagrams/monthly_dca_logic.svg" alt="月跌幅金字塔定投流程：初始投入、月度判断、近月回撤、投入档位和月度重置" width="1120" height="1490" loading="lazy">
-      </div>
-      <section class="strategy-fear-panel" aria-label="恐慌买入逻辑">
-        <p class="strategy-fear-settings" id="strategy-fear-settings"></p>
+        </div>
+      </section>
+      <section class="strategy-diagram-panel" aria-label="恐慌买入逻辑">
+        <div class="strategy-diagram-toolbar"><button type="button" class="strategy-diagram-original" data-image="fear_dca_logic.svg" aria-label="查看恐慌买入原图">查看原图</button></div>
         <div class="strategy-diagram-scroll">
           <img src="./diagrams/fear_dca_logic.svg" alt="恐慌买入流程：读取日终指数、下穿阈值、按所设倍数加投、暂停触发、回升重置，与月度定投独立累加" width="1120" height="1490" loading="lazy">
         </div>

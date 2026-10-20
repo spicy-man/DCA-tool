@@ -32,16 +32,16 @@
 <text x="418" y="317" class="small">首条记录已低于阈值，不视为一次下穿</text>
 <path class="line" d="M727 344 V382"/>
 <rect class="card" x="390" y="386" width="674" height="180" rx="16"/>
-<text x="418" y="419" class="number">02 / 等待下穿阈值</text>
+<text x="418" y="419" class="number">02 / 日终指数公布后，判断是否触发</text>
 <text x="418" y="457" class="heading">前次 ≥ K，且本次 &lt; K</text>
-<text x="418" y="493" class="body">同时处于「可触发」状态，才生成加投信号</text>
+<text x="418" y="493" class="body">处于「可触发」状态时，本次指数日期即触发日</text>
 <text x="418" y="532" class="small">等于阈值不触发；持续低位不会每天重复买入</text>
 <path class="line" d="M727 566 V604"/>
 <rect x="390" y="608" width="674" height="184" rx="16" fill="#e5eff9" stroke="#ccdeef" stroke-width="1.5"/>
-<text x="418" y="641" class="number">03 / 后续交易日额外买入</text>
+<text x="418" y="641" class="number">03 / 触发日之后的首个 ETF 交易日</text>
 <text x="418" y="681" class="heading">加投金额 = 倍数 × N</text>
-<text x="418" y="717" class="body">指数日期之后的首个可用 ETF 交易日展示</text>
-<text x="418" y="759" class="small">没有后续完整行情时，暂不生成买入</text>
+<text x="418" y="717" class="body">蓝色标记落在该交易日；回测按当日开盘成交</text>
+<text x="418" y="759" class="small">无后续完整行情则等待；周五触发可顺延至周一</text>
 <path class="line" d="M727 792 V830"/>
 <rect class="card" x="390" y="834" width="674" height="168" rx="16"/>
 <text x="418" y="867" class="number">04 / 暂停重复触发</text>
@@ -53,14 +53,14 @@
 <text x="418" y="1077" class="number">05 / 回升重置</text>
 <text x="418" y="1115" class="heading">指数 ≥ K + 5，恢复可触发</text>
 <text x="418" y="1150" class="body">默认回升至 15 或以上，才可再次下穿买入</text>
-<text x="418" y="1189" class="small">这是策略缓冲带，不是统计置信区间</text>
+<text x="418" y="1189" class="small">重置当天不买；之后再次下穿 K 才触发</text>
 <path class="loop" d="M1064 1130 H1092 V476 H1066"/>
 <text x="806" y="1254" class="small">重置后，回到步骤 02</text>
 <rect x="56" y="440" width="280" height="470" rx="16" fill="#edf2f5" stroke="#dbe3e8"/>
 <text x="80" y="479" class="heading">触发与重置示例</text>
 <text x="80" y="519" class="small">以阈值 10、1N为例</text>
-<text x="80" y="565" class="body">12 → 9：下穿</text>
-<text x="80" y="597" class="money">买入一次 N</text>
+<text x="80" y="565" class="body">12 → 9：日终触发</text>
+<text x="80" y="597" class="money">后续交易日买入 N</text>
 <path d="M80 622 H312" stroke="#d0dae1"/>
 <text x="80" y="659" class="body">9 → 8 → 11 → 9</text>
 <text x="80" y="691" class="money">不重复买入</text>

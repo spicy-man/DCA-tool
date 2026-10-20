@@ -17,7 +17,9 @@ body.strategy-dialog-open{overflow:hidden}
 
 .strategy-dialog-heading{flex-shrink:0}
 
-.strategy-fear-panel{display:flex;flex-direction:column;min-height:0;min-width:0;border-left:1px solid var(--border);background:#f3f6f8}
-.strategy-fear-panel .strategy-diagram-scroll{flex:1}
-.strategy-fear-settings{margin:0;padding:8px 12px;background:#e5eff9;color:#365a79;font-size:11px;line-height:1.7;flex-shrink:0}
-@media(max-width:680px){.strategy-dialog-body{display:flex;flex-direction:column;overflow:auto}.strategy-dialog-body>.strategy-diagram-scroll{height:70dvh;flex-shrink:0}.strategy-fear-panel{height:76dvh;flex-shrink:0;border-left:0;border-top:1px solid var(--border)}}
+.strategy-diagram-panel{display:flex;flex-direction:column;min-height:0;min-width:0;background:#f3f6f8}
+.strategy-diagram-panel+.strategy-diagram-panel{border-left:1px solid var(--border)}
+.strategy-diagram-panel .strategy-diagram-scroll{flex:1}
+.strategy-diagram-toolbar{display:flex;justify-content:flex-end;padding:8px 12px 0;flex-shrink:0}
+.strategy-diagram-original{height:28px;padding:0 10px;font-size:11px}
+@media(max-width:680px){.strategy-dialog-body{display:flex;flex-direction:column;overflow:auto}.strategy-diagram-panel{height:76dvh;flex-shrink:0}.strategy-diagram-panel+.strategy-diagram-panel{border-left:0;border-top:1px solid var(--border)}}

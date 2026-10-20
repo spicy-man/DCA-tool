@@ -93,24 +93,27 @@ test('恐慌阈值 input 即时生效，无需失焦', t => {
   assert.equal(signalSettings().fearThreshold, 12);
 });
 
-test('查看原图一次打开两个独立标签页，保留策略弹窗', t => {
+test('每张图的查看原图只打开对应标签页，保留策略弹窗', t => {
   const $ = dom(t);
   const oldWindow = globalThis.window;
   const opened = [];
   globalThis.window = { open: (...args) => opened.push(args) };
   t.after(() => { globalThis.window = oldWindow; });
-  const images = ['monthly_dca_logic.svg', 'fear_dca_logic.svg'].map(name => ({ src: 'https://example.com/diagrams/' + name }));
+  const buttons = ['monthly_dca_logic.svg', 'fear_dca_logic.svg'].map(name => Object.assign(element(), { dataset: { image: name } }));
   const scroll = element();
   $('strategy-dialog').querySelector = () => scroll;
   $('strategy-dialog').querySelectorAll = selector => {
-    assert.equal(selector, '.strategy-diagram-scroll img');
-    return images;
+    assert.equal(selector, '.strategy-diagram-original');
+    return buttons;
   };
   initStrategyDialog();
-  $('strategy-diagram-original').listeners.click();
-  assert.deepEqual(opened, images.map(img => {
+  buttons[0].listeners.click();
+  assert.equal(opened.length, 1);
+  buttons[1].listeners.click();
+  assert.equal(opened.length, 2);
+  assert.deepEqual(opened, buttons.map(button => {
     const viewer = new URL('../public/diagram.html', import.meta.url);
-    viewer.searchParams.set('image', new URL(img.src).pathname.split('/').at(-1));
+    viewer.searchParams.set('image', button.dataset.image);
     return [viewer.href, '_blank', 'noopener,noreferrer'];
   }));
   assert.equal($('strategy-dialog').open, true);
