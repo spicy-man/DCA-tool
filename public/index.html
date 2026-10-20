@@ -6,13 +6,13 @@
   <meta name="color-scheme" content="only light">
   <meta name="theme-color" content="#f5f6fa">
   <meta name="description" content="查看 VOO / QQQ / VGT 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。">
-  <title>定投助手 · 定投信号</title>
+  <title>定投助手</title>
   <link rel="icon" type="image/svg+xml" href="./logo.svg?v=dca">
   <style>
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.4.2">
+  <link rel="stylesheet" href="./style.css?v=1.4.3">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.4.2">v1.4.2</span>
+        <span class="version-badge" aria-label="版本 1.4.3">v1.4.3</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
       <span id="updated" class="updated">正在读取数据…</span>
@@ -236,6 +236,7 @@
           <span id="observations">—</span>
         </div>
 
+        <a class="sentiment-reference" href="https://fngalert.com/zh/" target="_blank" rel="noopener noreferrer" aria-label="F&G Alert（在新标签页打开）">F&amp;G Alert ↗</a>
         <details class="accessible-data">
           <summary>查看当前区间数据</summary>
           <div class="table-scroll">
@@ -349,7 +350,6 @@
     <footer>
       <span>数据来源：CNN Business、Yahoo Finance；指数历史存档由 whit3rabbit 整理。</span>
       <a href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noreferrer">开源代码 ↗</a>
-      <span>恐慌与贪婪指数 · 0–100</span>
     </footer>
     <aside class="disclaimer" aria-label="免责声明">
       <p><strong>免责声明</strong> 本工具及所示定投策略仅供学习、研究与参考，不构成投资建议或收益承诺。历史信号不代表未来收益，策略可能持续亏损，下跌加投也可能增加资金需求。数据可能延迟、缺失或有误，信号计算未计入交易费用、税费、滑点及汇率影响。请结合自身财务状况与风险承受能力独立判断，并自行承担投资风险。</p>

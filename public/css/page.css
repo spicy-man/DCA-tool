@@ -1490,6 +1490,13 @@ footer {
   margin-right: 0;
 }
 
+.sentiment-reference {
+  float: right;
+  margin: 4px 0 0 12px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
 @media(max-width:800px) {
   .chart-card {
     padding-left: 12px;
