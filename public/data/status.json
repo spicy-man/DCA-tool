@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-19T07:49:24.594Z",
-  "expectedDate": "2026-10-16",
-  "complete": true,
+  "checkedAt": "2026-10-20T01:06:48.321Z",
+  "expectedDate": "2026-10-19",
+  "complete": false,
   "results": [
     {
       "symbol": "Fear & Greed",
@@ -10,11 +10,10 @@
       "count": 3948,
       "source": "whit3rabbit/fear-greed-data",
       "ok": true,
-      "fresh": true,
-      "expectedDate": "2026-10-16",
-      "checkedAt": "2026-10-19T07:49:24.594Z",
-      "lastSuccessAt": "2026-10-17T03:48:22.017Z",
-      "skipped": true
+      "fresh": false,
+      "expectedDate": "2026-10-19",
+      "checkedAt": "2026-10-20T01:06:48.321Z",
+      "lastSuccessAt": "2026-10-20T01:06:48.321Z"
     },
     {
       "symbol": "VOO",
@@ -22,11 +21,10 @@
       "count": 4051,
       "source": "Yahoo Finance",
       "ok": true,
-      "fresh": true,
-      "expectedDate": "2026-10-16",
-      "checkedAt": "2026-10-19T07:49:24.594Z",
-      "lastSuccessAt": "2026-10-17T03:48:22.017Z",
-      "skipped": true
+      "fresh": false,
+      "expectedDate": "2026-10-19",
+      "checkedAt": "2026-10-20T01:06:48.321Z",
+      "lastSuccessAt": "2026-10-20T01:06:48.321Z"
     },
     {
       "symbol": "QQQ",
@@ -34,11 +32,10 @@
       "count": 6945,
       "source": "Yahoo Finance",
       "ok": true,
-      "fresh": true,
-      "expectedDate": "2026-10-16",
-      "checkedAt": "2026-10-19T07:49:24.594Z",
-      "lastSuccessAt": "2026-10-17T03:48:22.017Z",
-      "skipped": true
+      "fresh": false,
+      "expectedDate": "2026-10-19",
+      "checkedAt": "2026-10-20T01:06:48.321Z",
+      "lastSuccessAt": "2026-10-20T01:06:48.321Z"
     },
     {
       "symbol": "VGT",
@@ -46,11 +43,10 @@
       "count": 5715,
       "source": "Yahoo Finance",
       "ok": true,
-      "fresh": true,
-      "expectedDate": "2026-10-16",
-      "checkedAt": "2026-10-19T07:49:24.594Z",
-      "lastSuccessAt": "2026-10-18T08:51:53.269Z",
-      "skipped": true
+      "fresh": false,
+      "expectedDate": "2026-10-19",
+      "checkedAt": "2026-10-20T01:06:48.321Z",
+      "lastSuccessAt": "2026-10-20T01:06:48.321Z"
     }
   ]
 }
