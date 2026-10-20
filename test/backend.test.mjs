@@ -22,7 +22,8 @@ const opts=d=>({dataDir:d,now,wait:async()=>{}});
 test('交易日历：夏冬时、收盘缓冲、周末及未来调度',()=>{
  assert.equal(sessionClose('2026-10-16'),Date.parse('2026-10-16T20:00Z'));
  assert.equal(sessionClose('2026-11-02'),Date.parse('2026-11-02T21:00Z'));
- assert.equal(latestClosedSession(Date.parse('2026-10-16T20:30Z')),'2026-10-15');
+ assert.equal(latestClosedSession(Date.parse('2026-10-16T20:02:59Z')),'2026-10-15');
+ assert.equal(latestClosedSession(Date.parse('2026-10-16T20:03Z')),'2026-10-16');
  assert.equal(latestClosedSession(Date.parse('2026-10-17T02:17Z')),'2026-10-16');
  assert.equal(latestClosedSession(Date.parse('2026-10-19T10:00Z')),'2026-10-16');
 });
@@ -132,6 +133,37 @@ test('进程内合并并发；跨进程锁阻止第二个写入者，结束释�
  assert.equal(first,refreshAll({...opts(d)}));release();await first;
  await withDataLock(d,async()=>{await assert.rejects(withDataLock(d,async()=>{}),/已有数据更新任务/);});
  await withDataLock(d,async()=>{});
+});
+
+test('FNG单独刷新接受同日历史修订，不请求或覆盖ETF及其检查状态',async t=>{
+ const d=await dir(t);await seed(d);
+ const first=await refreshAll({...opts(d),fetchText:async url=>source(url)});
+ const original=await readFile(path.join(d,'voo.json'),'utf8');
+ let calls=0;
+ const status=await refreshAll({...opts(d),now:now+6*3600000,sources:['Fear & Greed'],fetchText:async url=>{
+  calls++;assert.equal(url,CNN_URL);
+  const revised=cnn(dates);revised.fear_and_greed_historical.data.at(-1).y=22;
+  return JSON.stringify(revised);
+ }});
+ assert.equal(calls,1);assert.equal(status.complete,true);
+ assert.match(await readFile(path.join(d,'fear-greed.csv'),'utf8'),/2025-01-06,22,/);
+ assert.equal(await readFile(path.join(d,'voo.json'),'utf8'),original);
+ assert.deepEqual(status.results.slice(1),first.results.slice(1));
+});
+
+test('K线第二轮强制请求并接收复权修订，不因日期已到齐跳过',async t=>{
+ const d=await dir(t);await seed(d);
+ const first=await refreshAll({...opts(d),fetchText:async url=>source(url)});
+ let calls=0;
+ const status=await refreshAll({...opts(d),sources:SYMBOLS,fetchText:async url=>{
+  calls++;assert.notEqual(url,CNN_URL);assert.notEqual(url,ARCHIVE_URL);
+  const payload=JSON.parse(source(url));payload.chart.result[0].indicators.adjclose[0].adjclose[0]=80;
+  return JSON.stringify(payload);
+ }});
+ assert.equal(calls,3);assert.equal(status.complete,true);
+ assert.deepEqual(status.results[0],first.results[0]);
+ const saved=JSON.parse(await readFile(path.join(d,'voo.json'),'utf8'));
+ assert.ok(Math.abs(saved.rows[0].close-100*80/95)<1e-9);
 });
 test('健康状态按浏览器当前日期重新判断，不能把旧 manifest 当成今日成功',()=>{
  const status={checkedAt:new Date(now).toISOString(),results:[{symbol:'VOO',date:'2025-01-06',ok:true,fresh:true}]};

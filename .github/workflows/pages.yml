@@ -5,10 +5,22 @@ on:
     paths-ignore:
       - 'public/data/**'
   schedule:
-    # UTC -> Beijing 06:17, 08:17, 10:17. Latest closed session handles holidays/DST.
-    - cron: '17 22 * * *'
-    - cron: '17 0 * * *'
-    - cron: '17 2 * * *'
+    # F&G every six hours, anchored at regular close +3 min, including weekends.
+    # Calendar gate selects only close +3/+63 min for ETFs, including early closes.
+    - cron: '3 4 * * *'
+      timezone: America/New_York
+    - cron: '3 10 * * *'
+      timezone: America/New_York
+    - cron: '3 16 * * *'
+      timezone: America/New_York
+    - cron: '3 22 * * *'
+      timezone: America/New_York
+    - cron: '3 13 * * 1-5'
+      timezone: America/New_York
+    - cron: '3 14 * * 1-5'
+      timezone: America/New_York
+    - cron: '3 17 * * 1-5'
+      timezone: America/New_York
   workflow_dispatch:
     inputs:
       force:
@@ -23,7 +35,28 @@ concurrency:
   group: pages-and-data
   cancel-in-progress: false
 jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    outputs:
+      sources: ${{ steps.gate.outputs.sources }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Select sources for this scheduled slot
+        id: gate
+        env:
+          REFRESH_SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            node scripts/refresh-schedule.mjs >> "$GITHUB_OUTPUT"
+          else
+            echo 'sources=Fear & Greed,VOO,QQQ,VGT' >> "$GITHUB_OUTPUT"
+          fi
   publish:
+    needs: schedule
+    if: needs.schedule.outputs.sources != ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -41,7 +74,8 @@ jobs:
         continue-on-error: true
         env:
           FEAR_GREED_SOURCE: ${{ vars.FEAR_GREED_SOURCE || 'auto' }}
-          FORCE_REFRESH: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
+          FORCE_REFRESH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force) }}
+          REFRESH_SOURCES: ${{ needs.schedule.outputs.sources }}
         run: |
           if [ "$FORCE_REFRESH" = "true" ]; then
             node scripts/update-data.mjs
