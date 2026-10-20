@@ -6,6 +6,7 @@ import { normalizeYahoo, SYMBOLS } from '../public/js/domain/market.mjs';
 import { parseCSV, rating, OFFICIAL_START } from '../public/js/domain/sentiment.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
 import { readOptional, atomicWrite, preserveHistory, withDataLock } from './storage.mjs';
+import { loadHistoricalSupplement, mergeHistoricalSupplement } from './sentiment-history.mjs';
 
 export const DEFAULT_DATA_DIR = fileURLToPath(new URL('../public/data/', import.meta.url));
 export const ARCHIVE_URL =
@@ -90,6 +91,7 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
   const file = path.join(dataDir, 'fear-greed.csv');
   const saved = await readOptional(file);
   const previous = saved ? parseCSV(saved) : [];
+  const supplement = await loadHistoricalSupplement();
   const candidates = [];
   const warnings = [];
 
@@ -100,7 +102,9 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
       if (!previous.some(r => r.date < OFFICIAL_START)) {
         throw Error('缺少 2021 年以前历史存档，请先使用 archive 初始化');
       }
-      const rows = [...previous.filter(r => r.date < OFFICIAL_START), ...tail];
+      const rows = mergeHistoricalSupplement(
+        [...previous.filter(r => r.date < OFFICIAL_START), ...tail], supplement
+      );
       candidates.push({ rows, source: 'CNN' });
     } catch (error) {
       const code = error.message.match(/\b(401|403|418|429)\b/)?.[1];
@@ -114,7 +118,7 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
     (sentimentSource === 'auto' && (!candidates.length || candidates[0].rows.at(-1).date < expectedDate))
   ) {
     try {
-      const rows = parseCSV(await fetchText(ARCHIVE_URL));
+      const rows = mergeHistoricalSupplement(parseCSV(await fetchText(ARCHIVE_URL)), supplement);
       if (rows.at(-1).date > latestClosedSession(now, 0)) throw Error('指数包含未收盘日期');
       preserveHistory(previous, rows);
       candidates.push({ rows, source: 'whit3rabbit/fear-greed-data' });
@@ -148,10 +152,14 @@ async function run({
   now = Date.now(),
   wait = sleep,
   skipFresh = false,
+  sources = ['Fear & Greed', ...SYMBOLS],
   sentimentSource = process.env.FEAR_GREED_SOURCE || 'auto'
 }) {
   if (!['auto', 'cnn', 'archive'].includes(sentimentSource)) {
     throw Error('FEAR_GREED_SOURCE 必须为 auto、cnn 或 archive');
+  }
+  if (!sources.length || sources.some(symbol => !['Fear & Greed', ...SYMBOLS].includes(symbol))) {
+    throw Error('更新来源无效');
   }
   const expectedDate = latestClosedSession(now);
   const checkedAt = new Date(now).toISOString();
@@ -162,6 +170,9 @@ async function run({
   const results = await Promise.all(
     ['Fear & Greed', ...SYMBOLS].map(async symbol => {
       const last = old?.results?.find(r => r.symbol === symbol);
+      if (!sources.includes(symbol)) {
+        return last || { symbol, ok: false, fresh: false, date: null, checkedAt: null };
+      }
       try {
         const current = await snapshot(dataDir, symbol);
         if (
@@ -214,7 +225,7 @@ async function run({
     version: 1,
     checkedAt,
     expectedDate,
-    complete: results.every(r => r.ok && r.fresh),
+    complete: results.filter(r => sources.includes(r.symbol)).every(r => r.ok && r.fresh),
     results
   };
   await atomicWrite(path.join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');

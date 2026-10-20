@@ -106,7 +106,7 @@ export function sessionClose(date) {
   return Date.parse(date + `T${String((early ? 13 : 16) + 17 - nyHour).padStart(2, '0')}:00:00Z`);
 }
 
-export function latestClosedSession(now = Date.now(), graceMinutes = 60) {
+export function latestClosedSession(now = Date.now(), graceMinutes = 3) {
   let date = nyDate(now);
   for (let i = 0; i < 20; i++, date = shift(date, -1)) {
     if (isTradingDay(date) && now >= sessionClose(date) + graceMinutes * 60000) {

@@ -1,0 +1,177 @@
+{
+  "description": "2020-06-05 至 2020-07-09 逐日对齐；仅 supplement=true 的日期作为固定历史补缺。两源同属一个数据谱系，不构成独立认证。",
+  "sources": {
+    "alexey": "https://github.com/whit3rabbit/fear-greed-data/blob/main/datasets/alexey-formalmethods_fear_greed_data.csv",
+    "hackingthemarkets": "https://github.com/whit3rabbit/fear-greed-data/blob/main/datasets/hackingthemarkets_fear_greed_data.csv"
+  },
+  "rows": [
+    {
+      "date": "2020-06-05",
+      "alexey": 66,
+      "hackingthemarkets": 66,
+      "snapshotScore": 66,
+      "supplement": false
+    },
+    {
+      "date": "2020-06-08",
+      "alexey": 67,
+      "hackingthemarkets": 67,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-09",
+      "alexey": 67,
+      "hackingthemarkets": 67,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-10",
+      "alexey": 67,
+      "hackingthemarkets": 67,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-11",
+      "alexey": 56,
+      "hackingthemarkets": 56,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-12",
+      "alexey": 54,
+      "hackingthemarkets": 54,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-15",
+      "alexey": 53,
+      "hackingthemarkets": 53,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-16",
+      "alexey": 52,
+      "hackingthemarkets": 52,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-17",
+      "alexey": 52,
+      "hackingthemarkets": 52,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-18",
+      "alexey": 51,
+      "hackingthemarkets": 51,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-19",
+      "alexey": 52,
+      "hackingthemarkets": 52,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-22",
+      "alexey": 52,
+      "hackingthemarkets": 52,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-23",
+      "alexey": 52,
+      "hackingthemarkets": 52,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-24",
+      "alexey": 48,
+      "hackingthemarkets": 48,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-25",
+      "alexey": 49,
+      "hackingthemarkets": 49,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-26",
+      "alexey": 45,
+      "hackingthemarkets": 45,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-29",
+      "alexey": 48,
+      "hackingthemarkets": 48,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-06-30",
+      "alexey": 47,
+      "hackingthemarkets": 47,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-07-01",
+      "alexey": 48,
+      "hackingthemarkets": 48,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-07-02",
+      "alexey": 50,
+      "hackingthemarkets": 50,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-07-06",
+      "alexey": 51,
+      "hackingthemarkets": 51,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-07-07",
+      "alexey": 49,
+      "hackingthemarkets": 49,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-07-08",
+      "alexey": 52,
+      "hackingthemarkets": 52,
+      "snapshotScore": null,
+      "supplement": true
+    },
+    {
+      "date": "2020-07-09",
+      "alexey": 53,
+      "hackingthemarkets": 53,
+      "snapshotScore": 53,
+      "supplement": false
+    }
+  ]
+}

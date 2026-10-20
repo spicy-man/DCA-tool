@@ -7,7 +7,7 @@
     {
       "symbol": "Fear & Greed",
       "date": "2026-10-19",
-      "count": 3949,
+      "count": 3971,
       "source": "whit3rabbit/fear-greed-data",
       "warning": "CNN 接口返回 418",
       "ok": true,
