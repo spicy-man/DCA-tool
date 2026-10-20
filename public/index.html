@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="only light">
   <meta name="theme-color" content="#f5f6fa">
-  <meta name="description" content="查看 VOO / QQQ / VGT 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。">
+  <meta name="description" content="查看 SPY / QQQ / VGT 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。">
   <title>定投助手</title>
   <link rel="icon" type="image/svg+xml" href="./logo.svg?v=dca">
   <style>
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.5.3">
+  <link rel="stylesheet" href="./style.css?v=1.6.0">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.5.3">v1.5.3</span>
+        <span class="version-badge" aria-label="版本 1.6.0">v1.6.0</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
       <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
@@ -51,11 +51,11 @@
         <div class="chart-heading">
           <div>
             <div class="price-title-row">
-              <h2 id="price-title" class="sr-only">VOO · 前复权 K 线</h2>
+              <h2 id="price-title" class="sr-only">SPY · 前复权 K 线</h2>
               <label class="symbol-control">
                 <span class="sr-only">ETF 标的</span>
                 <select id="symbol" aria-label="ETF 标的">
-                  <option value="VOO">VOO · 标普 500</option>
+                  <option value="SPY">SPY · 标普 500</option>
                   <option value="QQQ">QQQ · 纳斯达克 100</option>
                   <option value="VGT">VGT · 信息技术 ETF</option>
                 </select>
@@ -144,6 +144,10 @@
                 <option value="24">近 2 年</option>
                 <option value="custom" hidden>自定义</option>
                 <option value="60">近 5 年</option>
+                <option value="120">近 10 年</option>
+                <option value="180">近 15 年</option>
+                <option value="240">近 20 年</option>
+                <option value="sentiment" title="从恐慌与贪婪指数首条记录至最新行情">FNG起始至今</option>
                 <option value="all">全部历史</option>
               </select>
             </label>
@@ -186,7 +190,7 @@
             </table>
           </div>
           <button id="price-download">导出行情 CSV</button>
-          <a id="price-source" class="price-source" href="https://finance.yahoo.com/quote/VOO/history/" target="_blank" rel="noreferrer">Yahoo Finance ↗</a>
+          <a id="price-source" class="price-source" href="https://finance.yahoo.com/quote/SPY/history/" target="_blank" rel="noreferrer">Yahoo Finance ↗</a>
 
           <section class="strategy-details" aria-labelledby="strategy-heading">
             <h3 id="strategy-heading">近月回撤金字塔买入信号</h3>
@@ -360,7 +364,7 @@
     <div id="floating-charts-header" class="floating-charts-header">
       <div class="floating-charts-identity">
         <select id="floating-charts-symbol" aria-label="小窗 ETF 标的">
-          <option value="VOO">VOO</option>
+          <option value="SPY">SPY</option>
           <option value="QQQ">QQQ</option>
           <option value="VGT">VGT</option>
         </select>

@@ -132,7 +132,7 @@ test('摘要使用完整历史状态和选区统计，数据失效时清除旧�
   const signals = calculatePyramidSignals(rows).map(signal => ({ ...signal, type: 'monthly' }));
   const settings = { buyDay: 1, baseAmount: 1000, fearThreshold: 10 };
   const fear = evaluateFearStrategy(rows, [{ date: '2026-02-02', score: 9 }]);
-  const data = { symbol: 'VOO', rows };
+  const data = { symbol: 'SPY', rows };
   renderStrategySummary(data, { start: '2026-01-01', end: '2026-02-28' }, settings, signals, fear);
   assert.equal(text('funding-total'), '2,000.00（2N）');
   assert.equal(text('recent-signal'), '2026-02-02');

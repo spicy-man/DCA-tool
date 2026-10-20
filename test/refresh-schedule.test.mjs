@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { scheduledSources } from '../server/refresh-schedule.mjs';
 
-const all = ['Fear & Greed', 'VOO', 'QQQ', 'VGT'];
+const all = ['Fear & Greed', 'SPY', 'QQQ', 'VGT'];
 const etfs = all.slice(1);
 const slot = (hour, weekday = '*') => `3 ${hour} * * ${weekday}`;
 

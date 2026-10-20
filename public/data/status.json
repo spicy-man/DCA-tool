@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-20T13:31:10.503Z",
+  "checkedAt": "2026-10-20T14:20:26.249Z",
   "expectedDate": "2026-10-19",
   "complete": true,
   "results": [
@@ -13,20 +13,19 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T13:31:10.503Z",
-      "lastSuccessAt": "2026-10-20T13:31:10.503Z"
+      "checkedAt": "2026-10-20T14:12:22.069Z",
+      "lastSuccessAt": "2026-10-20T14:12:22.069Z"
     },
     {
-      "symbol": "VOO",
+      "symbol": "SPY",
       "date": "2026-10-19",
-      "count": 4052,
+      "count": 8488,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T07:46:51.723Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
-      "skipped": true
+      "checkedAt": "2026-10-20T14:20:26.249Z",
+      "lastSuccessAt": "2026-10-20T14:20:26.249Z"
     },
     {
       "symbol": "QQQ",
@@ -36,9 +35,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T07:46:51.723Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
-      "skipped": true
+      "checkedAt": "2026-10-20T14:12:22.069Z",
+      "lastSuccessAt": "2026-10-20T14:12:22.069Z"
     },
     {
       "symbol": "VGT",
@@ -48,9 +46,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T07:46:51.723Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
-      "skipped": true
+      "checkedAt": "2026-10-20T14:12:22.069Z",
+      "lastSuccessAt": "2026-10-20T14:12:22.069Z"
     }
   ]
 }

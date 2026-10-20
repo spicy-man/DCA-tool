@@ -1,5 +1,5 @@
 @echo off
 pushd "%~dp0"
-node server.mjs
+node server.mjs --open
 popd
 pause

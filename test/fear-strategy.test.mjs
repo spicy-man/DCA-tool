@@ -41,9 +41,9 @@ test('拒绝非法阈值、金额、分数及无序数据',()=>{
  assert.throws(()=>calculateFearSignals([],series([16,9]).reverse()));
  assert.throws(()=>calculateFearSignals(market(['2025-01-02','2025-01-01']),[]));
 });
-test('真实VOO/QQQ/VGT历史信号与可知日期一致，截断未来行情不改变已执行信号',async()=>{
+test('真实SPY/QQQ/VGT历史信号与可知日期一致，截断未来行情不改变已执行信号',async()=>{
  const sentiment=parseCSV(await readFile(new URL('../public/data/fear-greed.csv',import.meta.url),'utf8'));
- for(const symbol of ['voo','qqq','vgt']){
+ for(const symbol of ['spy','qqq','vgt']){
   const {rows}=JSON.parse(await readFile(new URL('../public/data/'+symbol+'.json',import.meta.url),'utf8'));
   const signals=calculateFearSignals(rows,sentiment);assert.ok(signals.length>0);
   for(const signal of signals){assert.ok(signal.score<10);assert.ok(signal.previousScore>=10);assert.equal(rows.find(r=>r.date>signal.signalDate).date,signal.date);}

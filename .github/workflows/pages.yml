@@ -28,19 +28,22 @@ on:
         type: boolean
         default: true
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 concurrency:
   group: pages-and-data
   cancel-in-progress: false
+  queue: max
 jobs:
   schedule:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       sources: ${{ steps.gate.outputs.sources }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -52,18 +55,25 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             node scripts/refresh-schedule.mjs >> "$GITHUB_OUTPUT"
           else
-            echo 'sources=Fear & Greed,VOO,QQQ,VGT' >> "$GITHUB_OUTPUT"
+            echo 'sources=Fear & Greed,SPY,QQQ,VGT' >> "$GITHUB_OUTPUT"
           fi
   publish:
     needs: schedule
-    if: needs.schedule.outputs.sources != ''
+    if: github.ref == 'refs/heads/main' && needs.schedule.outputs.sources != ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Queued runs and retries use current code and snapshots.
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -84,17 +94,17 @@ jobs:
           fi
       - name: Save valid snapshots and source status
         id: save
-        continue-on-error: true
         run: |
+          node scripts/check-deploy-head.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/data/fear-greed.csv public/data/voo.json public/data/qqq.json public/data/vgt.json
+          git add public/data/fear-greed.csv public/data/spy.json public/data/qqq.json public/data/vgt.json
           if [ -f public/data/status.json ]; then
             git add public/data/status.json
           fi
           if ! git diff --cached --quiet; then
             git commit -m 'Update market snapshots and freshness status'
-            git push
+            git push origin HEAD:refs/heads/main
           fi
       - name: Build static site
         run: node scripts/build-site.mjs
@@ -103,14 +113,16 @@ jobs:
         with:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
+      - name: Verify main has not advanced before deployment
+        run: node scripts/check-deploy-head.mjs
       - name: Deploy valid data including failure status
         id: deployment
         uses: actions/deploy-pages@v4
         with:
           artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Report incomplete update or persistence failure
-        if: steps.update.outcome == 'failure' || steps.save.outcome == 'failure'
+      - name: Report incomplete source update
+        if: steps.update.outcome == 'failure'
         run: |
           node -e "const s=JSON.parse(require('fs').readFileSync('public/data/status.json','utf8')); for(const r of s.results) if(!r.ok || !r.fresh) console.log(r.symbol + ': ' + (r.message || r.error || '数据未到齐'));"
-          echo 'Sources are incomplete or snapshots could not be saved. Inspect data/status.json and the preceding steps.'
+          echo 'Sources are incomplete. Inspect data/status.json and the preceding steps.'
           exit 1

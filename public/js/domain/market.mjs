@@ -1,6 +1,6 @@
 import { latestClosedSession, periodKey } from './trading-calendar.mjs';
 
-export const SYMBOLS = ['VOO', 'QQQ', 'VGT'];
+export const SYMBOLS = ['SPY', 'QQQ', 'VGT'];
 
 const dateNY = timestamp =>
   new Date(timestamp * 1000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });

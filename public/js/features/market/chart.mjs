@@ -39,12 +39,12 @@ export async function loadMarket(force = false) {
     if (force || !store.has(symbol)) {
       const data = await loadMarketSnapshot(symbol);
       store.set(symbol, data);
-      appEvents.dispatchEvent(
-        new CustomEvent(events.marketCalendar, { detail: data.rows.map(r => r.date) })
-      );
     }
     if (id !== requestID) return;
     loading = false;
+    appEvents.dispatchEvent(
+      new CustomEvent(events.marketCalendar, { detail: store.get(symbol).rows.map(r => r.date) })
+    );
     renderMarket(settings);
   } catch (error) {
     if (id !== requestID) return;

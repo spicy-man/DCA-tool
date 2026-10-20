@@ -140,14 +140,14 @@ export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossD
   return visible.length ? plot : null;
 }
 
-export function drawOverview(canvas, rows) {
+export function drawOverview(canvas, rows, bounds = null) {
   const { c, w, h } = chartContext(canvas);
   if (!rows.length) return;
   c.strokeStyle = '#91a8b5';
   c.lineWidth = 0.8;
   c.beginPath();
-  const start = Date.parse(rows[0].date);
-  const span = Date.parse(rows.at(-1).date) - start;
+  const start = bounds?.start ?? Date.parse(rows[0].date);
+  const span = (bounds?.end ?? Date.parse(rows.at(-1).date)) - start;
   rows.forEach((r, i) => {
     const x = span > 0 ? ((Date.parse(r.date) - start) / span) * w : w / 2;
     const y = 3 + ((100 - r.score) / 100) * (h - 6);

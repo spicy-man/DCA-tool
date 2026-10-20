@@ -31,11 +31,34 @@ export function initApplication() {
   let customWindow = null;
   let lastPreset = '12';
   let marketCalendar = [];
+  let calendar = [];
 
   const bounds = () => ({
-    start: Date.parse(rows[0].date),
-    end: Date.parse(rows.at(-1).date)
+    start: Date.parse(calendar[0]?.date),
+    end: Date.parse(calendar.at(-1)?.date)
   });
+
+  function syncCalendar() {
+    const previousEnd = calendar.at(-1)?.date;
+    const followLatest = !windowRange || windowRange.end === previousEnd;
+    const marketStart = marketCalendar[0];
+    const marketEnd = marketCalendar.at(-1);
+    calendar = [...new Set([...rows.map(row => row.date), ...marketCalendar])]
+      .filter(date => !marketCalendar.length || (date >= marketStart && date <= marketEnd))
+      .sort().map(date => ({ date }));
+    if (!calendar.length) return;
+    const limits = bounds();
+    if (customWindow) {
+      const span = customWindow.end - customWindow.start;
+      customWindow = constrainWindow(followLatest
+        ? { start: limits.end - span, end: limits.end }
+        : customWindow, limits);
+    }
+    $('timeline').min = limits.start;
+    $('timeline').max = limits.end;
+    $('timeline').value = customWindow?.end ?? (followLatest
+      ? limits.end : Math.max(limits.start, Math.min(limits.end, Date.parse(windowRange.end))));
+  }
 
   function draw() {
     plot = drawSentiment($('chart'), {
@@ -51,7 +74,7 @@ export function initApplication() {
   function mini() {
     for (const [canvasID, timelineID] of [['mini', 'timeline'], ['backtest-mini', 'backtest-timeline']]) {
       const canvas = $(canvasID);
-      drawOverview(canvas, rows);
+      drawOverview(canvas, rows, bounds());
       if (!windowRange || !rows.length) continue;
       const state = navigatorState({
         start: Date.parse(windowRange.start),
@@ -69,21 +92,19 @@ export function initApplication() {
   function render() {
     if (!rows.length) return;
     const end = iso(Number($('timeline').value));
-    const raw = customWindow
-      ? rows.filter(r => r.date >= iso(customWindow.start) && r.date <= iso(customWindow.end))
-      : selectRange(rows, $('range').value, end);
+    const selected = customWindow
+      ? calendar.filter(r => r.date >= iso(customWindow.start) && r.date <= iso(customWindow.end))
+      : $('range').value === 'sentiment'
+        ? calendar.filter(r => r.date >= rows[0].date && r.date <= end)
+        : selectRange(calendar, $('range').value, end);
 
     windowRange = {
-      start: customWindow ? iso(customWindow.start) : raw[0]?.date || end,
-      end: customWindow ? iso(customWindow.end) : raw.at(-1)?.date || end,
+      start: customWindow ? iso(customWindow.start) : selected[0]?.date || end,
+      end: customWindow ? iso(customWindow.end) : selected.at(-1)?.date || end,
       frequency: $('frequency').value
     };
-    windowRange.calendar = [
-      ...new Set([
-        ...raw.map(r => r.date),
-        ...marketCalendar.filter(date => date >= windowRange.start && date <= windowRange.end)
-      ])
-    ].sort();
+    windowRange.calendar = selected.map(row => row.date);
+    const raw = rows.filter(row => row.date >= windowRange.start && row.date <= windowRange.end);
 
     visible = aggregate(raw, $('frequency').value);
     hover = -1;
@@ -140,10 +161,8 @@ export function initApplication() {
 
   async function load() {
     rows = await loadSentimentRows();
+    syncCalendar();
     setSignalSentiment(rows);
-    $('timeline').min = Date.parse(rows[0].date);
-    $('timeline').max = Date.parse(rows.at(-1).date);
-    $('timeline').value = Date.parse(rows.at(-1).date);
     render();
     await loadHealth();
   }
@@ -151,6 +170,7 @@ export function initApplication() {
   $('range').addEventListener('change', () => {
     if ($('range').value === 'custom') return;
     lastPreset = $('range').value;
+    if (lastPreset === 'sentiment') $('timeline').value = bounds().end;
     customWindow = null;
     render();
   });
@@ -173,7 +193,7 @@ export function initApplication() {
       const span = customWindow.end - customWindow.start;
       customWindow = constrainWindow({ start: bounds().end - span, end: bounds().end }, bounds());
     }
-    $('timeline').value = Date.parse(rows.at(-1).date);
+    $('timeline').value = bounds().end;
     render();
   });
 
@@ -296,7 +316,7 @@ export function initApplication() {
   function resetWindow() {
     customWindow = null;
     $('range').value = lastPreset;
-    $('timeline').value = Date.parse(rows.at(-1).date);
+    $('timeline').value = bounds().end;
     render();
   }
 
@@ -313,7 +333,8 @@ export function initApplication() {
   }
 
   appEvents.addEventListener(events.marketCalendar, event => {
-    marketCalendar = [...new Set([...marketCalendar, ...event.detail])].sort();
+    marketCalendar = [...new Set(event.detail)].sort();
+    syncCalendar();
     if (rows.length) render();
   });
 

@@ -1419,6 +1419,7 @@ footer {
 
   .price-wrap .chart-toolbar #range {
     width: 98px;
+    font-size: 10px;
     min-width: 0;
   }
 

@@ -24,7 +24,7 @@ function reference(rows,buyDay,n){
  return output;
 }
 
-test('VOO/QQQ 真实历史对照独立逐日参考计算，覆盖 6 种定投日且不使用未来数据',async()=>{for(const symbol of ['voo','qqq']){const data=JSON.parse(await readFile(new URL('../public/data/'+symbol+'.json',import.meta.url),'utf8'));for(const buyDay of [1,15,28,29,30,31]){const signals=calculatePyramidSignals(data.rows,{buyDay,baseAmount:123.45});assert.deepEqual(signals.map(({date,multiple,amount})=>({date,multiple,amount})),reference(data.rows,buyDay,123.45));const months=signals.map(s=>s.scheduledMonth);assert.equal(new Set(months).size,months.length);const prefix=data.rows.slice(0,1000);assert.deepEqual(calculatePyramidSignals(prefix,{buyDay,baseAmount:123.45}),signals.filter(s=>s.date<=prefix.at(-1).date));}}});
+test('SPY/QQQ 真实历史对照独立逐日参考计算，覆盖 6 种定投日且不使用未来数据',async()=>{for(const symbol of ['spy','qqq']){const data=JSON.parse(await readFile(new URL('../public/data/'+symbol+'.json',import.meta.url),'utf8'));for(const buyDay of [1,15,28,29,30,31]){const signals=calculatePyramidSignals(data.rows,{buyDay,baseAmount:123.45});assert.deepEqual(signals.map(({date,multiple,amount})=>({date,multiple,amount})),reference(data.rows,buyDay,123.45));const months=signals.map(s=>s.scheduledMonth);assert.equal(new Set(months).size,months.length);const prefix=data.rows.slice(0,1000);assert.deepEqual(calculatePyramidSignals(prefix,{buyDay,baseAmount:123.45}),signals.filter(s=>s.date<=prefix.at(-1).date));}}});
 
 test('二月底休市：28 至 31 日均保留二月顺延及三月原定买入',()=>{
  for(const buyDay of [28,29,30,31]){

@@ -72,7 +72,7 @@ function render() {
       $('backtest-results').append(tr);
     }
     const sentiment = context.sentiment;
-    const coverage = sentiment.length ? '指数记录覆盖 ' + sentiment[0].date + ' — ' + sentiment.at(-1).date + '，缺失日期不补造。' : '暂无指数数据，恐慌加投未参与。';
+    const coverage = sentiment.length ? '指数记录覆盖 ' + sentiment[0].date + ' — ' + sentiment.at(-1).date + '，缺失日期不补造；指数覆盖前的区间不触发恐慌加投。' : '暂无指数数据，恐慌加投未参与。';
     const funding = mode === 'equal'
       ? '三组在组合策略每次买入时获得相同资金；未使用资金按 3% 年化、实际天数／365 复利计息（含周末休市），利息计入资产与收益。'
       : '各策略投入金额不同，期末资产更高不代表收益率更高。';

@@ -99,9 +99,9 @@ test('恒价入金不产生盈利或回撤；拒绝无序行情及无效金额',
   assert.throws(() => compareStrategies({ ...input, monthlySignals: [{ date: rows[0].date, amount: NaN }] }));
 });
 
-test('真实VOO/QQQ/VGT资产与独立买入求和一致，截断未来不改历史账户轨迹', async () => {
+test('真实SPY/QQQ/VGT资产与独立买入求和一致，截断未来不改历史账户轨迹', async () => {
   const sentiment = parseCSV(await readFile(new URL('../public/data/fear-greed.csv', import.meta.url), 'utf8'));
-  for (const symbol of ['voo', 'qqq', 'vgt']) {
+  for (const symbol of ['spy', 'qqq', 'vgt']) {
     const { rows: daily } = JSON.parse(await readFile(new URL('../public/data/' + symbol + '.json', import.meta.url), 'utf8'));
     const monthly = calculatePyramidSignals(daily, { buyDay: 31, baseAmount: 100 });
     const fear = calculateFearSignals(daily, sentiment, { baseAmount: 100 });
