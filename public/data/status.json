@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-20T01:37:08.345Z",
+  "checkedAt": "2026-10-20T01:42:42.852Z",
   "expectedDate": "2026-10-19",
   "complete": true,
   "results": [
@@ -13,8 +13,9 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:37:08.345Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
+      "checkedAt": "2026-10-20T01:42:42.852Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
+      "skipped": true
     },
     {
       "symbol": "VOO",
@@ -24,8 +25,9 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:37:08.345Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
+      "checkedAt": "2026-10-20T01:42:42.852Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
+      "skipped": true
     },
     {
       "symbol": "QQQ",
@@ -35,8 +37,9 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:37:08.345Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
+      "checkedAt": "2026-10-20T01:42:42.852Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
+      "skipped": true
     },
     {
       "symbol": "VGT",
@@ -46,8 +49,9 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:37:08.345Z",
-      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
+      "checkedAt": "2026-10-20T01:42:42.852Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z",
+      "skipped": true
     }
   ]
 }
