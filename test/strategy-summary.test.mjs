@@ -1,10 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeFunding, nextMonthlyPlan } from '../public/js/domain/strategy-summary.mjs';
+import { summarizeFunding, nextMonthlyPlan, estimateMonthlyBuy } from '../public/js/domain/strategy-summary.mjs';
 import { evaluateFearStrategy, calculateFearSignals } from '../public/js/domain/fear-strategy.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
 
 const market = dates => dates.map(date => ({ date, high: 100, close: 100 }));
+
+test('预计买入按最新完整行情的近月回撤估算，复用档位边界且不受过期高点影响', () => {
+  assert.equal(estimateMonthlyBuy([], 1000), null);
+  for (const [close, multiple] of [[100, 1], [95.01, 1], [95, 2], [90, 4], [85, 6], [1, 38]]) {
+    const rows = [
+      { date: '2026-01-01', high: 1000, close: 1000 },
+      { date: '2026-02-28', high: 100, close: 100 },
+      { date: '2026-03-31', high: 100, close }
+    ];
+    const result = estimateMonthlyBuy(rows, 123.45);
+    assert.equal(result.date, '2026-03-31');
+    assert.equal(result.multiple, multiple);
+    assert.equal(result.amount, 123.45 * multiple);
+  }
+});
 
 test('执行月合计顺延月度及同日恐慌信号，月均包含零投入月份', () => {
   const rows = market(['2026-01-30', '2026-02-02', '2026-02-27', '2026-03-02', '2026-03-31']);
@@ -64,6 +79,17 @@ test('休市待执行计划保留所属月份，顺延执行后才推进', () =>
   assert.equal(nextMonthlyPlan(rows, calculatePyramidSignals(rows, { buyDay: 31 }), 31).scheduledDate, '2026-03-31');
 });
 
+test('预计定投日顺延周末及交易所节假日，保留原计划日', () => {
+  const october = market(['2026-10-19']);
+  const sunday = nextMonthlyPlan(october, calculatePyramidSignals(october, { buyDay: 25 }), 25);
+  assert.equal(sunday.scheduledDate, '2026-10-25');
+  assert.equal(sunday.expectedDate, '2026-10-26');
+  const december = market(['2026-12-21']);
+  const christmas = nextMonthlyPlan(december, calculatePyramidSignals(december, { buyDay: 25 }), 25);
+  assert.equal(christmas.scheduledDate, '2026-12-25');
+  assert.equal(christmas.expectedDate, '2026-12-28');
+});
+
 test('恐慌状态与原信号共用下穿和重置规则，未确认执行不计入投入', () => {
   const rows = market(['2026-01-02', '2026-01-05']);
   const sentiment = [
@@ -110,6 +136,7 @@ test('摘要使用完整历史状态和选区统计，数据失效时清除旧�
   renderStrategySummary(data, { start: '2026-01-01', end: '2026-02-28' }, settings, signals, fear);
   assert.equal(text('funding-total'), '2,000.00（2N）');
   assert.equal(text('recent-signal'), '2026-02-02');
+  assert.equal(text('next-plan-estimate'), '预计买入 1N · 1,000.00');
   renderStrategySummary(data, { start: '2026-01-01', end: '2026-01-31' }, settings, signals, fear);
   assert.equal(text('funding-total'), '1,000.00（1N）');
   assert.equal(text('recent-signal'), '2026-02-02');
@@ -119,6 +146,7 @@ test('摘要使用完整历史状态和选区统计，数据失效时清除旧�
   renderStrategySummary(null, null, settings);
   assert.equal(text('funding-total'), '—');
   assert.equal(text('next-plan'), '等待行情数据');
+  assert.equal(text('next-plan-estimate'), '');
   assert.equal(text('fear-state-note'), '');
 });
 

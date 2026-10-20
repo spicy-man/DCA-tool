@@ -1,6 +1,18 @@
-import { daysInMonth } from './pyramid-strategy.mjs';
+import { daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
+import { isTradingDay } from './trading-calendar.mjs';
 
-// The next unrepresented monthly plan, not a forecast execution date.
+// Estimate using today's completed data; the future signal can change with prices.
+export function estimateMonthlyBuy(rows, baseAmount) {
+  if (!rows.length) return null;
+  const latest = rows.at(-1);
+  const cutoff = previousMonthCutoff(latest.date);
+  const monthHigh = Math.max(...rows.filter(row => row.date >= cutoff).map(row => row.high));
+  const drawdown = Math.max(0, 1 - latest.close / monthHigh);
+  const { multiple } = pyramidMultiple(drawdown);
+  return { date: latest.date, drawdown, multiple, amount: baseAmount * multiple };
+}
+
+// Next unrepresented monthly plan and its calendar estimate, subject to available data.
 export function nextMonthlyPlan(rows, monthlySignals, buyDay) {
   if (!rows.length) return null;
   const last = monthlySignals.at(-1);
@@ -10,9 +22,15 @@ export function nextMonthlyPlan(rows, monthlySignals, buyDay) {
     if (month === 13) { year++; month = 1; }
   }
   const scheduledMonth = year + '-' + String(month).padStart(2, '0');
+  const scheduledDate = scheduledMonth + '-' + String(Math.min(buyDay, daysInMonth(year, month))).padStart(2, '0');
+  let expectedDate = scheduledDate;
+  while (!isTradingDay(expectedDate)) {
+    expectedDate = new Date(Date.parse(expectedDate + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
+  }
   return {
     scheduledMonth,
-    scheduledDate: scheduledMonth + '-' + String(Math.min(buyDay, daysInMonth(year, month))).padStart(2, '0')
+    scheduledDate,
+    expectedDate
   };
 }
 

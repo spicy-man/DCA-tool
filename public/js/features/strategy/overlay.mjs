@@ -98,7 +98,7 @@ export function signalTooltipRows(signal) {
       ['指数信号日', signal.signalDate],
       ['F&G 下穿', signal.previousScore.toFixed(2) + ' → ' + signal.score.toFixed(2)],
       ['触发 / 重置', signal.fearThreshold + ' / ' + signal.rearmThreshold],
-      ['买入倍数', signal.multiple + ' × N'],
+      ['买入（N）', signal.multiple + 'N'],
       ['投入金额', amountFormatted]
     ];
   }
@@ -108,7 +108,7 @@ export function signalTooltipRows(signal) {
     ['计划定投日', signal.scheduledDate],
     ['近月高点', signal.monthHigh.toFixed(2)],
     ['距高点回撤', (signal.drawdown * 100).toFixed(2) + '%'],
-    ['买入倍数', signal.multiple + ' × N'],
+    ['买入（N）', signal.multiple + 'N'],
     ['投入金额', amountFormatted]
   ];
 }
@@ -170,13 +170,13 @@ export function drawSignalMarkers(frame) {
     marker.type = 'button';
     marker.className =
       'buy-marker' + (p.signal.type === 'fear' ? ' is-fear' : '') + (dense ? ' is-compact' : '');
-    marker.textContent = 'Buy ' + p.signal.multiple + 'x';
+    marker.textContent = 'buy ' + p.signal.multiple + 'N';
     marker.dataset.date = p.signal.date;
     marker.dataset.type = p.signal.type;
     marker.dataset.multiple = p.signal.multiple;
     marker.setAttribute(
       'aria-label',
-      `${p.signal.date} ${p.signal.type === 'fear' ? '恐慌加投' : '月度定投'} 买入 ${p.signal.multiple} 倍，${p.signal.amount.toFixed(2)}`
+      `${p.signal.date} ${p.signal.type === 'fear' ? '恐慌加投' : '月度定投'} 买入 ${p.signal.multiple}N，${p.signal.amount.toFixed(2)}`
     );
     marker.style.left = p.x + 'px';
     marker.style.top = (floating
@@ -220,7 +220,7 @@ function renderSignalTable() {
             ? '恐慌加投 · F&G ' + signal.score.toFixed(2)
             : '月度定投 · ' + signal.scheduledMonth,
           signal.type === 'fear' ? '—' : (signal.drawdown * 100).toFixed(2) + '%',
-          signal.multiple + '×',
+          signal.multiple + 'N',
           signal.amount.toLocaleString('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -258,7 +258,7 @@ function apply() {
     return;
   }
   if (!Number.isSafeInteger(fearBuyCount) || fearBuyCount < 1 || !Number.isFinite(baseAmount * fearBuyCount)) {
-    $('signal-error').textContent = '恐慌加投笔数须为不小于 1 的整数，且加投金额须在可计算范围内';
+    $('signal-error').textContent = '恐慌加投倍数须为不小于 1 的整数，且加投金额须在可计算范围内';
     return;
   }
   $('signal-error').textContent = '';

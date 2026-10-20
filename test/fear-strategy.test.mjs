@@ -61,7 +61,7 @@ test('恐慌加投笔数按次放大金额，保留原触发日期与重置规�
  assert.equal(scaled.length,2);
  assert.ok(scaled.every(s=>s.multiple===3&&Math.abs(s.amount-370.35)<1e-9));
  assert.ok(defaults.every(s=>s.multiple===1&&s.amount===123.45));
- assert.ok(signalTooltipRows(scaled[0]).some(([key,value])=>key==='买入倍数'&&value==='3 × N'));
+ assert.ok(signalTooltipRows(scaled[0]).some(([key,value])=>key==='买入（N）'&&value==='3N'));
  const pending=evaluateFearStrategy(market(['2025-01-01','2025-01-02']),series([16,9]),{baseAmount:123.45,fearBuyCount:3});
  assert.equal(pending.signals.length,0);
  assert.ok(Math.abs(pending.pending[0].amount-370.35)<1e-9);

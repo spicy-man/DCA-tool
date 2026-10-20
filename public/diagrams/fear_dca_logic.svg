@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1490" viewBox="0 0 1120 1490" role="img" aria-labelledby="title desc">
 <title id="title">恐慌买入逻辑：下穿加投，回升重置</title>
-<desc id="desc">F&amp;G 日终指数由不低于阈值跌至阈值下方，按所设笔数额外买入，默认 1 × N。触发后回升至阈值加 5 才能再次触发。在指数日期之后的首个可用 ETF 交易日展示信号，与月度定投独立累加。</desc>
+<desc id="desc">F&amp;G 日终指数由不低于阈值跌至阈值下方，按所设倍数加投，默认 1N。触发后回升至阈值加 5 才能再次触发。在指数日期之后的首个可用 ETF 交易日展示信号，与月度定投独立累加。</desc>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#73889a"/></marker>
   <marker id="tealArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#2878b3"/></marker>
@@ -17,13 +17,13 @@
 <rect width="1120" height="1490" fill="#f3f6f8"/>
 <rect x="56" y="50" width="6" height="76" rx="3" fill="#2878b3"/>
 <text x="82" y="85" class="title">恐慌买入 · 加投逻辑</text>
-<text x="82" y="119" class="subtitle">下穿才买 · 加投笔数可调 · 回升后重置</text>
+<text x="82" y="119" class="subtitle">下穿才买 · 加投倍数可调 · 回升后重置</text>
 <rect x="838" y="62" width="226" height="40" rx="20" fill="#e5eff9"/>
 <text x="951" y="88" text-anchor="middle" font-size="16">默认阈值：10</text>
 <rect class="card" x="56" y="184" width="280" height="174" rx="16"/>
 <text x="80" y="218" class="number">独立的额外买入</text>
 <text x="80" y="254" class="heading">蓝色买入信号</text>
-<text x="80" y="287" class="body">每次投入 笔数 × N</text>
+<text x="80" y="287" class="body">每次投入 倍数 × N</text>
 <text x="80" y="318" class="small">与绿色月度定投独立累加</text>
 <rect class="card" x="390" y="184" width="674" height="160" rx="16"/>
 <text x="418" y="216" class="number">01 / 读取每日已公布指数</text>
@@ -39,7 +39,7 @@
 <path class="line" d="M727 566 V604"/>
 <rect x="390" y="608" width="674" height="184" rx="16" fill="#e5eff9" stroke="#ccdeef" stroke-width="1.5"/>
 <text x="418" y="641" class="number">03 / 后续交易日额外买入</text>
-<text x="418" y="681" class="heading">加投金额 = 笔数 × N</text>
+<text x="418" y="681" class="heading">加投金额 = 倍数 × N</text>
 <text x="418" y="717" class="body">指数日期之后的首个可用 ETF 交易日展示</text>
 <text x="418" y="759" class="small">没有后续完整行情时，暂不生成买入</text>
 <path class="line" d="M727 792 V830"/>
@@ -58,7 +58,7 @@
 <text x="806" y="1254" class="small">重置后，回到步骤 02</text>
 <rect x="56" y="440" width="280" height="470" rx="16" fill="#edf2f5" stroke="#dbe3e8"/>
 <text x="80" y="479" class="heading">触发与重置示例</text>
-<text x="80" y="519" class="small">以阈值 10、1 笔为例</text>
+<text x="80" y="519" class="small">以阈值 10、1N为例</text>
 <text x="80" y="565" class="body">12 → 9：下穿</text>
 <text x="80" y="597" class="money">买入一次 N</text>
 <path d="M80 622 H312" stroke="#d0dae1"/>
@@ -71,7 +71,7 @@
 <text x="80" y="864" class="small">先重置，再等待新的下穿</text>
 <rect x="56" y="1300" width="1008" height="134" rx="14" fill="#e7edf1"/>
 <text x="80" y="1337" class="heading">月度定投 + 恐慌加投，可以同日发生</text>
-<text x="80" y="1375" class="body">例如月投 4N，恐慌加投设为 2 笔，总投入为 6N。</text>
+<text x="80" y="1375" class="body">例如月投 4N，恐慌加投 2N，总投入为 6N。</text>
 <text x="80" y="1408" class="small">恐慌加投不占月度定投次数，也不受每月一次限制。</text>
-<text x="56" y="1463" class="small">N = 主图基准投入金额 · K = 主图 F&amp;G 加投阈值</text>
+<text x="56" y="1463" class="small">N = 设置中的定投金额 · K = 主图 F&amp;G 加投阈值</text>
 </svg>

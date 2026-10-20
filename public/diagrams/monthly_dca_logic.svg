@@ -92,5 +92,5 @@
 <rect x="56" y="1330" width="1008" height="104" rx="14" fill="#e7edf1"/>
 <text x="80" y="1365" font-size="17" font-weight="700">成交口径 · 收盘后确认月度信号，在后续首个交易日开盘成交。</text>
 <text x="80" y="1395" class="small">图表及资金需求按信号日统计；回测按成交日计入，区间末未成交信号不买入。</text>
-<text x="56" y="1463" class="small">N = 每月基础投入金额 · 月度金字塔与恐慌加投独立计算</text>
+<text x="56" y="1463" class="small">N = 设置中的定投金额 · 月度金字塔与恐慌加投独立计算</text>
 </svg>

@@ -15,7 +15,7 @@ export function evaluateFearStrategy(rows, sentiment, { baseAmount = 1000, fearT
     throw Error('恐慌阈值须大于 0 且不超过 95，N 须不小于 0.01');
   }
   if (!Number.isSafeInteger(fearBuyCount) || fearBuyCount < 1 || !Number.isFinite(baseAmount * fearBuyCount)) {
-    throw Error('恐慌加投笔数须为不小于 1 的整数，且加投金额须在可计算范围内');
+    throw Error('恐慌加投倍数须为不小于 1 的整数，且加投金额须在可计算范围内');
   }
   const amount = baseAmount * fearBuyCount;
   for (let i = 0; i < rows.length; i++) {
