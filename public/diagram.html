@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>策略原图</title>
+  <style>
+    body { margin: 0; background: #f3f6f8; }
+    main { height: 100vh; height: 100dvh; display: flex; align-items: center; justify-content: center; }
+    img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
+  </style>
+</head>
+<body>
+  <main>
+    <img id="diagram" alt="策略逻辑原图" hidden>
+  </main>
+  <script type="module">
+    import { initDiagramViewer } from './js/ui/diagram-viewer.mjs';
+    initDiagramViewer();
+  </script>
+</body>
+</html>

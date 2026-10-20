@@ -9,7 +9,7 @@ import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 const $ = id => document.getElementById(id);
 const storageKey = 'seeker.pyramid.v1';
 const cache = new WeakMap();
-const defaults = { buyDay: 1, baseAmount: 1000, enabled: true, fearThreshold: 10, fearBuyCount: 1 };
+const defaults = { buyDay: 1, baseAmount: 2000, enabled: true, fearThreshold: 10, fearBuyCount: 3 };
 
 let state = { ...defaults };
 let current = [];
@@ -290,7 +290,7 @@ export function initStrategyOverlay() {
         ...saved,
         enabled: saved.enabled !== false,
         fearBuyCount: Number.isSafeInteger(saved.fearBuyCount) && saved.fearBuyCount >= 1 && Number.isFinite(saved.baseAmount * saved.fearBuyCount)
-          ? saved.fearBuyCount : 1,
+          ? saved.fearBuyCount : defaults.fearBuyCount,
         fearThreshold:
           Number.isFinite(saved.fearThreshold) && saved.fearThreshold > 0 && saved.fearThreshold <= 95
             ? saved.fearThreshold

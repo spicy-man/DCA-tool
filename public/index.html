@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.5.0">
+  <link rel="stylesheet" href="./style.css?v=1.5.1">
 </head>
 <body>
   <div class="shell">
@@ -21,10 +21,10 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.5.0">v1.5.0</span>
+        <span class="version-badge" aria-label="版本 1.5.1">v1.5.1</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
-      <span id="updated" class="updated">正在读取数据…</span>
+      <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
       <label class="header-layout">布局
         <select id="layout">
           <option value="standard">紧凑</option>
@@ -107,13 +107,13 @@
               </select>
             </label>
             <label>定投金额（N）
-              <input id="base-amount" aria-label="定投金额（N）" title="1N = 一次基础定投金额" type="number" min="0.01" step="any" value="1000" inputmode="decimal">
+              <input id="base-amount" aria-label="定投金额（N）" title="1N = 一次基础定投金额" type="number" min="0.01" step="any" value="2000" inputmode="decimal">
             </label>
             <label>恐慌指数加投阈值
               <input id="fear-threshold" title="跌破此值按所设倍数加投；回升至阈值 +5 后重置" aria-label="恐慌指数加投阈值" type="number" min="0.01" max="95" step="any" value="10" inputmode="decimal">
             </label>
             <label>恐慌加投倍数
-              <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；填 3 表示一次加投 3N，与月度定投独立累加" type="number" min="1" step="1" value="1" inputmode="numeric">
+              <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；填 3 表示一次加投 3N，与月度定投独立累加" type="number" min="1" step="1" value="3" inputmode="numeric">
             </label>
             <label class="signal-toggle">
               <input id="signals-enabled" type="checkbox" checked>买入信号
@@ -378,7 +378,7 @@
     <div class="strategy-dialog-heading">
       <h2 id="strategy-dialog-title">定投策略 · 逻辑说明</h2>
       <div class="strategy-dialog-actions">
-        <button type="button" id="strategy-diagram-zoom" aria-pressed="false">放大查看</button>
+        <button type="button" id="strategy-diagram-original" title="在两个新标签页中分别打开月度定投和恐慌加投原图">查看原图</button>
         <button type="button" id="strategy-dialog-close" aria-label="关闭策略说明">关闭</button>
       </div>
     </div>

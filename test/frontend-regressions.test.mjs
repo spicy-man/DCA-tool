@@ -4,6 +4,7 @@ import { drawSentiment } from '../public/js/charts/sentiment.mjs';
 import { setSignalSentiment, updateSignals, drawSignalMarkers, initStrategyOverlay, signalSettings } from '../public/js/features/strategy/overlay.mjs';
 import { appEvents, events } from '../public/js/services/events.mjs';
 import { loadMarket, invalidateMarket } from '../public/js/features/market/chart.mjs';
+import { initStrategyDialog } from '../public/js/ui/strategy-dialog.mjs';
 
 function element() {
   return {
@@ -83,9 +84,36 @@ test('恐慌阈值 input 即时生效，无需失焦', t => {
   globalThis.localStorage = { getItem: () => null, setItem() {} };
   t.after(() => { globalThis.localStorage = oldStorage; });
   initStrategyOverlay();
+  assert.equal(Number($('base-amount').value), 2000);
+  assert.equal(Number($('fear-buy-count').value), 3);
+  assert.equal(signalSettings().baseAmount, 2000);
+  assert.equal(signalSettings().fearBuyCount, 3);
   $('fear-threshold').value = '12';
   $('fear-threshold').listeners.input();
   assert.equal(signalSettings().fearThreshold, 12);
+});
+
+test('查看原图一次打开两个独立标签页，保留策略弹窗', t => {
+  const $ = dom(t);
+  const oldWindow = globalThis.window;
+  const opened = [];
+  globalThis.window = { open: (...args) => opened.push(args) };
+  t.after(() => { globalThis.window = oldWindow; });
+  const images = ['monthly_dca_logic.svg', 'fear_dca_logic.svg'].map(name => ({ src: 'https://example.com/diagrams/' + name }));
+  const scroll = element();
+  $('strategy-dialog').querySelector = () => scroll;
+  $('strategy-dialog').querySelectorAll = selector => {
+    assert.equal(selector, '.strategy-diagram-scroll img');
+    return images;
+  };
+  initStrategyDialog();
+  $('strategy-diagram-original').listeners.click();
+  assert.deepEqual(opened, images.map(img => {
+    const viewer = new URL('../public/diagram.html', import.meta.url);
+    viewer.searchParams.set('image', new URL(img.src).pathname.split('/').at(-1));
+    return [viewer.href, '_blank', 'noopener,noreferrer'];
+  }));
+  assert.equal($('strategy-dialog').open, true);
 });
 
 test('QQQ 首次加载及强制刷新均派发最新交易日历', async t => {

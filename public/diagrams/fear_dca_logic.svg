@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1490" viewBox="0 0 1120 1490" role="img" aria-labelledby="title desc">
 <title id="title">恐慌买入逻辑：下穿加投，回升重置</title>
-<desc id="desc">F&amp;G 日终指数由不低于阈值跌至阈值下方，按所设倍数加投，默认 1N。触发后回升至阈值加 5 才能再次触发。在指数日期之后的首个可用 ETF 交易日展示信号，与月度定投独立累加。</desc>
+<desc id="desc">F&amp;G 日终指数由不低于阈值跌至阈值下方，按所设倍数加投，默认 3N。触发后回升至阈值加 5 才能再次触发。在指数日期之后的首个可用 ETF 交易日展示信号，与月度定投独立累加。</desc>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#73889a"/></marker>
   <marker id="tealArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#2878b3"/></marker>

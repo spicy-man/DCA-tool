@@ -31,9 +31,6 @@ export function initStrategyDialog() {
 
   strategyDialog.addEventListener('close', () => {
     document.body.classList.remove('strategy-dialog-open');
-    diagramScroll.classList.remove('is-zoomed');
-    $('strategy-diagram-zoom').textContent = '放大查看';
-    $('strategy-diagram-zoom').setAttribute('aria-pressed', 'false');
     diagramScroll.scrollTo(0, 0);
     strategyDialog.querySelectorAll('.strategy-diagram-scroll').forEach(panel => panel.scrollTo(0, 0));
   });
@@ -46,9 +43,11 @@ export function initStrategyDialog() {
     }
   });
 
-  $('strategy-diagram-zoom').addEventListener('click', event => {
-    const zoomed = diagramScroll.classList.toggle('is-zoomed');
-    event.currentTarget.textContent = zoomed ? '适应窗口' : '放大查看';
-    event.currentTarget.setAttribute('aria-pressed', String(zoomed));
+  $('strategy-diagram-original').addEventListener('click', () => {
+    strategyDialog.querySelectorAll('.strategy-diagram-scroll img').forEach(img => {
+      const viewer = new URL('../../diagram.html', import.meta.url);
+      viewer.searchParams.set('image', new URL(img.src).pathname.split('/').at(-1));
+      window.open(viewer.href, '_blank', 'noopener,noreferrer');
+    });
   });
 }

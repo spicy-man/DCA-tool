@@ -102,7 +102,6 @@ export function initApplication() {
       $('rating').textContent = '当前区间无指数记录';
     }
 
-    $('updated').textContent = '指数数据截至 ' + formatDate(rows.at(-1).date);
     $('date-range').textContent = formatDate(windowRange.start) + ' – ' + formatDate(windowRange.end);
     $('sample-note').textContent =
       $('frequency').value === 'daily'
