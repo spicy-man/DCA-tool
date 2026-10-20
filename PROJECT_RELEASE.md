@@ -5,7 +5,7 @@
 ## 版本与记录
 
 - package.json 的 version 是唯一版本来源。
-- 修改版本后运行 node scripts/sync-version.mjs。同步 public/index.html 的版本徽标、无障碍标签及 CSS 入口版本参数，以及 CHANGELOG.md 顶部版本声明与北京时间日期。
+- 修改版本后运行 node scripts/sync-version.mjs。同步 public/index.html 的版本徽标、无障碍标签及 CSS 入口版本参数，及 public/style.css 中各组件样式的版本参数，以及 CHANGELOG.md 顶部版本声明与北京时间日期。
 - package-lock.json 仅在已有文件时同步顶层及 packages[""].version；当前零 npm 依赖，不为版本管理单独创建锁文件。
 - CHANGELOG.md 新版本条目由维护者编写，最新条目必须匹配 package.json。顶部格式：目前系统版本为 **v{VERSION}** (更新日期: {YYYY-MM-DD})。
 - 新条目置于历史版本之前，标题示例：## ✨ v1.2.0 简要标题 [NEW]。新功能使用 ✨ / [NEW]，修复或小优化使用 🔧 / [FIX]，不兼容变更使用 💥 / [BREAKING]。
