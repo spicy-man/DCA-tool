@@ -65,10 +65,25 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
   const file = path.join(dataDir, symbol.toLowerCase() + '.json');
   const saved = await readOptional(file);
   const previous = saved ? JSON.parse(saved) : null;
-  const next = normalizeYahoo(JSON.parse(await fetchText(yahooURL(symbol))), symbol, now);
+  const payload = JSON.parse(await fetchText(yahooURL(symbol)));
+  const next = normalizeYahoo(payload, symbol, now);
+  const result = payload.chart.result[0];
+  const latest = latestClosedSession(now, 0);
+  const incompleteDates = (result.timestamp || []).flatMap((timestamp, i) => {
+    const date = new Date(timestamp * 1000).toLocaleDateString('en-CA', {
+      timeZone: 'America/New_York'
+    });
+    const quote = result.indicators.quote[0];
+    const values = [quote.open?.[i], quote.high?.[i], quote.low?.[i], quote.close?.[i],
+      result.indicators.adjclose[0].adjclose?.[i]];
+    return date <= latest && values.some(v => v == null) ? [date] : [];
+  });
   if (previous) preserveHistory(previous.rows, next.rows);
   await atomicWrite(file, JSON.stringify(next));
-  return { date: next.anchorDate, count: next.rows.length, source: 'Yahoo Finance' };
+  return { date: next.anchorDate, count: next.rows.length, source: 'Yahoo Finance',
+    ...(incompleteDates.length ? {
+      warning: 'Yahoo 日线价格或复权价格缺失：' + incompleteDates.slice(-5).join('、')
+    } : {}) };
 }
 
 async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimentSource }) {
@@ -76,6 +91,7 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
   const saved = await readOptional(file);
   const previous = saved ? parseCSV(saved) : [];
   const candidates = [];
+  const warnings = [];
 
   if (sentimentSource !== 'archive') {
     try {
@@ -86,7 +102,9 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
       }
       const rows = [...previous.filter(r => r.date < OFFICIAL_START), ...tail];
       candidates.push({ rows, source: 'CNN' });
-    } catch {
+    } catch (error) {
+      const code = error.message.match(/\b(401|403|418|429)\b/)?.[1];
+      warnings.push(code ? 'CNN 接口返回 ' + code : 'CNN 不可用或历史校验未通过');
       if (sentimentSource === 'cnn') throw Error('CNN 更新失败，已保留本地数据');
     }
   }
@@ -110,7 +128,8 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
   candidates.sort((a, b) => b.rows.at(-1).date.localeCompare(a.rows.at(-1).date));
   const { rows, source } = candidates[0];
   await atomicWrite(file, csv(rows));
-  return { date: rows.at(-1).date, count: rows.length, source };
+  return { date: rows.at(-1).date, count: rows.length, source,
+    ...(warnings.length ? { warning: warnings.join('；') } : {}) };
 }
 
 export function refreshAll(options = {}) {
@@ -163,6 +182,10 @@ async function run({
           ...value,
           ok: true,
           fresh: value.date >= expectedDate,
+          ...(value.date < expectedDate ? {
+            message: (value.warning ? value.warning + '；' : '') +
+              '来源有效数据截至 ' + value.date + '，尚缺 ' + expectedDate + ' 的完整数据'
+          } : {}),
           expectedDate,
           checkedAt,
           lastSuccessAt: checkedAt

@@ -8,7 +8,8 @@ export function healthSummary(status, now = Date.now()) {
   const names = { 'Fear & Greed': '恐慌与贪婪指数' };
   const lines = status.results.map(r => {
     const fresh = !!r.date && r.date >= expected;
-    const suffix = !r.ok ? '（最近更新失败）' : !fresh ? '（等待更新）' : '';
+    const suffix = !r.ok ? '（最近更新失败）' : !fresh
+      ? (r.expectedDate === expected && r.message ? '（来源数据未到齐，等待更新）' : '（等待更新）') : '';
     return `${names[r.symbol] || r.symbol}：${r.date || '无数据'}${suffix}`;
   });
   const time = status.checkedAt

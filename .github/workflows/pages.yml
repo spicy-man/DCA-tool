@@ -67,12 +67,16 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
       - name: Deploy valid data including failure status
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Report incomplete update or persistence failure
         if: steps.update.outcome == 'failure' || steps.save.outcome == 'failure'
         run: |
+          node -e "const s=JSON.parse(require('fs').readFileSync('public/data/status.json','utf8')); for(const r of s.results) if(!r.ok || !r.fresh) console.log(r.symbol + ': ' + (r.message || r.error || '数据未到齐'));"
           echo 'Sources are incomplete or snapshots could not be saved. Inspect data/status.json and the preceding steps.'
           exit 1

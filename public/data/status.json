@@ -1,52 +1,53 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-20T01:30:02.813Z",
+  "checkedAt": "2026-10-20T01:37:08.345Z",
   "expectedDate": "2026-10-19",
-  "complete": false,
+  "complete": true,
   "results": [
     {
       "symbol": "Fear & Greed",
-      "date": "2026-10-16",
-      "count": 3948,
+      "date": "2026-10-19",
+      "count": 3949,
       "source": "whit3rabbit/fear-greed-data",
+      "warning": "CNN 接口返回 418",
       "ok": true,
-      "fresh": false,
+      "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:30:02.813Z",
-      "lastSuccessAt": "2026-10-20T01:30:02.813Z"
+      "checkedAt": "2026-10-20T01:37:08.345Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
     },
     {
       "symbol": "VOO",
-      "date": "2026-10-16",
-      "count": 4051,
+      "date": "2026-10-19",
+      "count": 4052,
       "source": "Yahoo Finance",
       "ok": true,
-      "fresh": false,
+      "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:30:02.813Z",
-      "lastSuccessAt": "2026-10-20T01:30:02.813Z"
+      "checkedAt": "2026-10-20T01:37:08.345Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
     },
     {
       "symbol": "QQQ",
-      "date": "2026-10-16",
-      "count": 6945,
+      "date": "2026-10-19",
+      "count": 6946,
       "source": "Yahoo Finance",
       "ok": true,
-      "fresh": false,
+      "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:30:02.813Z",
-      "lastSuccessAt": "2026-10-20T01:30:02.813Z"
+      "checkedAt": "2026-10-20T01:37:08.345Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
     },
     {
       "symbol": "VGT",
-      "date": "2026-10-16",
-      "count": 5715,
+      "date": "2026-10-19",
+      "count": 5716,
       "source": "Yahoo Finance",
       "ok": true,
-      "fresh": false,
+      "fresh": true,
       "expectedDate": "2026-10-19",
-      "checkedAt": "2026-10-20T01:30:02.813Z",
-      "lastSuccessAt": "2026-10-20T01:30:02.813Z"
+      "checkedAt": "2026-10-20T01:37:08.345Z",
+      "lastSuccessAt": "2026-10-20T01:37:08.345Z"
     }
   ]
 }

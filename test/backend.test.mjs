@@ -56,6 +56,39 @@ test('HTTP 成功但仍是昨天的数据，任务不得宣称已到齐',async t
  const status=await refreshAll({...opts(d),sentimentSource:'archive',fetchText:async url=>url===ARCHIVE_URL?csv(dates.slice(0,2)):JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1),dates.slice(0,2)))});
  assert.equal(status.complete,false);assert.ok(status.results.every(r=>r.ok&&!r.fresh));
  assert.match(healthSummary(status,now),/等待更新/);
+ assert.ok(status.results.every(r=>r.message.includes('2025-01-06')));
+});
+
+test('已收盘日价格为空：保留有效历史，明确缺失日期，不用即时价格补齐',async t=>{
+ const d=await dir(t);await seed(d);
+ const status=await refreshAll({...opts(d),fetchText:async url=>{
+  if(!url.includes('/VOO?'))return source(url);
+  const payload=yahoo('VOO');const result=payload.chart.result[0];
+  result.meta.regularMarketPrice=123;
+  result.indicators.quote[0].close[2]=null;
+  result.indicators.adjclose[0].adjclose[2]=null;
+  return JSON.stringify(payload);
+ }});
+ const voo=status.results.find(r=>r.symbol==='VOO');
+ assert.equal(status.complete,false);assert.equal(voo.ok,true);assert.equal(voo.fresh,false);
+ assert.equal(voo.date,'2025-01-03');assert.match(voo.message,/Yahoo 日线价格或复权价格缺失：2025-01-06/);
+ const saved=JSON.parse(await readFile(path.join(d,'voo.json'),'utf8'));
+ assert.equal(saved.rows.length,2);assert.equal(saved.rows.at(-1).sourceClose,100);
+ assert.match(healthSummary(status,now),/来源数据未到齐/);
+ assert.doesNotMatch(healthSummary(status,Date.parse('2025-01-07T23:00Z')),/来源数据未到齐/);
+});
+
+test('CNN 被拒且备用存档滞后时保留两项诊断，不把抓取成功当作数据已更新',async t=>{
+ const d=await dir(t);await seed(d);
+ const status=await refreshAll({...opts(d),fetchText:async url=>{
+  if(url===CNN_URL)throw Error('数据接口返回 418');
+  if(url===ARCHIVE_URL)return csv(dates.slice(0,2));
+  return source(url);
+ }});
+ const sentiment=status.results[0];
+ assert.equal(status.complete,false);assert.equal(sentiment.ok,true);assert.equal(sentiment.fresh,false);
+ assert.match(sentiment.message,/CNN 接口返回 418/);
+ assert.match(sentiment.message,/来源有效数据截至 2025-01-03/);
 });
 test('CNN 不可用自动回退存档，不重复尝试被拒接口',async t=>{
  const d=await dir(t);await seed(d);let calls=0;
