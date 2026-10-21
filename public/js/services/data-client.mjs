@@ -1,4 +1,5 @@
 import { parseCSV } from '../domain/sentiment.mjs';
+import { filterMarketHistory } from '../domain/market.mjs';
 
 // URLs resolve relative to the page, so both localhost and GitHub Pages subpaths work.
 export async function loadSentimentRows() {
@@ -12,6 +13,8 @@ export async function loadMarketSnapshot(symbol) {
   if (!response.ok) throw Error('本地行情尚未就绪，请点击“更新数据”');
   const data = await response.json();
   if (data.symbol !== symbol || !data.rows?.length) throw Error('行情文件格式无效');
+  data.rows = filterMarketHistory(symbol, data.rows);
+  if (!data.rows.length) throw Error('暂无当前基金改制后的有效行情');
   return data;
 }
 

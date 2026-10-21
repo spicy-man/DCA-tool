@@ -1,15 +1,31 @@
 import { latestClosedSession, periodKey } from './trading-calendar.mjs';
 
-export const SYMBOLS = ['SPY', 'QQQ', 'VGT'];
+export const SYMBOLS = ['SPY', 'QQQ', 'VGT', 'SMH'];
+
+// VanEck's ETF replaced Semiconductor HOLDRS on 2011-12-20.
+export const HISTORY_STARTS = { SMH: '2011-12-20' };
+export function filterMarketHistory(symbol, rows) {
+  return HISTORY_STARTS[symbol] ? rows.filter(row => row.date >= HISTORY_STARTS[symbol]) : rows;
+}
+
+export function validSymbol(symbol) {
+  return typeof symbol === 'string' && /^[A-Z][A-Z0-9]{0,9}(?:[.-][A-Z0-9]{1,4})?$/.test(symbol) &&
+    !/^(?:STATUS|CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\.|$)/.test(symbol);
+}
 
 const dateNY = timestamp =>
   new Date(timestamp * 1000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
 export function normalizeYahoo(payload, symbol, now = Date.now()) {
-  if (!SYMBOLS.includes(symbol)) throw Error('Unsupported symbol');
+  if (!validSymbol(symbol)) throw Error('Unsupported symbol');
   const result = payload?.chart?.result?.[0];
   if (payload?.chart?.error || result?.meta?.symbol !== symbol || result.meta.currency !== 'USD') {
     throw Error('Yahoo 行情标识或币种不匹配');
+  }
+  if (!SYMBOLS.includes(symbol) &&
+      (!['EQUITY', 'ETF'].includes(result.meta.instrumentType) ||
+       !['America/New_York', 'US/Eastern'].includes(result.meta.exchangeTimezoneName))) {
+    throw Error('仅支持使用美股交易日历的美元股票或 ETF');
   }
   const quote = result.indicators?.quote?.[0];
   const adjusted = result.indicators?.adjclose?.[0]?.adjclose;
@@ -25,7 +41,7 @@ export function normalizeYahoo(payload, symbol, now = Date.now()) {
   for (let i = 0; i < result.timestamp.length; i++) {
     const date = dateNY(result.timestamp[i]);
     if (
-      date > latest ||
+      (HISTORY_STARTS[symbol] && date < HISTORY_STARTS[symbol]) || date > latest ||
       (date === today && session && dateNY(session.end) === today && now < session.end * 1000)
     ) {
       continue;

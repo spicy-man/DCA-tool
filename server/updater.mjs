@@ -2,7 +2,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fetchPublicText, yahooURL } from './network.mjs';
-import { normalizeYahoo, SYMBOLS } from '../public/js/domain/market.mjs';
+import { normalizeYahoo, SYMBOLS, validSymbol, filterMarketHistory, HISTORY_STARTS } from '../public/js/domain/market.mjs';
+import { readCustomSymbols } from './symbols.mjs';
 import { parseCSV, rating, OFFICIAL_START } from '../public/js/domain/sentiment.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
 import { readOptional, atomicWrite, preserveHistory, withDataLock } from './storage.mjs';
@@ -63,7 +64,7 @@ async function snapshot(dataDir, symbol) {
   }
   const data = JSON.parse(text);
   if (data.symbol !== symbol || !data.rows?.length) throw Error('本地行情格式无效');
-  return { date: data.anchorDate, count: data.rows.length };
+  return { date: data.anchorDate, count: filterMarketHistory(symbol, data.rows).length };
 }
 
 async function updateETF(symbol, { dataDir, fetchText, now }) {
@@ -81,9 +82,9 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
     const quote = result.indicators.quote[0];
     const values = [quote.open?.[i], quote.high?.[i], quote.low?.[i], quote.close?.[i],
       result.indicators.adjclose[0].adjclose?.[i]];
-    return date <= latest && values.some(v => v == null) ? [date] : [];
+    return date <= latest && (!HISTORY_STARTS[symbol] || date >= HISTORY_STARTS[symbol]) && values.some(v => v == null) ? [date] : [];
   });
-  if (previous) preserveHistory(previous.rows, next.rows);
+  if (previous) preserveHistory(filterMarketHistory(symbol, previous.rows), next.rows);
   await atomicWrite(file, JSON.stringify(next));
   return { date: next.anchorDate, count: next.rows.length, source: 'Yahoo Finance',
     ...(incompleteDates.length ? {
@@ -166,19 +167,41 @@ export function refreshAll(options = {}) {
   return promise;
 }
 
+export async function addCustomSymbol(symbol, options = {}) {
+  if (!validSymbol(symbol)) throw Error('请输入有效的美股代码，例如 VOO、AAPL 或 BRK-B');
+  const dataDir = path.resolve(options.dataDir || DEFAULT_DATA_DIR);
+  return withDataLock(dataDir, async () => {
+    const symbols = await readCustomSymbols(dataDir);
+    if (SYMBOLS.includes(symbol) || symbols.includes(symbol)) return { symbol, symbols };
+    if (symbols.length >= 30) throw Error('自定义标的最多支持 30 个');
+    try {
+      await updateETF(symbol, { dataDir, fetchText: options.fetchText || fetchPublicText,
+        now: options.now ?? Date.now() });
+    } catch {
+      throw Error('无法添加：请确认代码有效、属于美元美股股票或 ETF，并检查行情数据源连接');
+    }
+    symbols.push(symbol);
+    await atomicWrite(path.join(dataDir, 'custom-symbols.json'), JSON.stringify(symbols) + '\n');
+    return { symbol, symbols };
+  });
+}
+
 async function run({
   dataDir,
   fetchText = fetchPublicText,
   now = Date.now(),
   wait = sleep,
   skipFresh = false,
-  sources = ['Fear & Greed', ...SYMBOLS],
+  sources,
   sentimentSource = process.env.FEAR_GREED_SOURCE || 'auto'
 }) {
+  const symbols = [...SYMBOLS, ...await readCustomSymbols(dataDir)];
+  sources = sources ? [...new Set([...sources,
+    ...(SYMBOLS.every(s => sources.includes(s)) ? symbols : [])])] : ['Fear & Greed', ...symbols];
   if (!['auto', 'cnn', 'archive'].includes(sentimentSource)) {
     throw Error('FEAR_GREED_SOURCE 必须为 auto、cnn 或 archive');
   }
-  if (!sources.length || sources.some(symbol => !['Fear & Greed', ...SYMBOLS].includes(symbol))) {
+  if (!sources.length || sources.some(symbol => !['Fear & Greed', ...symbols].includes(symbol))) {
     throw Error('更新来源无效');
   }
   const expectedDate = latestClosedSession(now);
@@ -188,7 +211,7 @@ async function run({
   const context = { dataDir, fetchText, now, expectedDate, sentimentSource, wait };
 
   const results = await Promise.all(
-    ['Fear & Greed', ...SYMBOLS].map(async symbol => {
+    ['Fear & Greed', ...symbols].map(async symbol => {
       const last = old?.results?.find(r => r.symbol === symbol);
       if (!sources.includes(symbol)) {
         return last || { symbol, ok: false, fresh: false, date: null, checkedAt: null };

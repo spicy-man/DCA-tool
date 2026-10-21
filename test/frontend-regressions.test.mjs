@@ -71,6 +71,25 @@ test('ticker 切换后刷新恢复，失效偏好及存储异常不阻断初始�
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(saved.get('seeker.symbol.v1'), 'VGT');
   assert.ok(requests.some(url => url.includes('vgt.json')));
+  // An ordinary switch reuses the cache; re-adding must use the new snapshot.
+  let dates;
+  const calendarListener = event => { dates = event.detail; };
+  appEvents.addEventListener(events.marketCalendar, calendarListener);
+  t.after(() => appEvents.removeEventListener(events.marketCalendar, calendarListener));
+  const count = requests.length;
+  t.mock.method(globalThis, 'fetch', async url => {
+    requests.push(url);
+    return { ok: true, json: async () => ({ ...data, symbol: 'VGT',
+      rows: [...rows, { ...rows[0], date: '2025-01-07' }] }) };
+  });
+  $('symbol').listeners.change();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests.length, count);
+  assert.equal(dates.at(-1), '2025-01-06');
+  $('symbol').listeners.change({ detail: { forceRefresh: true } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests.length, count + 1);
+  assert.equal(dates.at(-1), '2025-01-07');
   $('symbol').value = 'SPY';
   initMarketChart();
   assert.equal($('symbol').value, 'VGT');

@@ -1,11 +1,11 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { SYMBOLS } from '../public/js/domain/market.mjs';
+import { validSymbol } from '../public/js/domain/market.mjs';
 
 const run = promisify(execFile);
 
 export function yahooURL(symbol) {
-  if (!SYMBOLS.includes(symbol)) throw Error('Unsupported symbol');
+  if (!validSymbol(symbol)) throw Error('Unsupported symbol');
   return `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=0&period2=${Math.floor(Date.now() / 1000)}&interval=1d&events=div%2Csplits&includeAdjustedClose=true`;
 }
 

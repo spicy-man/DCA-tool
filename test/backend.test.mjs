@@ -125,7 +125,7 @@ test('已到齐的补抓跳过网络；手动更新仍请求各源',async t=>{
  const d=await dir(t);await seed(d);await refreshAll({...opts(d),fetchText:async url=>source(url)});
  const result=await refreshAll({...opts(d),skipFresh:true,fetchText:async()=>{throw Error('should not fetch');}});
  assert.equal(result.complete,true);assert.ok(result.results.every(r=>r.skipped));
- let calls=0;await refreshAll({...opts(d),fetchText:async url=>{calls++;return source(url);}});assert.equal(calls,4);
+ let calls=0;await refreshAll({...opts(d),fetchText:async url=>{calls++;return source(url);}});assert.equal(calls,SYMBOLS.length+1);
 });
 test('进程内合并并发；跨进程锁阻止第二个写入者，结束释放锁',async t=>{
  const d=await dir(t);await seed(d);let release;const gate=new Promise(r=>{release=r;});
@@ -160,7 +160,7 @@ test('K线第二轮强制请求并接收复权修订，不因日期已到齐跳�
   const payload=JSON.parse(source(url));payload.chart.result[0].indicators.adjclose[0].adjclose[0]=80;
   return JSON.stringify(payload);
  }});
- assert.equal(calls,3);assert.equal(status.complete,true);
+ assert.equal(calls,SYMBOLS.length);assert.equal(status.complete,true);
  assert.deepEqual(status.results[0],first.results[0]);
  const saved=JSON.parse(await readFile(path.join(d,'spy.json'),'utf8'));
  assert.ok(Math.abs(saved.rows[0].close-100*80/95)<1e-9);

@@ -8,14 +8,14 @@ import os from 'node:os';
 test('Actions 汇总区分部署、本轮与整体，数据未齐或更新异常均退出失败', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dca-report-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const file of ['scripts/report-data-status.mjs', 'public/js/domain/data-health.mjs', 'public/js/domain/trading-calendar.mjs']) {
+  for (const file of ['scripts/report-data-status.mjs', 'public/js/domain/data-health.mjs', 'public/js/domain/trading-calendar.mjs', 'public/js/domain/market.mjs']) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await copyFile(new URL('../' + file, import.meta.url), path.join(root, file));
   }
   await mkdir(path.join(root, 'public/data'), { recursive: true });
   const status = { checkedAt: '2026-10-20T23:35:37Z', expectedDate: '2026-10-20',
-    requestedSources: ['SPY', 'QQQ', 'VGT'], requestedComplete: true, complete: false,
-    results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT'].map(symbol => ({ symbol, ok: true,
+    requestedSources: ['SPY', 'QQQ', 'VGT', 'SMH'], requestedComplete: true, complete: false,
+    results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH'].map(symbol => ({ symbol, ok: true,
       date: symbol === 'Fear & Greed' ? '2026-10-19' : '2026-10-20', checkedAt: '2026-10-20T23:35:37Z' })) };
   const summary = path.join(root, 'summary.md');
   const run = outcome => spawnSync(process.execPath, [path.join(root, 'scripts/report-data-status.mjs')], {

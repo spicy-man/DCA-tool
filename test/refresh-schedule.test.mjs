@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { scheduledSources } from '../server/refresh-schedule.mjs';
 
-const all = ['Fear & Greed', 'SPY', 'QQQ', 'VGT'];
+const all = ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH'];
 const slot = (hour, weekday = '*') => `3 ${hour} * * ${weekday}`;
 
 test('正常收盘夏冬时均抓两轮K线；FNG按纽约时间每六小时独立更新', () => {

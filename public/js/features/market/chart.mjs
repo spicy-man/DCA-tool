@@ -342,7 +342,7 @@ export function initMarketChart() {
     hide();
   });
 
-  $('symbol').addEventListener('change', () => {
+  $('symbol').addEventListener('change', event => {
     try {
       localStorage.setItem(symbolStorageKey, symbolSelect.value);
     } catch {}
@@ -350,7 +350,8 @@ export function initMarketChart() {
     updateSignals(null, null);
     $('price-tooltip').hidden = true;
     drawPrice();
-    loadMarket();
+    // Re-adding a removed ticker downloads a new snapshot on the server.
+    loadMarket(event?.detail?.forceRefresh === true);
   });
 
   $('price-download').addEventListener('click', () => {

@@ -2,7 +2,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { refreshAll } from './updater.mjs';
+import { refreshAll, addCustomSymbol } from './updater.mjs';
+import { readCustomSymbols, removeCustomSymbol } from './symbols.mjs';
 
 const root = fileURLToPath(new URL('../public/', import.meta.url));
 const types = {
@@ -18,6 +19,7 @@ export function createServer({
   publicDir = root,
   dataDir = path.join(publicDir, 'data'),
   refresh = refreshAll,
+  addSymbol = addCustomSymbol,
   cooldownMs = 60000
 } = {}) {
   let active;
@@ -37,6 +39,46 @@ export function createServer({
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname === '/deployment.json') {
         send(200, { mode: 'local' });
+        return;
+      }
+
+      if (url.pathname === '/data/custom-symbols.json' && ['GET', 'HEAD'].includes(req.method)) {
+        send(200, await readCustomSymbols(dataDir));
+        return;
+      }
+
+      if (url.pathname === '/api/symbols') {
+        if (!['POST', 'DELETE'].includes(req.method)) {
+          res.setHeader('Allow', 'POST, DELETE');
+          send(405, { error: '仅支持 POST 或 DELETE' });
+          return;
+        }
+        if (req.headers['sec-fetch-site'] === 'cross-site' ||
+            (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host)) {
+          send(403, { error: '不允许跨站修改标的' });
+          return;
+        }
+        let body = '';
+        for await (const chunk of req) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 1024) {
+            send(413, { error: '请求内容过长' });
+            return;
+          }
+        }
+        let value;
+        try { value = JSON.parse(body); } catch {
+          send(400, { error: '请求格式无效' });
+          return;
+        }
+        const symbol = typeof value?.symbol === 'string' ? value.symbol.trim().toUpperCase() : '';
+        try {
+          const result = await (req.method === 'DELETE' ? removeCustomSymbol : addSymbol)(symbol, { dataDir });
+          lastResult = null;
+          send(200, result);
+        } catch (error) {
+          send(400, { error: error.message });
+        }
         return;
       }
 

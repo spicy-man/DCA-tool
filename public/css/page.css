@@ -15,6 +15,34 @@
   box-sizing: border-box;
 }
 
+#symbol-dialog {
+  width: min(440px, calc(100% - 32px));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  color: var(--navy);
+}
+#symbol-dialog::backdrop { background: rgb(25 55 74 / 35%); }
+#symbol-dialog h2 { margin-top: 0; font-size: 20px; }
+#symbol-dialog p { line-height: 1.7; }
+#custom-symbol {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  text-transform: uppercase;
+}
+#symbol-message { min-height: 24px; }
+.symbol-dialog-actions { display: flex; justify-content: flex-end; gap: 12px; }
+#add-symbol-hint[title] { cursor: not-allowed; }
+#add-symbol:disabled { pointer-events: none; color: var(--muted); background: #f1f3f5; }
+#custom-symbol-list { list-style: none; padding: 0; max-height: 240px; overflow-y: auto; }
+#custom-symbol-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+
 body {
   margin: 0;
   background-color: #f5f6fa;

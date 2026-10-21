@@ -1,4 +1,5 @@
 import { latestClosedSession } from './trading-calendar.mjs';
+import { SYMBOLS } from './market.mjs';
 
 const timeFormat = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -40,7 +41,9 @@ export function healthSummary(status, now = Date.now()) {
   if (tickerGroups.size) {
     lines.push([...tickerGroups].map(([detail, symbols]) => symbols.join(' / ') + '：' + detail).join(' · '));
   }
-  const complete = status.results.length === 4 && status.results.every(r => r.ok && r.date >= expected);
+  const complete = ['Fear & Greed', ...SYMBOLS].every(symbol =>
+    status.results.some(r => r.symbol === symbol)) &&
+    status.results.every(r => r.ok && r.date >= expected);
   return lines.join('。\n') + '。\n整体数据：' + (complete ? '已到齐' : '未全部到齐') +
     '；应有数据截至 ' + expected + '；时间均为纽约时间。';
 }
