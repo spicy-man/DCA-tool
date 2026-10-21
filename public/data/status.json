@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-21T05:06:27.407Z",
+  "checkedAt": "2026-10-21T06:15:59.745Z",
   "expectedDate": "2026-10-20",
   "requestedSources": [
     "Fear & Greed",
@@ -69,7 +69,8 @@
       "fresh": true,
       "expectedDate": "2026-10-20",
       "checkedAt": "2026-10-21T05:06:27.407Z",
-      "lastSuccessAt": "2026-10-21T05:06:27.407Z"
+      "lastSuccessAt": "2026-10-21T05:06:27.407Z",
+      "skipped": true
     }
   ]
 }
