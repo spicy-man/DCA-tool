@@ -151,7 +151,7 @@
 
 1. **ETF 行情**：通过接口获取 Yahoo Finance 每日数据，本地缓存于 `public/data/` 目录。
 2. **情绪指数**：
-   - 2021-02-01 至今：直接对接 CNN 官方日终接口；
+   - 2021-02-01 至今：直接对接 CNN 官方接口，每六小时重新获取，包含同日动态更新；
    - 2011-01-03 至 2021-01-29：采用开源社区 [whit3rabbit/fear-greed-data](https://github.com/whit3rabbit/fear-greed-data) 整理的历史存档。
 3. **数据更新机制**：本地内置独立抓取与调度器，交易日美股收盘后自动获取最新快照。详情参阅[数据更新与部署说明](docs/deployment.md)。
 

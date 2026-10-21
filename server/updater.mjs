@@ -18,29 +18,34 @@ export const CNN_URL =
 const pending = new Map();
 const csv = rows =>
   'Date,Fear Greed,Rating\n' +
-  rows.map(r => [r.date, r.score, rating(r.score)].join(',')).join('\n') +
+  rows.map(r => [r.date, r.score, r.label || rating(r.score)].join(',')).join('\n') +
   '\n';
 
-export function parseCNN(payload, now = Date.now()) {
+export function parseCNN(payload) {
   const entries = payload?.fear_and_greed_historical?.data;
   if (!Array.isArray(entries) || !entries.length) throw Error('CNN 缺少历史数据');
-  const latest = latestClosedSession(now, 0);
-  const text =
-    'Date,Fear Greed,Rating\n' +
-    entries
-      .map(r => {
-        if (!Number.isFinite(r.x) || !Number.isFinite(r.y)) throw Error('CNN 日期或分数无效');
-        // CNN historical x is a UTC date label, not a New York session timestamp.
-        // The official page appends an intraday timestamp after its UTC daily labels.
-        // Keep only the daily labels; never substitute the live point for a close.
-        if (r.x % 86400000 !== 0) return null;
-        return [new Date(r.x).toISOString().slice(0, 10), r.y, rating(r.y)].join(',');
-      })
-      .filter(Boolean)
-      .join('\n');
-  const rows = parseCSV(text).filter(r => r.date >= OFFICIAL_START && r.date <= latest);
-  if (!rows.length) throw Error('CNN 没有已收盘历史数据');
+  // Match fetch_cnn.py (UTC dates, including intraday points) followed by
+  // build_combined.py (stable date sort, keep the last entry for each date).
+  // Validate every entry before deduplication so a bad point cannot be hidden.
+  const byDate = new Map();
+  for (const entry of entries) {
+    if (!Number.isFinite(entry?.x) || !Number.isFinite(entry?.y) ||
+        !Number.isFinite(new Date(entry.x).getTime())) throw Error('CNN 日期或分数无效');
+    const date = new Date(entry.x).toISOString().slice(0, 10);
+    const [row] = parseCSV('Date,Fear Greed,Rating\n' +
+      [date, entry.y, entry.rating || rating(entry.y)].join(','));
+    if (date >= OFFICIAL_START) byDate.set(date, row);
+  }
+  const rows = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  if (!rows.length) throw Error('CNN 没有可用历史数据');
   return rows;
+}
+
+function validateSentimentAge(rows, now) {
+  const today = new Date(now).toISOString().slice(0, 10);
+  if ((Date.parse(today) - Date.parse(rows.at(-1).date)) / 86400000 > 7) {
+    throw Error('指数数据已超过 7 天未更新');
+  }
 }
 
 async function retry(task, wait) {
@@ -93,8 +98,22 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
 }
 
 function sourceFailure(name, error) {
-  const code = error.message.match(/\b(401|403|418|429)\b/)?.[1];
-  return code ? name + ' 接口返回 ' + code : name + ' 不可用或历史校验未通过';
+  const code = error.message.match(/\b([45]\d{2})\b/)?.[1];
+  if (code) return name + ' 接口返回 ' + code;
+  return name + (/timeout|timed out|超时/i.test(error.message) ? ' 请求超时' : ' 网络连接失败');
+}
+
+function validationFailure(name, error) {
+  // These diagnostics come from our parsers, never from an upstream response.
+  const reasons = new Set([
+    'CNN 缺少历史数据', 'CNN 日期或分数无效', 'CNN 没有可用历史数据',
+    'CSV 列名不匹配', 'CSV 数据无效或日期重复', '没有可用数据',
+    '上游缺失已有历史日期，已保留原数据', '指数数据已超过 7 天未更新',
+    '缺少 2021 年以前历史存档，请先使用 archive 初始化'
+  ]);
+  const reason = error instanceof SyntaxError ? '响应不是有效 JSON' :
+    reasons.has(error.message) ? error.message : '数据格式无效';
+  return name + ' 数据校验失败：' + reason;
 }
 
 function sentimentFailure(warnings) {
@@ -104,57 +123,70 @@ function sentimentFailure(warnings) {
   return error;
 }
 
-async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimentSource, wait }) {
+async function updateSentiment({ dataDir, fetchText, now, sentimentSource, wait }) {
   const file = path.join(dataDir, 'fear-greed.csv');
   const saved = await readOptional(file);
   const previous = saved ? parseCSV(saved) : [];
   const supplement = await loadHistoricalSupplement();
-  const candidates = [];
+  let selected;
+  let cnnNetworkFailed = false;
   const warnings = [];
 
   if (sentimentSource !== 'archive') {
+    let text;
     try {
-      const tail = parseCNN(JSON.parse(await retry(() => fetchText(CNN_URL), wait)), now);
-      // Keep earlier local history if CNN returns a shorter window, and
-      // reject missing dates inside the returned window.
-      preserveHistory(previous.filter(r => r.date >= tail[0].date), tail);
-      if (!previous.some(r => r.date < OFFICIAL_START)) {
-        throw Error('缺少 2021 年以前历史存档，请先使用 archive 初始化');
-      }
-      const rows = mergeHistoricalSupplement(
-        [...previous.filter(r => r.date < tail[0].date), ...tail], supplement
-      );
-      candidates.push({ rows, source: 'CNN' });
+      text = await retry(() => fetchText(CNN_URL), wait);
     } catch (error) {
+      cnnNetworkFailed = true;
       warnings.push(sourceFailure('CNN', error));
       if (sentimentSource === 'cnn') throw sentimentFailure(warnings);
+    }
+    if (!cnnNetworkFailed) {
+      try {
+        const tail = parseCNN(JSON.parse(text), now);
+        // Keep earlier local history if CNN returns a shorter window, and
+        // reject missing dates inside the returned window.
+        preserveHistory(previous.filter(r => r.date >= tail[0].date), tail);
+        if (!previous.some(r => r.date < OFFICIAL_START)) {
+          throw Error('缺少 2021 年以前历史存档，请先使用 archive 初始化');
+        }
+        const rows = mergeHistoricalSupplement(
+          [...previous.filter(r => r.date < tail[0].date), ...tail], supplement
+        );
+        validateSentimentAge(rows, now);
+        selected = { rows, source: 'CNN' };
+      } catch (error) {
+        throw sentimentFailure([validationFailure('CNN', error)]);
+      }
     }
   }
 
   if (
     sentimentSource === 'archive' ||
-    (sentimentSource === 'auto' && (!candidates.length || candidates[0].rows.at(-1).date < expectedDate))
+    (sentimentSource === 'auto' && cnnNetworkFailed)
   ) {
+    let text;
+    try {
+      text = await retry(() => fetchText(ARCHIVE_URL), wait);
+    } catch (error) {
+      throw sentimentFailure([...warnings, sourceFailure('备用存档', error)]);
+    }
     try {
       const rows = mergeHistoricalSupplement(
-        parseCSV(await retry(() => fetchText(ARCHIVE_URL), wait)), supplement
+        parseCSV(text), supplement
       );
-      if (rows.at(-1).date > latestClosedSession(now, 0)) throw Error('指数包含未收盘日期');
+      validateSentimentAge(rows, now);
       preserveHistory(previous, rows);
-      candidates.push({ rows, source: 'whit3rabbit/fear-greed-data' });
+      selected = { rows, source: 'whit3rabbit/fear-greed-data' };
     } catch (error) {
-      warnings.push(sourceFailure('备用存档', error));
-      if (!candidates.length) {
-        throw sentimentFailure(warnings);
-      }
+      throw sentimentFailure([...warnings, validationFailure('备用存档', error)]);
     }
   }
 
-  candidates.sort((a, b) => b.rows.at(-1).date.localeCompare(a.rows.at(-1).date));
-  const { rows, source } = candidates[0];
+  const { rows, source } = selected;
   await atomicWrite(file, csv(rows));
   return { date: rows.at(-1).date, count: rows.length, source,
-    ...(warnings.length ? { warning: warnings.join('；') } : {}) };
+    ...(warnings.length ? { warning: warnings.join('；') + '；已使用 GitHub 存档' } : {}) };
 }
 
 export function refreshAll(options = {}) {
@@ -220,6 +252,7 @@ async function run({
         const current = await snapshot(dataDir, symbol);
         if (
           skipFresh &&
+          symbol !== 'Fear & Greed' &&
           current?.date >= expectedDate &&
           last?.ok &&
           last.date === current.date &&
