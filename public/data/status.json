@@ -1,9 +1,12 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-21T00:01:50.016Z",
+  "checkedAt": "2026-10-21T00:19:58.915Z",
   "expectedDate": "2026-10-20",
   "requestedSources": [
-    "Fear & Greed"
+    "Fear & Greed",
+    "SPY",
+    "QQQ",
+    "VGT"
   ],
   "requestedComplete": true,
   "complete": true,
@@ -17,7 +20,8 @@
       "fresh": true,
       "expectedDate": "2026-10-20",
       "checkedAt": "2026-10-21T00:01:50.016Z",
-      "lastSuccessAt": "2026-10-21T00:01:50.016Z"
+      "lastSuccessAt": "2026-10-21T00:01:50.016Z",
+      "skipped": true
     },
     {
       "symbol": "SPY",
@@ -28,7 +32,8 @@
       "fresh": true,
       "expectedDate": "2026-10-20",
       "checkedAt": "2026-10-20T23:56:18.321Z",
-      "lastSuccessAt": "2026-10-20T23:56:18.321Z"
+      "lastSuccessAt": "2026-10-20T23:56:18.321Z",
+      "skipped": true
     },
     {
       "symbol": "QQQ",
@@ -39,7 +44,8 @@
       "fresh": true,
       "expectedDate": "2026-10-20",
       "checkedAt": "2026-10-20T23:56:18.321Z",
-      "lastSuccessAt": "2026-10-20T23:56:18.321Z"
+      "lastSuccessAt": "2026-10-20T23:56:18.321Z",
+      "skipped": true
     },
     {
       "symbol": "VGT",
@@ -50,7 +56,8 @@
       "fresh": true,
       "expectedDate": "2026-10-20",
       "checkedAt": "2026-10-20T23:56:18.321Z",
-      "lastSuccessAt": "2026-10-20T23:56:18.321Z"
+      "lastSuccessAt": "2026-10-20T23:56:18.321Z",
+      "skipped": true
     }
   ]
 }
