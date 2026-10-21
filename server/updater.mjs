@@ -30,8 +30,12 @@ export function parseCNN(payload, now = Date.now()) {
       .map(r => {
         if (!Number.isFinite(r.x) || !Number.isFinite(r.y)) throw Error('CNN 日期或分数无效');
         // CNN historical x is a UTC date label, not a New York session timestamp.
+        // The official page appends an intraday timestamp after its UTC daily labels.
+        // Keep only the daily labels; never substitute the live point for a close.
+        if (r.x % 86400000 !== 0) return null;
         return [new Date(r.x).toISOString().slice(0, 10), r.y, rating(r.y)].join(',');
       })
+      .filter(Boolean)
       .join('\n');
   const rows = parseCSV(text).filter(r => r.date >= OFFICIAL_START && r.date <= latest);
   if (!rows.length) throw Error('CNN 没有已收盘历史数据');
@@ -87,7 +91,19 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
     } : {}) };
 }
 
-async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimentSource }) {
+function sourceFailure(name, error) {
+  const code = error.message.match(/\b(401|403|418|429)\b/)?.[1];
+  return code ? name + ' 接口返回 ' + code : name + ' 不可用或历史校验未通过';
+}
+
+function sentimentFailure(warnings) {
+  const error = Error('指数更新失败');
+  // Only fixed diagnostics reach the public status; never expose raw network errors.
+  error.publicMessage = warnings.join('；') + '；已保留本地数据';
+  return error;
+}
+
+async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimentSource, wait }) {
   const file = path.join(dataDir, 'fear-greed.csv');
   const saved = await readOptional(file);
   const previous = saved ? parseCSV(saved) : [];
@@ -97,19 +113,20 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
 
   if (sentimentSource !== 'archive') {
     try {
-      const tail = parseCNN(JSON.parse(await fetchText(CNN_URL)), now);
-      preserveHistory(previous.filter(r => r.date >= OFFICIAL_START), tail);
+      const tail = parseCNN(JSON.parse(await retry(() => fetchText(CNN_URL), wait)), now);
+      // Keep earlier local history if CNN returns a shorter window, and
+      // reject missing dates inside the returned window.
+      preserveHistory(previous.filter(r => r.date >= tail[0].date), tail);
       if (!previous.some(r => r.date < OFFICIAL_START)) {
         throw Error('缺少 2021 年以前历史存档，请先使用 archive 初始化');
       }
       const rows = mergeHistoricalSupplement(
-        [...previous.filter(r => r.date < OFFICIAL_START), ...tail], supplement
+        [...previous.filter(r => r.date < tail[0].date), ...tail], supplement
       );
       candidates.push({ rows, source: 'CNN' });
     } catch (error) {
-      const code = error.message.match(/\b(401|403|418|429)\b/)?.[1];
-      warnings.push(code ? 'CNN 接口返回 ' + code : 'CNN 不可用或历史校验未通过');
-      if (sentimentSource === 'cnn') throw Error('CNN 更新失败，已保留本地数据');
+      warnings.push(sourceFailure('CNN', error));
+      if (sentimentSource === 'cnn') throw sentimentFailure(warnings);
     }
   }
 
@@ -118,13 +135,16 @@ async function updateSentiment({ dataDir, fetchText, now, expectedDate, sentimen
     (sentimentSource === 'auto' && (!candidates.length || candidates[0].rows.at(-1).date < expectedDate))
   ) {
     try {
-      const rows = mergeHistoricalSupplement(parseCSV(await fetchText(ARCHIVE_URL)), supplement);
+      const rows = mergeHistoricalSupplement(
+        parseCSV(await retry(() => fetchText(ARCHIVE_URL), wait)), supplement
+      );
       if (rows.at(-1).date > latestClosedSession(now, 0)) throw Error('指数包含未收盘日期');
       preserveHistory(previous, rows);
       candidates.push({ rows, source: 'whit3rabbit/fear-greed-data' });
-    } catch {
+    } catch (error) {
+      warnings.push(sourceFailure('备用存档', error));
       if (!candidates.length) {
-        throw Error('指数更新失败：来源不可用或历史校验未通过，已保留本地数据');
+        throw sentimentFailure(warnings);
       }
     }
   }
@@ -165,7 +185,7 @@ async function run({
   const checkedAt = new Date(now).toISOString();
   const oldText = await readOptional(path.join(dataDir, 'status.json'));
   const old = oldText ? JSON.parse(oldText) : null;
-  const context = { dataDir, fetchText, now, expectedDate, sentimentSource };
+  const context = { dataDir, fetchText, now, expectedDate, sentimentSource, wait };
 
   const results = await Promise.all(
     ['Fear & Greed', ...SYMBOLS].map(async symbol => {
@@ -182,7 +202,7 @@ async function run({
           last.date === current.date &&
           last.expectedDate === expectedDate
         ) {
-          return { ...last, ...current, skipped: true, checkedAt };
+          return { ...last, ...current, skipped: true };
         }
         const value =
           symbol === 'Fear & Greed'
@@ -201,7 +221,7 @@ async function run({
           checkedAt,
           lastSuccessAt: checkedAt
         };
-      } catch {
+      } catch (error) {
         let cached;
         try {
           cached = await snapshot(dataDir, symbol);
@@ -215,7 +235,7 @@ async function run({
           checkedAt,
           lastSuccessAt: last?.lastSuccessAt || null,
           source: last?.source || null,
-          error: '更新失败，保留上次有效数据'
+          error: error.publicMessage || '更新失败，保留上次有效数据'
         };
       }
     })
@@ -225,7 +245,10 @@ async function run({
     version: 1,
     checkedAt,
     expectedDate,
-    complete: results.filter(r => sources.includes(r.symbol)).every(r => r.ok && r.fresh),
+    requestedSources: sources,
+    requestedComplete: results.filter(r => sources.includes(r.symbol))
+      .every(r => r.ok && r.date >= expectedDate),
+    complete: results.every(r => r.ok && r.date >= expectedDate),
     results
   };
   await atomicWrite(path.join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');

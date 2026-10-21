@@ -1,21 +1,23 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-20T23:35:37.904Z",
+  "checkedAt": "2026-10-21T00:01:50.016Z",
   "expectedDate": "2026-10-20",
+  "requestedSources": [
+    "Fear & Greed"
+  ],
+  "requestedComplete": true,
   "complete": true,
   "results": [
     {
       "symbol": "Fear & Greed",
-      "date": "2026-10-19",
-      "count": 3971,
-      "source": "whit3rabbit/fear-greed-data",
-      "warning": "CNN 接口返回 418",
+      "date": "2026-10-20",
+      "count": 3972,
+      "source": "CNN",
       "ok": true,
-      "fresh": false,
-      "message": "CNN 接口返回 418；来源有效数据截至 2026-10-19，尚缺 2026-10-20 的完整数据",
+      "fresh": true,
       "expectedDate": "2026-10-20",
-      "checkedAt": "2026-10-20T22:54:44.520Z",
-      "lastSuccessAt": "2026-10-20T22:54:44.520Z"
+      "checkedAt": "2026-10-21T00:01:50.016Z",
+      "lastSuccessAt": "2026-10-21T00:01:50.016Z"
     },
     {
       "symbol": "SPY",
@@ -25,8 +27,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-20",
-      "checkedAt": "2026-10-20T23:35:37.904Z",
-      "lastSuccessAt": "2026-10-20T23:35:37.904Z"
+      "checkedAt": "2026-10-20T23:56:18.321Z",
+      "lastSuccessAt": "2026-10-20T23:56:18.321Z"
     },
     {
       "symbol": "QQQ",
@@ -36,8 +38,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-20",
-      "checkedAt": "2026-10-20T23:35:37.904Z",
-      "lastSuccessAt": "2026-10-20T23:35:37.904Z"
+      "checkedAt": "2026-10-20T23:56:18.321Z",
+      "lastSuccessAt": "2026-10-20T23:56:18.321Z"
     },
     {
       "symbol": "VGT",
@@ -47,8 +49,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-20",
-      "checkedAt": "2026-10-20T23:35:37.904Z",
-      "lastSuccessAt": "2026-10-20T23:35:37.904Z"
+      "checkedAt": "2026-10-20T23:56:18.321Z",
+      "lastSuccessAt": "2026-10-20T23:56:18.321Z"
     }
   ]
 }

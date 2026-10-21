@@ -215,3 +215,66 @@ test('刷新全部或部分失败可立即重试，成功后才进入冷却，�
     assert.equal(calls, 2);
   }
 });
+
+
+test('ETF单独成功不能掩盖指数滞后，也不能刷新指数检查时间', async t => {
+ const d=await dir(t);await seed(d);
+ const first=await refreshAll({...opts(d),fetchText:async url=>url===CNN_URL?JSON.stringify(cnn(dates.slice(0,2))):url===ARCHIVE_URL?csv(dates.slice(0,2)):source(url)});
+ const next=await refreshAll({...opts(d),now:now+3600000,sources:SYMBOLS,fetchText:async url=>source(url)});
+ assert.equal(next.requestedComplete,true);assert.equal(next.complete,false);
+ assert.deepEqual(next.results[0],first.results[0]);
+ const text=healthSummary(next,now+3600000);
+ assert.match(text,/整体数据：未全部到齐/);
+ assert.match(text,/检查：2025-01-06 18:00:00 EST/);
+ assert.match(text,/检查：2025-01-06 19:00:00 EST/);
+});
+
+test('跨交易日重新判断未选来源的日期，不沿用旧 fresh=true', async t => {
+ const d=await dir(t);await seed(d);await refreshAll({...opts(d),fetchText:async url=>source(url)});
+ const tomorrow=Date.parse('2025-01-07T23:00Z');
+ const next=await refreshAll({...opts(d),now:tomorrow,sources:SYMBOLS,fetchText:async url=>JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1),[...dates,'2025-01-07']))});
+ assert.equal(next.results[0].fresh,true);assert.equal(next.requestedComplete,true);assert.equal(next.complete,false);
+});
+
+test('补抓缺失指数能够恢复，失败时不覆盖快照且保留两源原因', async t => {
+ const d=await dir(t);await seed(d);const original=await readFile(path.join(d,'fear-greed.csv'),'utf8');
+ let cnnCalls=0;
+ const failed=await refreshAll({...opts(d),sources:['Fear & Greed'],fetchText:async url=>{if(url===CNN_URL){cnnCalls++;throw Error('HTTP 418');}throw Error('HTTP 403');}});
+ assert.equal(cnnCalls,1);assert.equal(failed.complete,false);
+ assert.match(failed.results[0].error,/CNN 接口返回 418；备用存档 接口返回 403/);
+ assert.equal(await readFile(path.join(d,'fear-greed.csv'),'utf8'),original);
+ const recovered=await refreshAll({...opts(d),sources:['Fear & Greed'],fetchText:async url=>source(url)});
+ assert.equal(recovered.requestedComplete,true);assert.equal(recovered.results[0].date,dates.at(-1));
+});
+
+test('CNN瞬时失败重试一次，严格CNN模式保留安全的拒绝原因', async t => {
+ const d=await dir(t);await seed(d);let calls=0;
+ const recovered=await refreshAll({...opts(d),sources:['Fear & Greed'],fetchText:async url=>{calls++;if(calls===1)throw Error('timeout');return source(url);}});
+ assert.equal(calls,2);assert.equal(recovered.requestedComplete,true);
+ assert.equal(recovered.results[0].source,'CNN');
+ const failed=await refreshAll({...opts(d),sentimentSource:'cnn',sources:['Fear & Greed'],fetchText:async()=>{throw Error('HTTP 418 private-secret');}});
+ assert.match(failed.results[0].error,/CNN 接口返回 418/);assert.doesNotMatch(failed.results[0].error,/private-secret/);
+});
+
+
+test('官网实时尾点不混入日历史，同日重复日标签仍拒绝，盘中日期仍排除', () => {
+ const payload=cnn(dates);payload.fear_and_greed_historical.data.push({x:Date.parse('2025-01-06T23:40:15Z'),y:99});
+ assert.equal(parseCNN(payload,now).at(-1).score,50);
+ assert.equal(parseCNN(payload,Date.parse('2025-01-06T20:00Z')).at(-1).date,'2025-01-03');
+ payload.fear_and_greed_historical.data.push({x:Date.parse('2025-01-06'),y:51});
+ assert.throws(()=>parseCNN(payload,now));
+});
+
+test('CNN滚动窗口保留更早历史，修订重叠日期，缺少窗口内已有日期拒绝替换', async t => {
+ const d=await dir(t);await seed(d);
+ const result=await refreshAll({...opts(d),sources:['Fear & Greed'],sentimentSource:'cnn',fetchText:async()=>{
+  const payload=cnn(dates.slice(1));payload.fear_and_greed_historical.data[0].y=27.2;
+  payload.fear_and_greed_historical.data.push({x:Date.parse('2025-01-06T23:40Z'),y:99});
+  return JSON.stringify(payload);
+ }});
+ assert.equal(result.requestedComplete,true);
+ const saved=await readFile(path.join(d,'fear-greed.csv'),'utf8');
+ assert.match(saved,/2021-01-29/);assert.match(saved,/2025-01-02/);assert.match(saved,/2025-01-03,27.2,/);assert.doesNotMatch(saved,/,99,/);
+ const failed=await refreshAll({...opts(d),sources:['Fear & Greed'],sentimentSource:'cnn',fetchText:async()=>JSON.stringify(cnn([dates[0],dates[2]]))});
+ assert.equal(failed.requestedComplete,false);assert.equal(await readFile(path.join(d,'fear-greed.csv'),'utf8'),saved);
+});

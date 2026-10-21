@@ -1,7 +1,7 @@
 /* Preserve cascade order. Component styles load after the page layout. */
-@import url('./css/page.css?v=1.6.0');
-@import url('./css/header.css?v=1.6.0');
-@import url('./css/strategy-dialog.css?v=1.6.0');
-@import url('./css/strategy-summary.css?v=1.6.0');
-@import url('./css/backtest.css?v=1.6.0');
-@import url('./css/floating-charts.css?v=1.6.0');
+@import url('./css/page.css?v=1.6.1');
+@import url('./css/header.css?v=1.6.1');
+@import url('./css/strategy-dialog.css?v=1.6.1');
+@import url('./css/strategy-summary.css?v=1.6.1');
+@import url('./css/backtest.css?v=1.6.1');
+@import url('./css/floating-charts.css?v=1.6.1');

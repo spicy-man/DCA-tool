@@ -3,14 +3,13 @@ import assert from 'node:assert/strict';
 import { scheduledSources } from '../server/refresh-schedule.mjs';
 
 const all = ['Fear & Greed', 'SPY', 'QQQ', 'VGT'];
-const etfs = all.slice(1);
 const slot = (hour, weekday = '*') => `3 ${hour} * * ${weekday}`;
 
 test('正常收盘夏冬时均抓两轮K线；FNG按纽约时间每六小时独立更新', () => {
   for (const [date, close] of [['2026-10-16', 20], ['2026-11-02', 21]]) {
     const at = (hour, minute = '03') => Date.parse(`${date}T${hour}:${minute}:00Z`);
     assert.deepEqual(scheduledSources(slot(16), at(close)), all);
-    assert.deepEqual(scheduledSources(slot(17, '1-5'), at(close + 1)), etfs);
+    assert.deepEqual(scheduledSources(slot(17, '1-5'), at(close + 1)), all);
     assert.deepEqual(scheduledSources(slot(13, '1-5'), at(close - 3)), []);
     assert.deepEqual(scheduledSources(slot(14, '1-5'), at(close - 2)), []);
     for (const hour of [4, 10, 22]) {
@@ -20,8 +19,8 @@ test('正常收盘夏冬时均抓两轮K线；FNG按纽约时间每六小时独�
 });
 
 test('提前收盘仅13:03和14:03抓K线，节假日及周末仍更新FNG', () => {
-  assert.deepEqual(scheduledSources(slot(13, '1-5'), Date.parse('2026-11-27T18:03Z')), etfs);
-  assert.deepEqual(scheduledSources(slot(14, '1-5'), Date.parse('2026-11-27T19:03Z')), etfs);
+  assert.deepEqual(scheduledSources(slot(13, '1-5'), Date.parse('2026-11-27T18:03Z')), all);
+  assert.deepEqual(scheduledSources(slot(14, '1-5'), Date.parse('2026-11-27T19:03Z')), all);
   assert.deepEqual(scheduledSources(slot(16), Date.parse('2026-11-27T21:03Z')), ['Fear & Greed']);
   assert.deepEqual(scheduledSources(slot(17, '1-5'), Date.parse('2026-11-27T22:03Z')), []);
   for (const date of ['2026-12-25', '2026-10-17']) {
@@ -30,7 +29,7 @@ test('提前收盘仅13:03和14:03抓K线，节假日及周末仍更新FNG', () 
 });
 
 test('任务延迟跨小时仍按触发的计划选择来源，未知调度拒绝执行', () => {
-  assert.deepEqual(scheduledSources(slot(17, '1-5'), Date.parse('2026-10-17T01:30Z')), etfs);
+  assert.deepEqual(scheduledSources(slot(17, '1-5'), Date.parse('2026-10-17T01:30Z')), all);
   assert.deepEqual(scheduledSources(slot(16), Date.parse('2026-10-17T01:30Z')), all);
   assert.throws(() => scheduledSources('invalid'));
 });

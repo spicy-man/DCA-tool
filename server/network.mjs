@@ -37,8 +37,22 @@ async function networkProxy() {
   }
 }
 
+export function publicRequestHeaders(url) {
+  if (url === 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2021-02-01') {
+    return {
+      'User-Agent': process.env.CNN_FETCH_USER_AGENT || 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Accept: 'application/json, text/plain, */*',
+      Origin: 'https://www.cnn.com',
+      Referer: 'https://www.cnn.com/'
+    };
+  }
+  return { 'User-Agent': 'Mozilla/5.0' };
+}
+
 export async function fetchPublicText(url) {
   const proxy = await networkProxy();
+  const headers = publicRequestHeaders(url);
+  const timeoutSeconds = headers.Origin === 'https://www.cnn.com' ? 30 : 25;
   if (proxy) {
     // Keep proxy credentials out of command arguments and error messages.
     const env = { ...process.env };
@@ -49,8 +63,9 @@ export async function fetchPublicText(url) {
     try {
       const { stdout } = await run(
         process.platform === 'win32' ? 'curl.exe' : 'curl',
-        ['--fail', '--silent', '--show-error', '--location', '--max-time', '25', '--user-agent', 'Mozilla/5.0', url],
-        { env, windowsHide: true, timeout: 30000, maxBuffer: 12 * 1024 * 1024 }
+        ['--fail', '--silent', '--show-error', '--location', '--max-time', String(timeoutSeconds),
+          ...Object.entries(headers).flatMap(([name, value]) => ['--header', name + ': ' + value]), url],
+        { env, windowsHide: true, timeout: (timeoutSeconds + 5) * 1000, maxBuffer: 12 * 1024 * 1024 }
       );
       return stdout;
     } catch (error) {
@@ -60,8 +75,8 @@ export async function fetchPublicText(url) {
   }
 
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
-    signal: AbortSignal.timeout(25000)
+    headers,
+    signal: AbortSignal.timeout(timeoutSeconds * 1000)
   });
   if (!response.ok) throw Error('数据接口返回 ' + response.status);
   return response.text();

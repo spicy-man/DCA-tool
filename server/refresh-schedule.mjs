@@ -18,7 +18,10 @@ export function scheduledSources(cron, now = Date.now()) {
     if (planned <= now && (match[2] === '*' || (weekday >= 1 && weekday <= 5))) {
       const sources = [4, 10, 16, 22].includes(hour) ? ['Fear & Greed'] : [];
       const minutesAfterClose = (planned - sessionClose(date)) / 60000;
-      if (isTradingDay(date) && [3, 63].includes(minutesAfterClose)) sources.push(...SYMBOLS);
+      if (isTradingDay(date) && [3, 63].includes(minutesAfterClose)) {
+        if (!sources.includes('Fear & Greed')) sources.push('Fear & Greed');
+        sources.push(...SYMBOLS);
+      }
       return sources;
     }
     date = new Date(noon - 86400000).toISOString().slice(0, 10);

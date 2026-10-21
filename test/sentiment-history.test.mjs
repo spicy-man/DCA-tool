@@ -44,7 +44,8 @@ for (const sentimentSource of ['cnn', 'archive', 'auto']) {
     for (const upstream of [base, base + '2020-06-08,1,Extreme Fear\n', base]) {
       archive = upstream;
       const status = await refreshAll(options);
-      assert.equal(status.complete, true);
+      assert.equal(status.requestedComplete, true);
+      assert.equal(status.complete, false); // Other sources have never been checked.
       const saved = parseCSV(await readFile(file, 'utf8'));
       assert.equal(saved.length, 25);
       assert.equal(saved.find(row => row.date === '2020-06-08').score, 67);
