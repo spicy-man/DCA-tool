@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.8.0">
+  <link rel="stylesheet" href="./style.css?v=1.8.1">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.8.0">v1.8.0</span>
+        <span class="version-badge" aria-label="版本 1.8.1">v1.8.1</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
       <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
@@ -62,7 +62,12 @@
                 </select>
               </label>
               <span id="add-symbol-hint" title="本地部署可添加个人标的" tabindex="0">
-                <button id="add-symbol" type="button" disabled aria-haspopup="dialog" aria-controls="symbol-dialog">自定义标的</button>
+                <button id="add-symbol" type="button" disabled aria-label="自定义标的" title="自定义标的" aria-haspopup="dialog" aria-controls="symbol-dialog">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="m9.5 3-.5 2-2 .9-1.8-.6-2.5 4.3 1.5 1.4v2l-1.5 1.4 2.5 4.3 1.8-.6 2 .9.5 2h5l.5-2 2-.9 1.8.6 2.5-4.3-1.5-1.4v-2l1.5-1.4-2.5-4.3-1.8.6-2-.9-.5-2z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
               </span>
             </div>
             <p id="price-asof">正在读取 ETF 行情…</p>
