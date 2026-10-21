@@ -1,12 +1,13 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-21T03:28:21.138Z",
+  "checkedAt": "2026-10-21T05:06:27.407Z",
   "expectedDate": "2026-10-20",
   "requestedSources": [
     "Fear & Greed",
     "SPY",
     "QQQ",
-    "VGT"
+    "VGT",
+    "SMH"
   ],
   "requestedComplete": true,
   "complete": true,
@@ -58,6 +59,17 @@
       "checkedAt": "2026-10-20T23:56:18.321Z",
       "lastSuccessAt": "2026-10-20T23:56:18.321Z",
       "skipped": true
+    },
+    {
+      "symbol": "SMH",
+      "date": "2026-10-20",
+      "count": 3729,
+      "source": "Yahoo Finance",
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-20",
+      "checkedAt": "2026-10-21T05:06:27.407Z",
+      "lastSuccessAt": "2026-10-21T05:06:27.407Z"
     }
   ]
 }
