@@ -49,7 +49,7 @@ export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossD
 
   c.font = '10px Segoe UI, sans-serif';
   c.textAlign = 'left';
-  for (const tick of [0, 25, 50, 75, 100]) {
+  for (const tick of [0, 25, 75, 100]) {
     c.strokeStyle = '#ffffff99';
     c.lineWidth = 0.6;
     c.beginPath();

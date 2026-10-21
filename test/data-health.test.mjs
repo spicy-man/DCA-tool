@@ -12,11 +12,12 @@ const status = () => ({ results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT'].map(symbo
 test('同状态ticker合并为一行，与指数保留不同纽约检查时间', () => {
  const text=healthSummary(status(),now);const lines=text.split('\n');
  assert.equal(lines.length,3);
- assert.match(lines[0],/检查：2026-10-20 20:01:50 EDT/);
- assert.match(lines[1],/^SPY \/ QQQ \/ VGT：2026-10-20/);
- assert.match(lines[1],/检查：2026-10-20 19:56:18 EDT/);
+ assert.equal(lines[0],'恐慌与贪婪指数：2026-10-20；检查：2026-10-20 20:01:50 EDT。');
+ assert.equal(lines[1],'SPY / QQQ / VGT：2026-10-20；检查：2026-10-20 19:56:18 EDT。');
  assert.match(lines[2],/整体数据：已到齐/);
  assert.doesNotMatch(text,/北京时间/);
+ assert.doesNotMatch(lines[0],/（/);
+ assert.doesNotMatch(lines[1],/（/);
 });
 
 test('合并ticker时不隐藏单个滞后或失败，也不冒用其他ticker的检查时间', () => {

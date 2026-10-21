@@ -21,10 +21,12 @@ export function healthSummary(status, now = Date.now()) {
   const description = r => {
     const fresh = !!r.date && r.date >= expected;
     const state = !r.ok ? '最近更新失败' : !fresh
-      ? (r.expectedDate === expected && r.message ? '来源数据未到齐，等待更新' : '等待更新') : '日期已到齐';
-    const source = r.source === 'whit3rabbit/fear-greed-data' ? '第三方备用存档' : r.source;
+      ? (r.expectedDate === expected && r.message ? '来源数据未到齐，等待更新' : '等待更新') : '';
+    const source = !fresh || !r.ok || r.source === 'whit3rabbit/fear-greed-data'
+      ? (r.source === 'whit3rabbit/fear-greed-data' ? '第三方备用存档' : r.source) : '';
     const detail = [state, source, r.ok ? r.warning : r.error].filter(Boolean).join('；');
-    return (r.date || '无数据') + '（' + detail + '）；检查：' + formatNewYorkTime(r.checkedAt);
+    const suffix = detail ? '（' + detail + '）' : '';
+    return (r.date || '无数据') + suffix + '；检查：' + formatNewYorkTime(r.checkedAt);
   };
   const lines = status.results.filter(r => r.symbol === 'Fear & Greed')
     .map(r => '恐慌与贪婪指数：' + description(r));
