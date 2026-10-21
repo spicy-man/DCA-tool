@@ -27,19 +27,37 @@ export function healthSummary(status, now = Date.now()) {
       ? (r.source === 'whit3rabbit/fear-greed-data' ? '第三方备用存档' : r.source) : '';
     const detail = [state, source, r.ok ? r.warning : r.error].filter(Boolean).join('；');
     const suffix = detail ? '（' + detail + '）' : '';
-    return (r.date || '无数据') + suffix + '；检查：' + formatNewYorkTime(r.checkedAt);
+    return (r.date || '无数据') + suffix;
   };
-  const lines = status.results.filter(r => r.symbol === 'Fear & Greed')
-    .map(r => '恐慌与贪婪指数：' + description(r));
-  // Share identical dates/status/times, but keep a failed or delayed ticker visible.
+  const results = [...status.results];
+  for (const symbol of ['Fear & Greed', ...SYMBOLS]) {
+    if (!results.some(r => r.symbol === symbol)) {
+      results.push({ symbol, ok: false, date: null, checkedAt: null, error: '尚无检查记录，请更新数据' });
+    }
+  }
+  const lines = results.filter(r => r.symbol === 'Fear & Greed')
+    .map(r => '恐慌与贪婪指数：' + description(r) + '；检查：' + formatNewYorkTime(r.checkedAt));
+  // Healthy tickers share a date even when checked in different batches.
+  // Keep failures, delays, warnings and unknown check times separate.
   const tickerGroups = new Map();
-  for (const r of status.results.filter(r => r.symbol !== 'Fear & Greed')) {
-    const detail = description(r);
-    if (!tickerGroups.has(detail)) tickerGroups.set(detail, []);
-    tickerGroups.get(detail).push(r.symbol);
+  for (const r of results.filter(r => r.symbol !== 'Fear & Greed')) {
+    const healthy = r.ok && r.date >= expected && !r.warning &&
+      r.checkedAt != null && r.checkedAt !== '' && Number.isFinite(Date.parse(r.checkedAt));
+    const key = healthy ? JSON.stringify([r.date, r.source]) : r.symbol;
+    if (!tickerGroups.has(key)) tickerGroups.set(key, []);
+    tickerGroups.get(key).push(r);
   }
   if (tickerGroups.size) {
-    lines.push([...tickerGroups].map(([detail, symbols]) => symbols.join(' / ') + '：' + detail).join(' · '));
+    lines.push(...[...tickerGroups.values()].map(group => {
+      let checked = formatNewYorkTime(group[0].checkedAt);
+      if (group.length > 1) {
+        const times = group.map(r => Date.parse(r.checkedAt));
+        const first = formatNewYorkTime(Math.min(...times));
+        const last = formatNewYorkTime(Math.max(...times));
+        checked = first === last ? first : first + ' ～ ' + last;
+      }
+      return group.map(r => r.symbol).join(' / ') + '：' + description(group[0]) + '；检查：' + checked;
+    }));
   }
   const complete = ['Fear & Greed', ...SYMBOLS].every(symbol =>
     status.results.some(r => r.symbol === symbol)) &&
