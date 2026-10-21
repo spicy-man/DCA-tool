@@ -17,6 +17,7 @@ import { downloadCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 
 const $ = id => document.getElementById(id);
+const symbolStorageKey = 'seeker.symbol.v1';
 const store = new Map();
 let settings;
 let shown = [];
@@ -310,6 +311,14 @@ function hide() {
 }
 
 export function initMarketChart() {
+  const symbolSelect = $('symbol');
+  try {
+    const saved = localStorage.getItem(symbolStorageKey);
+    if (Array.from(symbolSelect.options).some(option => option.value === saved)) {
+      symbolSelect.value = saved;
+    }
+  } catch {}
+
   $('price-table').closest('details').addEventListener('toggle', () => {
     if ($('price-table').closest('details').open) renderPriceTable();
   });
@@ -334,6 +343,9 @@ export function initMarketChart() {
   });
 
   $('symbol').addEventListener('change', () => {
+    try {
+      localStorage.setItem(symbolStorageKey, symbolSelect.value);
+    } catch {}
     shown = [];
     updateSignals(null, null);
     $('price-tooltip').hidden = true;

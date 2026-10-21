@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { drawSentiment } from '../public/js/charts/sentiment.mjs';
 import { setSignalSentiment, updateSignals, drawSignalMarkers, initStrategyOverlay, signalSettings } from '../public/js/features/strategy/overlay.mjs';
 import { appEvents, events } from '../public/js/services/events.mjs';
-import { loadMarket, invalidateMarket } from '../public/js/features/market/chart.mjs';
+import { loadMarket, invalidateMarket, initMarketChart } from '../public/js/features/market/chart.mjs';
 import { initStrategyDialog } from '../public/js/ui/strategy-dialog.mjs';
 
 function element() {
@@ -39,6 +39,52 @@ const rows = ['2025-01-02', '2025-01-03', '2025-01-06'].map(date => ({ date, ope
 const data = { symbol: 'QQQ', rows, fetchedAt: '2025-01-07T00:00:00Z' };
 const settings = { start: rows[0].date, end: rows.at(-1).date, calendar: rows.map(r => r.date), frequency: 'daily' };
 const frame = { w: 600, h: 300, bottom: 32, x: date => rows.findIndex(r => r.date === date) * 50, y: () => 100 };
+
+test('ticker 切换后刷新恢复，失效偏好及存储异常不阻断初始化和切换', async t => {
+  const $ = dom(t);
+  const saved = new Map();
+  let blocked = false;
+  for (const [key, value] of Object.entries({
+    localStorage: {
+      getItem(key) { if (blocked) throw Error('Storage blocked'); return saved.get(key) ?? null; },
+      setItem(key, value) { if (blocked) throw Error('Storage blocked'); saved.set(key, value); }
+    },
+    ResizeObserver: class { observe() {} },
+    devicePixelRatio: 1
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  $('symbol').options = ['SPY', 'QQQ', 'VGT'].map(value => ({ value }));
+  $('symbol').value = 'SPY';
+  $('price-chart').getContext = () => ({ scale() {}, fillRect() {} });
+  initMarketChart();
+  assert.equal($('symbol').value, 'SPY');
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async url => {
+    requests.push(url);
+    return { ok: true, json: async () => ({ ...data, symbol: 'VGT' }) };
+  });
+  $('symbol').value = 'VGT';
+  $('symbol').listeners.change();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(saved.get('seeker.symbol.v1'), 'VGT');
+  assert.ok(requests.some(url => url.includes('vgt.json')));
+  $('symbol').value = 'SPY';
+  initMarketChart();
+  assert.equal($('symbol').value, 'VGT');
+  saved.set('seeker.symbol.v1', 'INVALID');
+  $('symbol').value = 'SPY';
+  initMarketChart();
+  assert.equal($('symbol').value, 'SPY');
+  blocked = true;
+  assert.doesNotThrow(() => initMarketChart());
+  $('symbol').value = 'QQQ';
+  assert.doesNotThrow(() => $('symbol').listeners.change());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal($('symbol').value, 'QQQ');
+});
 
 test('空指数窗口清除旧画布，保留背景和坐标绘制且不崩溃', t => {
   const oldWindow = globalThis.window;
