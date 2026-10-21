@@ -11,20 +11,23 @@ server/
   updater.mjs                   唯一数据更新编排入口 refreshAll
   network.mjs                   HTTP 下载、代理选择和 Yahoo URL
   storage.mjs                   快照校验、文件锁、原子写入
+  symbols.mjs                   自定义标的读写、校验与删除同步
+  refresh-schedule.mjs          纽约时区定时更新计划门禁
+  sentiment-history.mjs         早期情绪指数历史补缺合并
 public/
   index.html                    页面结构和首屏浅色声明
   style.css                     CSS 加载入口，固定加载顺序
-  css/                          页面布局、页头、策略弹窗样式
+  css/                          页面布局、页头、策略弹窗、统计概览、回测与浮动小窗样式
   js/
     app.mjs                     唯一浏览器启动入口：组合并初始化功能
     application.mjs             双图窗口协调、页面控件和状态呈现
     domain/                     数据解析、复权、聚合、策略、交易日和数据健康计算
     charts/                     坐标几何、Canvas 情绪图绘制、指针/键盘导航
     features/market/            行情缓存、K 线视图与行情控件
-    features/strategy/          定投偏好、信号展示、标签和明细
+    features/strategy/          定投偏好、信号展示、资金统计、回测对比与明细
     services/data-client.mjs     浏览器 HTTP 请求与部署模式判断
     services/events.mjs          应用内部事件通道与名称
-    ui/                         术语、Tooltip 和策略弹窗
+    ui/                         术语、Tooltip、策略弹窗、自定义标的弹窗与桌面小窗
   data/                         真实快照与来源状态，独立于源码重构
   diagrams/                     用户提供的逻辑图
 scripts/                        命令行更新和静态构建入口
@@ -41,7 +44,7 @@ docs/                           架构和部署说明
 5. **application** 协调日期范围、两图联动与刷新；**app** 按依赖顺序初始化策略控件、行情视图、弹窗和应用控制器。
 6. **server** 可以依赖 domain，不能依赖浏览器视图；网络层不写快照，所有更新经 updater 调用 storage 完成。
 
-当前两个图表功能各自维护显示数据，application 持有共用时间窗口。跨功能通知统一经应用局部 EventTarget，事件名集中定义于 events.mjs：marketCalendar、marketHover、strategySettings。禁止向全局 window 添加新的业务事件。
+当前两个图表功能各自维护显示数据，application 持有共用时间窗口。跨功能通知统一经应用局部 EventTarget，事件名集中定义于 events.mjs：marketCalendar、marketHover、strategySettings、sourceHealth。禁止向全局 window 添加新的业务事件。
 
 ## 数据流与更新入口
 
@@ -53,7 +56,7 @@ docs/                           架构和部署说明
 
 ## 样式与资源
 
-style.css 按 page.css → header.css → strategy-dialog.css 的顺序加载，保留已有级联结果；页面始终声明浅色模式，背景色不依赖系统偏好。页面样式保留响应式级联顺序，已清理被后续同选择器覆盖的声明；后续视觉整理应配合多尺寸计算样式和截图验证。
+style.css 按 page.css → header.css → strategy-dialog.css → strategy-summary.css → backtest.css → floating-charts.css 的顺序加载，保留已有级联结果；页面始终声明浅色模式，背景色不依赖系统偏好。页面样式保留响应式级联顺序，已清理被后续同选择器覆盖的声明；后续视觉整理应配合多尺寸计算样式和截图验证。
 
 数据、SVG 原图、来源链接、本地偏好键 seeker.pyramid.v1 和数据文件格式保持稳定。后续改文件位置时，同时更新 ES Module 引用、测试、README 和第三方来源说明；历史 CHANGELOG 中的旧路径保留为当时记录。
 

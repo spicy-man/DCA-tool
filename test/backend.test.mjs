@@ -28,7 +28,7 @@ test('交易日历：夏冬时、收盘缓冲、周末及未来调度',()=>{
  assert.equal(latestClosedSession(Date.parse('2026-10-19T10:00Z')),'2026-10-16');
 });
 test('交易日历：节日补休、特殊休市及提前收盘',()=>{
- for(const d of ['2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25','2025-01-09'])assert.equal(isTradingDay(d),false,d);
+ for(const d of ['1994-04-27','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25','2025-01-09'])assert.equal(isTradingDay(d),false,d);
  assert.equal(isTradingDay('2021-12-31'),true);
  assert.equal(sessionClose('2026-11-27'),Date.parse('2026-11-27T18:00Z'));
  assert.equal(sessionClose('2026-12-24'),Date.parse('2026-12-24T18:00Z'));
@@ -237,6 +237,12 @@ test('本地 HTTP：部署模式、快照、跨站保护、方法及冷却防重
  assert.equal((await fetch(base+'/data/spy.json')).status,200);
  assert.equal((await fetch(base+'/api/refresh')).status,405);
  assert.equal((await fetch(base+'/api/refresh',{method:'POST',headers:{Origin:'https://untrusted.example'}})).status,403);
+ assert.equal((await fetch(base+'/api/refresh',{method:'POST',headers:{Origin:'null'}})).status,403);
+ await withDataLock(d,async()=>{
+  const locked=await fetch('http://127.0.0.1:'+(await (async()=>{const s=createServer({dataDir:d});s.listen(0,'127.0.0.1');await once(s,'listening');t.after(()=>new Promise(r=>s.close(r)));return s.address().port;})())+'/api/refresh',{method:'POST'});
+  assert.equal(locked.status,409);
+  assert.match((await locked.json()).error,/已有数据更新任务/);
+ });
  assert.equal((await fetch(base+'/api/refresh',{method:'POST'})).status,200);
  assert.equal((await fetch(base+'/api/refresh',{method:'POST'})).status,200);assert.equal(calls,1);
  assert.equal((await fetch(base+'/data/.refresh.lock')).status,403);

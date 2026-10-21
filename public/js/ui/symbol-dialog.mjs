@@ -1,4 +1,5 @@
 import { getDeploymentMode } from '../services/data-client.mjs';
+import { appEvents, events } from '../services/events.mjs';
 import { SYMBOLS } from '../domain/market.mjs';
 
 export async function initSymbolDialog() {
@@ -59,6 +60,7 @@ export async function initSymbolDialog() {
       if (response.status === 405) throw Error('本地服务尚未更新，请停止旧服务并重新运行 start.cmd，再刷新页面后重试');
       if (!response.ok) throw Error(result.error || '删除失败，请稍后重试');
       sync(result.symbols);
+      appEvents.dispatchEvent(new Event(events.sourceHealth));
       message.textContent = symbol + ' 已删除';
     } catch (error) {
       message.textContent = error.message;
@@ -100,6 +102,7 @@ export async function initSymbolDialog() {
       const result = await response.json();
       if (!response.ok) throw Error(result.error || '添加失败，请稍后重试');
       sync(result.symbols);
+      appEvents.dispatchEvent(new Event(events.sourceHealth));
       select.value = result.symbol;
       select.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { forceRefresh: true } }));
       input.value = '';

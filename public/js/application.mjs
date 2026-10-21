@@ -90,7 +90,7 @@ export function initApplication() {
   }
 
   function render() {
-    if (!rows.length) return;
+    if (!rows.length || !calendar.length) return;
     const end = iso(Number($('timeline').value));
     const selected = customWindow
       ? calendar.filter(r => r.date >= iso(customWindow.start) && r.date <= iso(customWindow.end))
@@ -170,7 +170,7 @@ export function initApplication() {
   $('range').addEventListener('change', () => {
     if ($('range').value === 'custom') return;
     lastPreset = $('range').value;
-    if (lastPreset === 'sentiment') $('timeline').value = bounds().end;
+    if (lastPreset === 'sentiment' && calendar.length) $('timeline').value = bounds().end;
     customWindow = null;
     render();
   });
@@ -189,6 +189,7 @@ export function initApplication() {
   applyLayout();
 
   $('latest').addEventListener('click', () => {
+    if (!calendar.length) return;
     if (customWindow) {
       const span = customWindow.end - customWindow.start;
       customWindow = constrainWindow({ start: bounds().end - span, end: bounds().end }, bounds());
@@ -292,7 +293,7 @@ export function initApplication() {
     if (!visible.length) return;
     const csv =
       'Date,Fear Greed,Rating,Source\n' +
-      visible.map(r => [r.date, r.score, rating(r.score), r.source].join(',')).join('\n');
+      visible.map(r => [r.date, r.score, r.label || rating(r.score), r.source].join(',')).join('\n');
     downloadCSV('fear-greed-' + visible[0].date + '-' + visible.at(-1).date + '.csv', csv);
   });
 
@@ -314,6 +315,7 @@ export function initApplication() {
   }
 
   function resetWindow() {
+    if (!calendar.length) return;
     customWindow = null;
     $('range').value = lastPreset;
     $('timeline').value = bounds().end;
@@ -341,6 +343,8 @@ export function initApplication() {
   appEvents.addEventListener(events.strategySettings, () => {
     if (rows.length) draw();
   });
+
+  appEvents.addEventListener(events.sourceHealth, loadHealth);
 
   loadMarket();
   load().catch(error => {

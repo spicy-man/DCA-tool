@@ -26,6 +26,16 @@ export function createServer({
   let lastResult;
   let lastRun = 0;
 
+  function sameOrigin(req) {
+    if (req.headers['sec-fetch-site'] === 'cross-site') return false;
+    if (!req.headers.origin) return true;
+    try {
+      return new URL(req.headers.origin).host === req.headers.host;
+    } catch {
+      return false;
+    }
+  }
+
   return http.createServer(async (req, res) => {
     const send = (code, value) => {
       res.writeHead(code, {
@@ -54,7 +64,7 @@ export function createServer({
           return;
         }
         if (req.headers['sec-fetch-site'] === 'cross-site' ||
-            (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host)) {
+            !sameOrigin(req)) {
           send(403, { error: '不允许跨站修改标的' });
           return;
         }
@@ -91,7 +101,7 @@ export function createServer({
         // Public Pages builds do not expose this endpoint. Keep local writes same-origin.
         if (
           req.headers['sec-fetch-site'] === 'cross-site' ||
-          (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host)
+          !sameOrigin(req)
         ) {
           send(403, { error: '不允许跨站更新' });
           return;
@@ -152,6 +162,10 @@ export function createServer({
       });
       res.end(req.method === 'HEAD' ? undefined : data);
     } catch (error) {
+      if (error.code === 'ELOCKED') {
+        send(409, { error: error.message });
+        return;
+      }
       send(error.code === 'ENOENT' ? 404 : 500, {
         error: error.code === 'ENOENT' ? '文件不存在' : '请求失败，已保留原数据'
       });

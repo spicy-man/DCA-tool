@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initSymbolDialog } from '../public/js/ui/symbol-dialog.mjs';
+import { appEvents, events } from '../public/js/services/events.mjs';
 
 function element() {
   return {
@@ -90,8 +91,13 @@ test('管理列表仅显示个人标的；删除当前标的切回 SPY 并同步
   assert.match($('symbol-message').textContent, /重新运行 start.cmd/);
   assert.equal($('symbol').value, 'AAPL');
   outdated = false;
+  let healthNotified = 0;
+  const onHealth = () => { healthNotified++; };
+  appEvents.addEventListener(events.sourceHealth, onHealth);
+  t.after(() => appEvents.removeEventListener(events.sourceHealth, onHealth));
   fail = false;
   await buttons()[0].listeners.click();
+  assert.equal(healthNotified, 1);
   assert.equal($('symbol').value, 'SPY');
   assert.equal($('floating-charts-symbol').value, 'SPY');
   assert.equal($('symbol').lastEvent, 'change');
@@ -106,6 +112,7 @@ test('管理列表仅显示个人标的；删除当前标的切回 SPY 并同步
   adding = true;
   $('custom-symbol').value = 'AAPL';
   await $('symbol-form').listeners.submit({ preventDefault() {} });
+  assert.equal(healthNotified, 2);
   assert.equal($('symbol').value, 'AAPL');
   assert.equal($('floating-charts-symbol').value, 'AAPL');
   assert.deepEqual($('symbol').lastEventDetail, { forceRefresh: true });

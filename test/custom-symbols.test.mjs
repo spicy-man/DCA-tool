@@ -97,6 +97,7 @@ test('添加 API：方法、同源、格式、大小限制及列表恢复', asyn
   const post = (body, headers = {}) => fetch(base + '/api/symbols', { method: 'POST', body, headers });
   assert.equal((await fetch(base + '/api/symbols')).status, 405);
   assert.equal((await post('{}', { Origin: 'https://evil.example' })).status, 403);
+  assert.equal((await post('{}', { Origin: 'null' })).status, 403);
   assert.equal((await post('{')).status, 400);
   assert.equal((await post('null')).status, 400);
   assert.equal((await post('x'.repeat(1025))).status, 413);
@@ -110,6 +111,7 @@ test('添加 API：方法、同源、格式、大小限制及列表恢复', asyn
     method: 'DELETE', body: JSON.stringify({ symbol }), headers
   });
   assert.equal((await remove('VOO', { Origin: 'https://evil.example' })).status, 403);
+  assert.equal((await remove('VOO', { Origin: 'null' })).status, 403);
   for (const symbol of [...SYMBOLS, '../spy']) assert.equal((await remove(symbol)).status, 400);
   assert.deepEqual(await (await remove('VOO')).json(), { symbol: 'VOO', symbols: [] });
   assert.deepEqual(await (await fetch(base + '/data/custom-symbols.json')).json(), []);
@@ -122,6 +124,9 @@ test('删除移除持久化列表和健康状态，保留行情；后续刷新�
   await refreshAll({ dataDir, now, sources: SYMBOLS, wait: async () => {},
     fetchText: async url => JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1))) });
   const cached = await readFile(path.join(dataDir, 'voo.json'), 'utf8');
+  await addCustomSymbol('AAPL', { dataDir, now, fetchText: async () => JSON.stringify(yahoo('AAPL')) });
+  assert.ok(JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8')).results.some(r => r.symbol === 'AAPL' && r.ok));
+  await removeCustomSymbol('AAPL', { dataDir });
   for (const symbol of SYMBOLS) await assert.rejects(removeCustomSymbol(symbol, { dataDir }), /默认标的不可删除/);
   await removeCustomSymbol('VOO', { dataDir });
   await removeCustomSymbol('VOO', { dataDir });

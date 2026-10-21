@@ -33,6 +33,7 @@ function easter(year) {
 }
 
 const SPECIAL_CLOSURES = new Set([
+  '1994-04-27',
   '2001-09-11',
   '2001-09-12',
   '2001-09-13',

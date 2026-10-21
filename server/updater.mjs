@@ -202,15 +202,39 @@ export function refreshAll(options = {}) {
 export async function addCustomSymbol(symbol, options = {}) {
   if (!validSymbol(symbol)) throw Error('请输入有效的美股代码，例如 VOO、AAPL 或 BRK-B');
   const dataDir = path.resolve(options.dataDir || DEFAULT_DATA_DIR);
+  const now = options.now ?? Date.now();
   return withDataLock(dataDir, async () => {
     const symbols = await readCustomSymbols(dataDir);
     if (SYMBOLS.includes(symbol) || symbols.includes(symbol)) return { symbol, symbols };
     if (symbols.length >= 30) throw Error('自定义标的最多支持 30 个');
+    let value;
     try {
-      await updateETF(symbol, { dataDir, fetchText: options.fetchText || fetchPublicText,
-        now: options.now ?? Date.now() });
+      value = await updateETF(symbol, { dataDir, fetchText: options.fetchText || fetchPublicText, now });
     } catch {
       throw Error('无法添加：请确认代码有效、属于美元美股股票或 ETF，并检查行情数据源连接');
+    }
+    const statusFile = path.join(dataDir, 'status.json');
+    const saved = await readOptional(statusFile);
+    if (saved) {
+      const status = JSON.parse(saved);
+      const expectedDate = status.expectedDate || latestClosedSession(now);
+      const checkedAt = new Date(now).toISOString();
+      const entry = {
+        symbol, ...value, ok: true, fresh: value.date >= expectedDate,
+        ...(value.date < expectedDate ? {
+          message: (value.warning ? value.warning + '；' : '') +
+            '来源有效数据截至 ' + value.date + '，尚缺 ' + expectedDate + ' 的完整数据'
+        } : {}),
+        expectedDate, checkedAt, lastSuccessAt: checkedAt
+      };
+      status.results = [...(status.results || []).filter(r => r.symbol !== symbol), entry];
+      const complete = r => r.ok && r.date >= expectedDate;
+      status.complete = status.results.every(complete);
+      if (status.requestedSources) {
+        status.requestedComplete = status.results
+          .filter(r => status.requestedSources.includes(r.symbol)).every(complete);
+      }
+      await atomicWrite(statusFile, JSON.stringify(status, null, 2) + '\n');
     }
     symbols.push(symbol);
     await atomicWrite(path.join(dataDir, 'custom-symbols.json'), JSON.stringify(symbols) + '\n');

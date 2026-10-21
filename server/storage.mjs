@@ -39,7 +39,9 @@ export async function withDataLock(dataDir, task) {
     handle = await open(file, 'wx');
   } catch (error) {
     if (error.code === 'EEXIST') {
-      throw Error('已有数据更新任务运行；若上次进程异常退出，请确认无任务运行后移除 .refresh.lock');
+      const lockError = Error('已有数据更新任务运行；若上次进程异常退出，请确认无任务运行后移除 .refresh.lock');
+      lockError.code = 'ELOCKED';
+      throw lockError;
     }
     throw error;
   }

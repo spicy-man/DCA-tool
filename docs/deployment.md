@@ -9,7 +9,7 @@
 - 本地：运行 node server.mjs，页面“更新数据”通过同源 POST /api/refresh 调用 server/updater.mjs。
 - 命令：node scripts/update-data.mjs；数据不齐或来源失败退出码为 1。所有来源独立校验、独立原子替换，失败源保留原文件。
 - 可选补抓：node scripts/update-data.mjs --scheduled；只有前一轮已成功、实际快照日期满足目标交易日的 ETF 来源才跳过网络，指数始终重新请求。所有自动定时轮次均强制重新请求，包括收盘后两轮联动及每六小时的独立指数更新，以接收上游修订。跳过网络时保留上次实际检查时间。手动运行默认强制重新检查所有来源。
-- REFRESH_SOURCES 可用逗号指定来源（Fear & Greed、SPY、QQQ、VGT）；未指定时更新全部。未选来源的快照及检查状态保持原样，requestedSources 记录本轮所选来源，requestedComplete 表示本轮来源成功且到齐，complete 按当前目标日期判断全部来源；未选来源仍缺数据时 complete=false，命令仍退出 1，避免 ETF 成功掩盖指数缺失。
+- REFRESH_SOURCES 可用逗号指定来源（Fear & Greed、SPY、QQQ、VGT、SMH）；未指定时更新全部。未选来源的快照及检查状态保持原样，requestedSources 记录本轮所选来源，requestedComplete 表示本轮来源成功且到齐，complete 按当前目标日期判断全部来源；未选来源仍缺数据时 complete=false，命令仍退出 1，避免 ETF 成功掩盖指数缺失。
 - FEAR_GREED_SOURCE=auto（默认）优先直接请求 CNN graphdata/2021-02-01 历史接口，使用上游 fetch_cnn.py 的完整 User-Agent、Accept、Origin、Referer 配置及 30 秒请求超时；与上游相同支持 CNN_FETCH_USER_AGENT 环境变量，Actions 从同名仓库变量传入，未设置时使用上游默认值；直连 fetch 与代理 curl 使用同一组请求头。仅网络请求失败（含 HTTP 错误）时尝试第三方存档；请求成功但响应解析或历史校验失败时保留本地数据并报告具体原因，不自动切源；有效数据日期滞后时继续使用 CNN 并提示缺失日期。cnn 只用 CNN，archive 只用存档；首次缺少 2021 年以前历史时需显式使用 archive 初始化。可用 GitHub 仓库变量 FEAR_GREED_SOURCE 配置。
 - 指数按上游 fetch_cnn.py + build_combined.py 处理 fear_and_greed_historical.data：所有时间戳取 UTC 日期，包含实时尾点，同日保留响应中最后一条及其评级，不按美股收盘时间过滤。历史接口请求 2021-02-01 起的数据；如果响应范围缩短，更早的本地历史仍保留，响应范围内接收官方修订，若缺少范围内已有日期则拒绝覆盖。CNN 与备用存档均在最新日期超过 7 天时拒绝写入。2021-02-01 前的第三方存档及独立历史补缺保持原有保护。
 - ETF 每个目标交易日首轮重新下载全历史和 Adj Close，重算整段前复权。已有日期丢失（即使总条数不变）、无效 OHLC、重复日期等均拒绝替换。暂时失败最多重试一次；明确返回拒绝访问或限流时不重试、不绕过。
