@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.8.4">
+  <link rel="stylesheet" href="./style.css?v=1.8.5">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.8.4">v1.8.4</span>
+        <span class="version-badge" aria-label="版本 1.8.5">v1.8.5</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
       <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
@@ -38,11 +38,11 @@
         <h1>定投信号</h1>
         <div class="title-actions">
           <p id="status" role="status" aria-live="polite"></p>
-          <button id="refresh" class="primary">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+          <button id="refresh" type="button" title="刷新数据">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/>
             </svg>
-            <span>更新数据</span>
+            <span class="sr-only">更新数据</span>
           </button>
         </div>
       </div>
