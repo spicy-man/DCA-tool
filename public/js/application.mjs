@@ -268,6 +268,8 @@ export function initApplication() {
     const button = $('refresh');
     button.disabled = mode !== 'local';
     button.title = mode === 'local' ? '更新数据' : '仅本地部署可更新数据';
+    $('refresh-hint').title = button.title;
+    $('refresh-hint').tabIndex = mode === 'local' ? -1 : 0;
   });
 
   $('refresh').addEventListener('click', async () => {

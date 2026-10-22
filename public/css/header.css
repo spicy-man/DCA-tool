@@ -106,6 +106,12 @@
   overflow-wrap: anywhere;
 }
 
+#refresh-hint {
+  display: inline-flex;
+  flex-shrink: 0;
+  cursor: not-allowed;
+}
+
 .title-actions #refresh {
   display: inline-flex;
   align-items: center;
@@ -117,6 +123,7 @@
 }
 
 #refresh:disabled {
+  pointer-events: none;
   color: var(--muted);
   background: #f1f3f5;
   border-color: var(--border);
@@ -144,7 +151,7 @@
     display: contents;
   }
 
-  .title-actions #refresh {
+  .title-actions #refresh-hint {
     grid-column: 2;
     grid-row: 1;
   }

@@ -70,6 +70,8 @@ for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口�
   assert.equal($('observations').textContent, '2 条记录');
 
   assert.equal($('refresh').disabled, mode === 'static');
+  assert.equal($('refresh-hint').title, $('refresh').title);
+  assert.equal($('refresh-hint').tabIndex, mode === 'static' ? 0 : -1);
   if (mode === 'static') {
     assert.equal($('refresh').title, '仅本地部署可更新数据');
     const requestCount = requests.length;
