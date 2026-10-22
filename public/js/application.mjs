@@ -265,19 +265,20 @@ export function initApplication() {
   }
 
   deploymentReady.then(mode => {
-    $('refresh').querySelector('span').textContent = mode === 'static' ? '检查更新' : '更新数据';
+    const button = $('refresh');
+    button.disabled = mode !== 'local';
+    button.title = mode === 'local' ? '更新数据' : '仅本地部署可更新数据';
   });
 
   $('refresh').addEventListener('click', async () => {
     const button = $('refresh');
+    const mode = await deploymentReady;
+    if (mode !== 'local' || button.disabled) return;
     button.disabled = true;
     button.querySelector('span').textContent = '检查中…';
-    const mode = await deploymentReady;
     try {
-      if (mode === 'local') {
-        $('status').textContent = '正在同步情绪指数与 ETF 行情…';
-        await requestSourceRefresh();
-      }
+      $('status').textContent = '正在同步情绪指数与 ETF 行情…';
+      await requestSourceRefresh();
       await load();
       await invalidateMarket();
       await loadHealth();
@@ -285,7 +286,7 @@ export function initApplication() {
       $('status').textContent = error.message || '检查失败，已保留本地数据。';
     } finally {
       button.disabled = false;
-      button.querySelector('span').textContent = mode === 'static' ? '检查更新' : '更新数据';
+      button.querySelector('span').textContent = '更新数据';
     }
   });
 

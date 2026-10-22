@@ -12,7 +12,7 @@ function canvasContext(calls = []) {
   });
 }
 
-test('联合时间范围保留 ETF 早期历史、领先行情，并在刷新时保持历史选区', async t => {
+for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口：${mode}`, async t => {
   const nodes = new Map();
   const ctx = canvasContext();
   const element = () => ({
@@ -48,12 +48,17 @@ test('联合时间范围保留 ETF 早期历史、领先行情，并在刷新时
   }));
   let sentimentStart = '1980-01-02';
   let market = { symbol: 'SPY', anchorDate: rows.at(-1).date, fetchedAt: '2026-10-20T00:00:00Z', rows };
-  t.mock.method(globalThis, 'fetch', async url => ({
-    ok: true,
-    json: async () => url.includes('qqq.json') ? { ...market, symbol: 'QQQ', rows: [{ ...rows[0], date: '1990-01-02' }, ...market.rows] } : url.includes('spy.json') ? market : url.includes('deployment') ? { mode: 'static' } : null,
-    text: async () => `Date,Fear Greed,Rating\n${sentimentStart},50,Neutral\n2026-10-15,40,Fear\n2026-10-16,30,Fear\n`
-  }));
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async url => {
+    requests.push(url);
+    return {
+      ok: true,
+      json: async () => url.includes('qqq.json') ? { ...market, symbol: 'QQQ', rows: [{ ...rows[0], date: '1990-01-02' }, ...market.rows] } : url.includes('spy.json') ? market : url.includes('deployment') ? { mode } : null,
+      text: async () => `Date,Fear Greed,Rating\n${sentimentStart},50,Neutral\n2026-10-15,40,Fear\n2026-10-16,30,Fear\n`
+    };
+  });
   initApplication();
+  await new Promise(resolve => setImmediate(resolve));
   for (let i = 0; i < 20 && !$('price-asof').textContent.includes('Yahoo'); i++) {
     await new Promise(resolve => setImmediate(resolve));
   }
@@ -63,6 +68,17 @@ test('联合时间范围保留 ETF 早期历史、领先行情，并在刷新时
   assert.match($('backtest-period').textContent, /2026-10-19/);
   assert.equal(Number($('timeline').max), Date.parse('2026-10-19'));
   assert.equal($('observations').textContent, '2 条记录');
+
+  assert.equal($('refresh').disabled, mode === 'static');
+  if (mode === 'static') {
+    assert.equal($('refresh').title, '仅本地部署可更新数据');
+    const requestCount = requests.length;
+    await $('refresh').listeners.click();
+    assert.equal(requests.length, requestCount, '线上版不抓取来源，也不重新读取快照');
+    assert.equal($('refresh').disabled, true);
+    return;
+  }
+  assert.equal($('refresh').title, '更新数据');
 
   $('range').value = 'sentiment';
   $('range').listeners.change();
@@ -76,6 +92,8 @@ test('联合时间范围保留 ETF 早期历史、领先行情，并在刷新时
   assert.match($('date-range').textContent, /2026-10-16$/);
   market = { ...market, anchorDate: '2026-10-20', rows: [...rows, { ...rows.at(-1), date: '2026-10-20', close: 105 }] };
   await $('refresh').listeners.click();
+  assert.ok(requests.includes('./api/refresh'));
+  assert.equal($('refresh').disabled, false);
   assert.equal(Number($('timeline').max), Date.parse('2026-10-20'));
   assert.match($('date-range').textContent, /2026-10-16$/);
   $('latest').listeners.click();

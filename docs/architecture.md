@@ -52,7 +52,7 @@ docs/                           架构和部署说明
 
 本地更新：页面 → POST /api/refresh → server/updater.mjs 的 refreshAll → network 下载 → domain 校验/计算 → storage 锁和原子替换。命令行和定时任务也调用同一 refreshAll。旧的 refreshETF 独立写入路径已移除，禁止另建绕过锁、历史保护或来源状态记录的写入通道。
 
-静态站点：“检查更新”只重读发布快照，不调用后台刷新接口。构建仅复制 public 到 dist，并写入静态部署标记；不需要打包编译 JavaScript。源码不会随服务端模块发布到 Pages。
+静态站点：刷新图标置灰禁用，提示仅本地部署可更新数据。构建仅复制 public 到 dist，并写入静态部署标记；不需要打包编译 JavaScript。源码不会随服务端模块发布到 Pages。
 
 ## 样式与资源
 

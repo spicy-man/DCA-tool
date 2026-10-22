@@ -114,8 +114,13 @@
   height: 34px;
   padding: 0;
   flex-shrink: 0;
+}
+
+#refresh:disabled {
   color: var(--muted);
   background: #f1f3f5;
+  border-color: var(--border);
+  cursor: not-allowed;
 }
 
 #refresh svg {
