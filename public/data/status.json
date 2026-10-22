@@ -1,13 +1,9 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-22T08:57:11.590Z",
+  "checkedAt": "2026-10-22T13:43:17.972Z",
   "expectedDate": "2026-10-21",
   "requestedSources": [
-    "Fear & Greed",
-    "SPY",
-    "QQQ",
-    "VGT",
-    "SMH"
+    "Fear & Greed"
   ],
   "requestedComplete": true,
   "complete": true,
@@ -20,8 +16,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-21",
-      "checkedAt": "2026-10-22T08:57:11.590Z",
-      "lastSuccessAt": "2026-10-22T08:57:11.590Z"
+      "checkedAt": "2026-10-22T13:43:17.972Z",
+      "lastSuccessAt": "2026-10-22T13:43:17.972Z"
     },
     {
       "symbol": "SPY",
