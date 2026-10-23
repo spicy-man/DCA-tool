@@ -1,9 +1,13 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-23T18:14:09.554Z",
-  "expectedDate": "2026-10-22",
+  "checkedAt": "2026-10-23T22:51:46.542Z",
+  "expectedDate": "2026-10-23",
   "requestedSources": [
-    "Fear & Greed"
+    "Fear & Greed",
+    "SPY",
+    "QQQ",
+    "VGT",
+    "SMH"
   ],
   "requestedComplete": true,
   "complete": true,
@@ -15,53 +19,53 @@
       "source": "CNN",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-10-22",
-      "checkedAt": "2026-10-23T18:14:09.554Z",
-      "lastSuccessAt": "2026-10-23T18:14:09.554Z"
+      "expectedDate": "2026-10-23",
+      "checkedAt": "2026-10-23T22:51:46.542Z",
+      "lastSuccessAt": "2026-10-23T22:51:46.542Z"
     },
     {
       "symbol": "SPY",
-      "date": "2026-10-22",
-      "count": 8491,
+      "date": "2026-10-23",
+      "count": 8492,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-10-22",
-      "checkedAt": "2026-10-22T23:49:40.866Z",
-      "lastSuccessAt": "2026-10-22T23:49:40.866Z"
+      "expectedDate": "2026-10-23",
+      "checkedAt": "2026-10-23T22:51:46.542Z",
+      "lastSuccessAt": "2026-10-23T22:51:46.542Z"
     },
     {
       "symbol": "QQQ",
-      "date": "2026-10-22",
-      "count": 6949,
+      "date": "2026-10-23",
+      "count": 6950,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-10-22",
-      "checkedAt": "2026-10-22T23:49:40.866Z",
-      "lastSuccessAt": "2026-10-22T23:49:40.866Z"
+      "expectedDate": "2026-10-23",
+      "checkedAt": "2026-10-23T22:51:46.542Z",
+      "lastSuccessAt": "2026-10-23T22:51:46.542Z"
     },
     {
       "symbol": "VGT",
-      "date": "2026-10-22",
-      "count": 5719,
+      "date": "2026-10-23",
+      "count": 5720,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-10-22",
-      "checkedAt": "2026-10-22T23:49:40.866Z",
-      "lastSuccessAt": "2026-10-22T23:49:40.866Z"
+      "expectedDate": "2026-10-23",
+      "checkedAt": "2026-10-23T22:51:46.542Z",
+      "lastSuccessAt": "2026-10-23T22:51:46.542Z"
     },
     {
       "symbol": "SMH",
-      "date": "2026-10-22",
-      "count": 3731,
+      "date": "2026-10-23",
+      "count": 3732,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-10-22",
-      "checkedAt": "2026-10-22T23:49:40.866Z",
-      "lastSuccessAt": "2026-10-22T23:49:40.866Z"
+      "expectedDate": "2026-10-23",
+      "checkedAt": "2026-10-23T22:51:46.542Z",
+      "lastSuccessAt": "2026-10-23T22:51:46.542Z"
     }
   ]
 }
