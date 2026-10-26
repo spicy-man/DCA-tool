@@ -3,8 +3,8 @@
   "source": "腾讯财经 / 天天基金",
   "quoteSource": "腾讯财经",
   "checkedAt": "2026-10-26T08:19:27.045Z",
-  "lastAttemptAt": "2026-10-26T08:19:27.045Z",
-  "ok": true,
+  "lastAttemptAt": "2026-10-26T09:02:00.220Z",
+  "ok": false,
   "rows": [
     {
       "code": "513500",
@@ -215,5 +215,6 @@
       }
     ]
   },
-  "groupId": "sp500"
+  "groupId": "sp500",
+  "error": "本次基金更新失败，已保留上次有效快照"
 }

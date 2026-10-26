@@ -1,23 +1,27 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-26T07:25:33.098Z",
+  "checkedAt": "2026-10-26T09:01:58.490Z",
   "expectedDate": "2026-10-23",
   "requestedSources": [
-    "Fear & Greed"
+    "Fear & Greed",
+    "SPY",
+    "QQQ",
+    "VGT",
+    "SMH"
   ],
   "requestedComplete": true,
   "complete": true,
   "results": [
     {
       "symbol": "Fear & Greed",
-      "date": "2026-10-23",
-      "count": 3975,
+      "date": "2026-10-26",
+      "count": 3976,
       "source": "CNN",
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-23",
-      "checkedAt": "2026-10-26T07:25:33.098Z",
-      "lastSuccessAt": "2026-10-26T07:25:33.098Z"
+      "checkedAt": "2026-10-26T09:01:58.490Z",
+      "lastSuccessAt": "2026-10-26T09:01:58.490Z"
     },
     {
       "symbol": "SPY",
@@ -28,7 +32,8 @@
       "fresh": true,
       "expectedDate": "2026-10-23",
       "checkedAt": "2026-10-23T23:43:30.489Z",
-      "lastSuccessAt": "2026-10-23T23:43:30.489Z"
+      "lastSuccessAt": "2026-10-23T23:43:30.489Z",
+      "skipped": true
     },
     {
       "symbol": "QQQ",
@@ -39,7 +44,8 @@
       "fresh": true,
       "expectedDate": "2026-10-23",
       "checkedAt": "2026-10-23T23:43:30.489Z",
-      "lastSuccessAt": "2026-10-23T23:43:30.489Z"
+      "lastSuccessAt": "2026-10-23T23:43:30.489Z",
+      "skipped": true
     },
     {
       "symbol": "VGT",
@@ -50,7 +56,8 @@
       "fresh": true,
       "expectedDate": "2026-10-23",
       "checkedAt": "2026-10-23T23:43:30.489Z",
-      "lastSuccessAt": "2026-10-23T23:43:30.489Z"
+      "lastSuccessAt": "2026-10-23T23:43:30.489Z",
+      "skipped": true
     },
     {
       "symbol": "SMH",
@@ -61,7 +68,8 @@
       "fresh": true,
       "expectedDate": "2026-10-23",
       "checkedAt": "2026-10-23T23:43:30.489Z",
-      "lastSuccessAt": "2026-10-23T23:43:30.489Z"
+      "lastSuccessAt": "2026-10-23T23:43:30.489Z",
+      "skipped": true
     }
   ]
 }

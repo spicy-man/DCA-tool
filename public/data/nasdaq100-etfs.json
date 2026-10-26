@@ -3,8 +3,8 @@
   "source": "腾讯财经 / 天天基金",
   "quoteSource": "腾讯财经",
   "checkedAt": "2026-10-26T08:08:28.742Z",
-  "lastAttemptAt": "2026-10-26T08:08:28.742Z",
-  "ok": true,
+  "lastAttemptAt": "2026-10-26T09:01:59.014Z",
+  "ok": false,
   "rows": [
     {
       "code": "159941",
@@ -544,5 +544,7 @@
         }
       }
     ]
-  }
+  },
+  "error": "本次基金更新失败，已保留上次有效快照",
+  "groupId": "nasdaq100"
 }
