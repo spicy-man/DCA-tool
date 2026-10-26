@@ -1,0 +1,548 @@
+{
+  "version": 1,
+  "source": "腾讯财经 / 天天基金",
+  "quoteSource": "腾讯财经",
+  "checkedAt": "2026-10-26T08:08:28.742Z",
+  "lastAttemptAt": "2026-10-26T08:08:28.742Z",
+  "ok": true,
+  "rows": [
+    {
+      "code": "159941",
+      "manager": "广发",
+      "price": 1.661,
+      "change": -0.42,
+      "iopv": 1.4495,
+      "premium": 14.591238358054493,
+      "amount": 929249249,
+      "shares": 22954410164,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:15.000Z",
+      "netAssets": 34682000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 1,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "159501",
+      "manager": "嘉实",
+      "price": 2.139,
+      "change": -0.14,
+      "iopv": 1.8203,
+      "premium": 17.508103059935152,
+      "amount": 118782482,
+      "shares": 7083986575,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:07:45.000Z",
+      "netAssets": 12411000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.6,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "159696",
+      "manager": "易方达",
+      "price": 2.065,
+      "change": -0.72,
+      "iopv": 1.8047,
+      "premium": 14.423449880866634,
+      "amount": 117634380,
+      "shares": 3013824034,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:15.000Z",
+      "netAssets": 5011000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.6,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "159659",
+      "manager": "招商",
+      "price": 2.369,
+      "change": -0.04,
+      "iopv": 2.0946,
+      "premium": 13.100353289410883,
+      "amount": 146040616,
+      "shares": 4752744064,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:07:45.000Z",
+      "netAssets": 9936000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.65,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "159660",
+      "manager": "汇添富",
+      "price": 2.366,
+      "change": -0.42,
+      "iopv": 2.1176,
+      "premium": 11.73026067245939,
+      "amount": 143435044,
+      "shares": 2589151363,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:00.000Z",
+      "netAssets": 4910000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.65,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "159632",
+      "manager": "华安",
+      "price": 2.434,
+      "change": 0.12,
+      "iopv": 2.2019,
+      "premium": 10.540896498478581,
+      "amount": 255150144,
+      "shares": 5210720640,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:15.000Z",
+      "netAssets": 11300000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.8,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "159513",
+      "manager": "大成",
+      "price": 1.774,
+      "change": 0,
+      "iopv": 1.6147,
+      "premium": 9.865609710782186,
+      "amount": 453304623,
+      "shares": 5026549100,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:15.000Z",
+      "netAssets": 7384000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 1,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "513100",
+      "manager": "国泰",
+      "price": 2.236,
+      "change": -0.31,
+      "iopv": 1.9379,
+      "premium": 15.382630682697783,
+      "amount": 405756979,
+      "shares": 9684610600,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:20.000Z",
+      "netAssets": 19468000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.8,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "513300",
+      "manager": "华夏",
+      "price": 2.68,
+      "change": -0.37,
+      "iopv": 2.4034,
+      "premium": 11.508696013980213,
+      "amount": 304814475,
+      "shares": 5528171000,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:22.000Z",
+      "netAssets": 13288000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.8,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "513390",
+      "manager": "博时",
+      "price": 2.405,
+      "change": 0.33,
+      "iopv": 2.1747,
+      "premium": 10.589966432151554,
+      "amount": 216446349.99999997,
+      "shares": 2799379100,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:21.000Z",
+      "netAssets": 4250000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.65,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "513870",
+      "manager": "富国",
+      "price": 2.065,
+      "change": -0.72,
+      "iopv": 1.8458,
+      "premium": 11.875609491819251,
+      "amount": 97713046,
+      "shares": 1569671000,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:10.000Z",
+      "netAssets": 2471000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 0.6,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    },
+    {
+      "code": "513110",
+      "manager": "华泰柏瑞",
+      "price": 2.447,
+      "change": 0,
+      "iopv": 2.2251,
+      "premium": 9.972585501775221,
+      "amount": 148949528,
+      "shares": 2242435000,
+      "quoteDate": "2026-10-26",
+      "quoteTime": "2026-10-26T08:08:20.000Z",
+      "netAssets": 5098000000,
+      "scaleDate": "2026-06-30",
+      "annualFee": 1,
+      "profileCheckedAt": "2026-10-26T08:08:28.742Z"
+    }
+  ],
+  "performance": {
+    "version": 2,
+    "ok": true,
+    "complete": true,
+    "endDate": "2026-10-23",
+    "checkedAt": "2026-10-26T08:08:28.742Z",
+    "lastAttemptAt": "2026-10-26T08:08:28.742Z",
+    "source": "Yahoo Finance",
+    "currency": "native",
+    "benchmark": {
+      "code": "QQQ",
+      "currency": "USD",
+      "price": 704.4000244140625,
+      "quoteDate": "2026-10-23",
+      "periods": {
+        "1": {
+          "status": "ok",
+          "years": 1,
+          "startDate": "2025-10-23",
+          "endDate": "2026-10-23",
+          "return": 15.907767029294085
+        },
+        "3": {
+          "status": "ok",
+          "years": 3,
+          "startDate": "2023-10-23",
+          "endDate": "2026-10-23",
+          "return": 101.42520907380259
+        },
+        "5": {
+          "status": "ok",
+          "years": 5,
+          "startDate": "2021-10-22",
+          "endDate": "2026-10-23",
+          "return": 94.00461036405672
+        }
+      }
+    },
+    "adjustment": "AdjClose 比值（分红、拆分调整后的前复权收益）",
+    "rows": [
+      {
+        "code": "159941",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 18.29787392340694
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 104.9140001643155
+          },
+          "5": {
+            "status": "ok",
+            "years": 5,
+            "startDate": "2021-10-22",
+            "endDate": "2026-10-23",
+            "return": 117.32899271720534
+          }
+        }
+      },
+      {
+        "code": "159501",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 24.10197104899412
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 113.34662049958193
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "159696",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 22.42495129714652
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 110.73960970853993
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "159659",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 20.61067915017427
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 105.55072779184175
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "159660",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 17.915623018478442
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 105.0043008941108
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "159632",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 16.987483828153227
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 97.80309593030726
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "159513",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 15.570038254921958
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 94.9450546715401
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "513100",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 19.118428635451213
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 107.87766806742187
+          },
+          "5": {
+            "status": "ok",
+            "years": 5,
+            "startDate": "2021-10-22",
+            "endDate": "2026-10-23",
+            "return": 121.42152074806476
+          }
+        }
+      },
+      {
+        "code": "513300",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 15.599491605913652
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 100.89619746400263
+          },
+          "5": {
+            "status": "ok",
+            "years": 5,
+            "startDate": "2021-10-22",
+            "endDate": "2026-10-23",
+            "return": 115.37231047750431
+          }
+        }
+      },
+      {
+        "code": "513390",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 13.17280641402252
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 99.41763982074177
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "513870",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 19.88472083898605
+          },
+          "3": {
+            "status": "short-history",
+            "years": 3,
+            "endDate": "2026-10-23"
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      },
+      {
+        "code": "513110",
+        "ok": true,
+        "periods": {
+          "1": {
+            "status": "ok",
+            "years": 1,
+            "startDate": "2025-10-23",
+            "endDate": "2026-10-23",
+            "return": 16.302277577232218
+          },
+          "3": {
+            "status": "ok",
+            "years": 3,
+            "startDate": "2023-10-23",
+            "endDate": "2026-10-23",
+            "return": 97.02093869926154
+          },
+          "5": {
+            "status": "short-history",
+            "years": 5,
+            "endDate": "2026-10-23"
+          }
+        }
+      }
+    ]
+  }
+}

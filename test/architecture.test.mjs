@@ -14,7 +14,7 @@ async function modules(directory){
 const frontend=new URL('../public/js/',import.meta.url);
 test('前端模块可在无 DOM 环境导入，只有启动入口执行初始化',async()=>{
  for(const file of await modules(frontend)){
-  if(file.href===new URL('app.mjs',frontend).href)continue;
+  if(['app.mjs','funds-page.mjs'].some(name=>file.href===new URL(name,frontend).href))continue;
   await import(file.href);
  }
 });

@@ -8,6 +8,9 @@ import { parseCSV, rating, OFFICIAL_START } from '../public/js/domain/sentiment.
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
 import { readOptional, atomicWrite, preserveHistory, withDataLock } from './storage.mjs';
 import { loadHistoricalSupplement, mergeHistoricalSupplement } from './sentiment-history.mjs';
+import { fetchFundSnapshot } from './nasdaq-funds.mjs';
+import { fetchFundPerformance } from './fund-performance.mjs';
+import { FUND_GROUPS, getFundGroup } from '../public/js/domain/fund-groups.mjs';
 
 export const DEFAULT_DATA_DIR = fileURLToPath(new URL('../public/data/', import.meta.url));
 export const ARCHIVE_URL =
@@ -16,6 +19,40 @@ export const CNN_URL =
   'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2021-02-01';
 
 const pending = new Map();
+
+async function updateFundGroup({ dataDir, fetchText = fetchPublicText, now = Date.now() }, group) {
+  const file = path.join(dataDir, group.snapshotFile);
+  const text = await readOptional(file);
+  const previous = text ? JSON.parse(text) : null;
+  let next;
+  try {
+    next = await fetchFundSnapshot({ fetchText, now, previous, funds: group.funds });
+    next.performance = await fetchFundPerformance({ fetchText, now, previous: previous?.performance,
+      quoteDate: next.rows.map(row => row.quoteDate).sort()[0], funds: group.funds, benchmarkSymbol: group.benchmark.symbol });
+  } catch {
+    next = { ...(previous || { version: 1, source: '东方财富 / 天天基金', rows: [], checkedAt: null }),
+      ok: false, lastAttemptAt: new Date(now).toISOString(),
+      error: '本次基金更新失败，已保留上次有效快照' };
+  }
+  next.groupId = group.id;
+  await atomicWrite(file, JSON.stringify(next, null, 2) + '\n');
+  return next;
+}
+
+async function updateFunds(options) {
+  const groups = options.group ? [getFundGroup(options.group)] : Object.values(FUND_GROUPS);
+  const snapshots = [];
+  for (const group of groups) snapshots.push(await updateFundGroup(options, group));
+  return { ...snapshots[0], complete: snapshots.every(s => s.ok && s.performance?.ok && s.performance?.complete),
+    groups: snapshots.map(s => ({ groupId: s.groupId, ok: s.ok, count: s.rows.length,
+      performanceDate: s.performance?.endDate, performanceComplete: s.performance?.complete,
+      error: s.error || s.performance?.error })) };
+}
+
+export function refreshFunds(options = {}) {
+  const dataDir = path.resolve(options.dataDir || DEFAULT_DATA_DIR);
+  return withDataLock(dataDir, () => updateFunds({ ...options, dataDir }));
+}
 const csv = rows =>
   'Date,Fear Greed,Rating\n' +
   rows.map(r => [r.date, r.score, r.label || rating(r.score)].join(',')).join('\n') +
@@ -248,6 +285,7 @@ async function run({
   now = Date.now(),
   wait = sleep,
   skipFresh = false,
+  includeFunds = false,
   sources,
   sentimentSource = process.env.FEAR_GREED_SOURCE || 'auto'
 }) {
@@ -332,5 +370,6 @@ async function run({
     results
   };
   await atomicWrite(path.join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
+  if (includeFunds) status.funds = await updateFunds({ dataDir, fetchText, now });
   return status;
 }

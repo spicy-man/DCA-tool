@@ -16,6 +16,12 @@
 
 Yahoo Finance Chart API 与 CNN 历史接口是外部数据服务。数据快照、日期、数值和导出文件的权利归原权利人；不纳入拟议的本项目 MIT 授权。
 
+## 国内基金数据
+
+历史涨幅对比使用 Yahoo Finance Chart API 的国内 ETF（`.SZ` / `.SS`）与 QQQ、VOO 复权行情日线，不从最新价推算历史复权价格。仅将计算后的区间收益及日期写入基金快照，不额外发布整份历史行情；数据权利仍归原权利人。
+
+国内 ETF 行情优先使用[东方财富](https://quote.eastmoney.com/center/gridlist.html#fund_etf)公开行情接口，备用为[腾讯财经](https://gu.qq.com/)。净资产规模及管理、托管费率来自[天天基金](https://fund.eastmoney.com/)基金概况。东财字段含义参考 [AKShare 的接口文档](https://akshare.akfamily.xyz/data/fund/fund_public.html)；未引入 AKShare 运行依赖。这些网站接口可能延迟、变更或不可用，公开可访问不代表授予再分发许可；数据权利归上游权利人。
+
 ## K 线绘制参考
 
 [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts) 的 [candlesticks-renderer.ts](https://github.com/tradingview/lightweight-charts/blob/master/src/renderers/candlesticks-renderer.ts) 是 K 线像素对齐、实体与影线宽度处理的参考；本项目对应实现见 `public/js/charts/geometry.mjs`。当前未安装、加载或打包 Lightweight Charts 运行库。
@@ -42,3 +48,5 @@ Yahoo Finance Chart API 与 CNN 历史接口是外部数据服务。数据快照
 ## 其他内容
 
 页面的巴菲特、彼得·林奇、约翰·博格、霍华德·马克斯与查理·芒格等名家理念整理及书籍引述均保留各自来源链接；作品版权、人物名称、第三方商标及数据品牌不因本项目代码许可证发生转移。
+
+QQQ 与 VOO 的基准费率分别以 [Invesco](https://www.invesco.com/qqq-etf/en/home.html) 与 [Vanguard](https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf) 官方总费用率为准；配置中保留核对日期，非行情接口自动更新的字段。

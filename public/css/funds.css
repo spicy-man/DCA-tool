@@ -1,0 +1,70 @@
+.fund-comparison { margin-top: 24px; padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.price-card-footer { position: relative; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.price-card-footer>.accessible-data { margin: 0; line-height: 1.7; }
+.price-card-footer summary { min-height: 34px; padding: 7px 180px 7px 0; }
+.fund-entry { position: absolute; top: 8px; right: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; padding: 0 14px; border-radius: 5px; background: var(--navy); border: 1px solid var(--navy); color: #fff; font-size: 12px; text-decoration: none; white-space: nowrap; }
+.fund-entry:hover { background: #264e62; border-color: #264e62; }
+.fund-entry[hidden] { display: none; }
+.fund-back { margin-left: auto; color: var(--navy); font-size: 12px; text-decoration: none; }
+.fund-back:hover { text-decoration: underline; }
+.fund-page .fund-comparison { margin: 24px 0; }
+.fund-page .shell { max-width: 1440px; }
+.fund-page .fund-heading h1 { font-size: 22px; margin: 7px 0 8px; }
+.fund-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.fund-eyebrow { font-size: 11px; letter-spacing: .12em; color: #557b80; }
+.fund-heading h2 { margin: 7px 0 8px; }
+.fund-heading p { margin: 0; font-size: 12px; color: #687a87; line-height: 1.7; }
+.fund-heading label { flex-shrink: 0; color: #687a87; font-size: 12px; }
+.fund-heading select { margin-left: 6px; padding: 0 8px; }
+.fund-sort-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.fund-sort-help { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 16px; color: #687a87; font-size: 11px; line-height: 1.6; }
+#fund-sort-status { color: #315d67; }
+.fund-table th button { height: auto; min-height: 32px; border: 0; background: transparent; padding: 0; color: inherit; font: inherit; white-space: nowrap; }
+.fund-table th button:hover { color: #193f4b; }
+.fund-table th button.fund-sort-active { color: #193f4b; font-weight: 650; }
+.fund-sort-indicator { display: inline-block; min-width: 16px; color: #80949c; font-size: 10px; }
+.fund-summary { display: grid; grid-template-columns: repeat(3, 1fr); margin: 22px 0 8px; padding: 18px 0; background: #f6f9f9; border: 1px solid #e6eeee; border-radius: 8px; }
+.fund-summary>div { padding: 0 22px; }
+.fund-summary>div+div { border-left: 1px solid #dfe8e8; }
+.fund-summary span,.fund-summary small { display: block; color: #687a87; font-size: 11px; }
+.fund-summary strong { display: block; margin: 7px 0; color: #193f4b; font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+#fund-date { font-size: 19px; min-height: 29px; display: flex; align-items: center; }
+.fund-table-scroll { max-height: none; margin: 14px 0; }
+.fund-table { min-width: 1020px; font-size: 12px; white-space: nowrap; }
+.fund-page .fund-table { min-width: 1280px; }
+.fund-performance-status { margin: 18px 0 0; color: #687a87; font-size: 11px; line-height: 1.8; }
+#fund-benchmark td { background: #edf4f7; border-bottom: 2px solid #bed1da; font-weight: 600; }
+#fund-benchmark td:first-child { position: sticky; background: #edf4f7; }
+.fund-benchmark-badge { display: inline-block; margin-top: 5px; padding: 1px 6px; border-radius: 3px; background: #dce9ee; color: #315d67; font-size: 10px; }
+.fund-performance-method { color: #687a87; font-size: 11px; line-height: 1.9; margin: 10px 0; }
+.fund-performance-method p { margin: 8px 0; }
+.fund-table th { padding: 12px 10px; color: #6b7c88; font-size: 11px; font-weight: 500; background: #f8fafb; }
+.fund-table td { padding: 12px 10px; text-align: right; }
+.fund-table th { text-align: right; }
+.fund-table td:first-child,.fund-table th:first-child { text-align: left; }
+.fund-table td:first-child { position: sticky; left: 0; background: #fff; z-index: 1; }
+.fund-table th:first-child { left: 0; z-index: 2; }
+.fund-table td:nth-child(5) { font-weight: 650; }
+.fund-table a { color: var(--navy); text-decoration: none; font-weight: 550; }
+.fund-table a:hover { text-decoration: underline; }
+.fund-table small { display: block; font-size: 10px; color: #7d8994; font-weight: 400; margin-top: 5px; }
+.fund-table tbody tr:hover { background: #f5f9fa; }
+.fund-method { font-size: 11px; line-height: 1.9; color: #687a87; margin: 12px 0 6px; }
+.fund-source { font-size: 11px; color: #557b80; }
+.fund-source a { color: inherit; }
+.fund-empty { padding: 20px 0; color: #687a87; }
+.fund-swipe { display: none; }
+@media(max-width: 700px) {
+  .price-card-footer summary { padding-right: 176px; font-size: 10px; }
+  .fund-entry { padding: 0 9px; font-size: 11px; }
+  .fund-page .fund-heading h1 { font-size: 19px; }
+  .fund-swipe { display: block; color: #687a87; font-size: 11px; margin: 14px 0 0; }
+  .fund-comparison { padding: 16px 12px; margin-top: 16px; }
+  .fund-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .fund-sort-controls { justify-content: flex-start; }
+  .fund-summary { margin-top: 16px; }
+  .fund-summary>div { padding: 0 9px; }
+  .fund-summary strong { font-size: 19px; }
+  #fund-date { font-size: 12px; }
+  .fund-summary small { font-size: 10px; line-height: 1.6; }
+}

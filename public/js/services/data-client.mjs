@@ -1,5 +1,15 @@
 import { parseCSV } from '../domain/sentiment.mjs';
 import { filterMarketHistory } from '../domain/market.mjs';
+import { getFundGroup } from '../domain/fund-groups.mjs';
+
+export async function loadFundSnapshot(groupId = 'nasdaq100') {
+  const group = getFundGroup(groupId);
+  const response = await fetch('./data/' + group.snapshotFile, { cache: 'no-store' });
+  if (!response.ok) throw Error('暂无基金快照，请运行每日基金更新');
+  const value = await response.json();
+  if (value.version !== 1 || !Array.isArray(value.rows) || (value.groupId && value.groupId !== group.id)) throw Error('基金快照格式无效');
+  return value;
+}
 
 // URLs resolve relative to the page, so both localhost and GitHub Pages subpaths work.
 export async function loadSentimentRows() {

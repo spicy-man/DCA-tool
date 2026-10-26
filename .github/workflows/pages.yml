@@ -5,6 +5,9 @@ on:
     paths-ignore:
       - 'public/data/**'
   schedule:
+    # Domestic Nasdaq-100 and S&P 500 ETFs: one snapshot after the China close.
+    - cron: '30 15 * * 1-5'
+      timezone: Asia/Shanghai
     # F&G every six hours, anchored at regular close +3 min, including weekends.
     # Calendar gate selects only close +3/+63 min for ETFs, including early closes.
     - cron: '3 4 * * *'
@@ -39,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sources: ${{ steps.gate.outputs.sources }}
+      funds: ${{ steps.gate.outputs.funds }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -52,14 +56,17 @@ jobs:
         env:
           REFRESH_SCHEDULE: ${{ github.event.schedule }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+          if [ "$REFRESH_SCHEDULE" = '30 15 * * 1-5' ]; then
+            echo 'funds=true' >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             node scripts/refresh-schedule.mjs >> "$GITHUB_OUTPUT"
           else
             echo 'sources=Fear & Greed,SPY,QQQ,VGT,SMH' >> "$GITHUB_OUTPUT"
+            echo 'funds=true' >> "$GITHUB_OUTPUT"
           fi
   publish:
     needs: schedule
-    if: github.ref == 'refs/heads/main' && needs.schedule.outputs.sources != ''
+    if: github.ref == 'refs/heads/main' && (needs.schedule.outputs.sources != '' || needs.schedule.outputs.funds == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -81,6 +88,7 @@ jobs:
         run: node --test test/*.test.mjs
       - name: Update sources
         id: update
+        if: needs.schedule.outputs.sources != ''
         continue-on-error: true
         env:
           FEAR_GREED_SOURCE: ${{ vars.FEAR_GREED_SOURCE || 'auto' }}
@@ -93,6 +101,11 @@ jobs:
           else
             node scripts/update-data.mjs --scheduled
           fi
+      - name: Update domestic ETF snapshots
+        id: funds
+        if: needs.schedule.outputs.funds == 'true'
+        continue-on-error: true
+        run: node scripts/update-funds.mjs
       - name: Save valid snapshots and source status
         id: save
         run: |
@@ -102,6 +115,12 @@ jobs:
           git add public/data/fear-greed.csv public/data/spy.json public/data/qqq.json public/data/vgt.json public/data/smh.json
           if [ -f public/data/status.json ]; then
             git add public/data/status.json
+          fi
+          if [ -f public/data/nasdaq100-etfs.json ]; then
+            git add public/data/nasdaq100-etfs.json
+          fi
+          if [ -f public/data/sp500-etfs.json ]; then
+            git add public/data/sp500-etfs.json
           fi
           if ! git diff --cached --quiet; then
             git commit -m 'Update market snapshots and freshness status'
@@ -127,3 +146,8 @@ jobs:
           DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
           UPDATE_OUTCOME: ${{ steps.update.outcome }}
         run: node scripts/report-data-status.mjs
+      - name: Report fund update failure
+        if: always() && steps.funds.outcome == 'failure'
+        run: |
+          echo '部分基金数据更新失败；页面保留相应的上次有效数据，请核对各区间日期。'
+          exit 1

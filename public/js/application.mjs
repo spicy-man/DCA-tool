@@ -287,6 +287,7 @@ export function initApplication() {
     } catch (error) {
       $('status').textContent = error.message || '检查失败，已保留本地数据。';
     } finally {
+      appEvents.dispatchEvent(new Event(events.fundsUpdated));
       button.disabled = false;
       button.querySelector('span').textContent = '更新数据';
     }

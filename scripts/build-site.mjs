@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 const project=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(project,'dist');
 const dataDir=path.resolve(project,'public','data');
-const publicDataFiles=new Set(['fear-greed.csv','status.json',...SYMBOLS.map(s=>s.toLowerCase()+'.json')]);
+const publicDataFiles=new Set(['fear-greed.csv','status.json','nasdaq100-etfs.json','sp500-etfs.json',...SYMBOLS.map(s=>s.toLowerCase()+'.json')]);
 export async function buildSite(){
  await checkVersion();
  if(path.dirname(output)!==path.resolve(project)||path.basename(output)!=='dist')throw Error('Invalid build output');

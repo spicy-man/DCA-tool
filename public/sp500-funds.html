@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <meta name="theme-color" content="#f5f6fa">
+  <meta name="description" content="对比国内标普500 ETF 的参考溢价、价格、成交额、净资产规模与费率，每日快照。">
+  <title>标普500 ETF 对比 · 定投助手</title>
+  <link rel="icon" type="image/svg+xml" href="./logo.svg?v=dca">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body class="fund-page" data-fund-group="sp500">
+  <div class="shell">
+    <header class="masthead">
+      <a href="./" class="brand" aria-label="定投助手首页"><span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手</a>
+      <a class="fund-back" href="./#price-title">← 返回定投信号</a>
+    </header>
+    <main>
+      <section class="fund-comparison" id="sp500-funds" aria-labelledby="fund-heading">
+        <div class="fund-heading">
+          <div><span class="fund-eyebrow">国内场内 · 每日快照</span><h1 id="fund-heading">标普500 ETF 对比</h1><p id="fund-updated" role="status">正在读取每日快照…</p></div>
+          <div class="fund-sort-controls">
+            <label>第一排序 <select id="fund-sort" aria-label="第一排序条件"><option value="premium:asc">参考溢价率 ↑ 升序</option></select></label>
+            <label>第二排序 <select id="fund-secondary-sort" aria-label="第二排序条件"><option value="">不设置</option></select></label>
+          </div>
+        </div>
+        <div class="fund-summary">
+          <div><span>最低参考溢价</span><strong id="fund-lowest">—</strong><small id="fund-lowest-name">等待数据</small></div>
+          <div><span>合计成交额</span><strong id="fund-turnover">—</strong><small id="fund-count">4 只 / 标普500</small></div>
+          <div><span>行情日期</span><strong id="fund-date">—</strong><small id="fund-coverage">每日收盘后更新</small></div>
+        </div>
+        <p id="fund-performance-status" class="fund-performance-status" role="status" aria-live="polite">正在读取历史涨幅…</p>
+        <div class="fund-sort-help"><span id="fund-sort-status" role="status" aria-live="polite">第一：参考溢价率 ↑</span><span>点击表头切换升降序；Shift＋点击设置第二排序，同值时生效。</span></div>
+        <p class="fund-swipe">左右滑动表格，查看价格、规模和费率 →</p>
+        <div class="table-scroll fund-table-scroll" tabindex="0" role="region" aria-label="标普500 ETF 对比，可横向滚动">
+          <table class="fund-table"><thead><tr>
+            <th scope="col"><button type="button" data-fund-sort="code">基金 / 代码 <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="netAssets">净资产规模（亿） <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="price">最新价 <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="iopv">IOPV（元） <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col" aria-sort="ascending"><button type="button" data-fund-sort="premium">参考溢价率 <span class="fund-sort-indicator" aria-hidden="true">↑1</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="amount">成交额（亿） <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="annualFee">年费率 <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="quoteDate">行情日期 <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="return1">近1年 <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="return3">近3年 <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+            <th scope="col"><button type="button" data-fund-sort="return5">近5年 <span class="fund-sort-indicator" aria-hidden="true">↕</span></button></th>
+          </tr></thead><tbody id="fund-benchmark"></tbody><tbody id="fund-table"></tbody></table>
+        </div>
+        <p id="fund-empty" class="fund-empty">暂无有效基金快照，等待每日数据更新。</p>
+        <p class="fund-method">参考溢价＝（最新价 ÷ IOPV − 1）× 100%。跨境 ETF 的 IOPV 有时差与估值局限，非当日最终净值；缺失时显示“—”。净资产规模使用最近披露值，日期逐只标注；国内基金年费率为管理费＋托管费，VOO 为总费用率（Expense Ratio）。数据不参与上方美股定投回测。</p>
+        <details class="fund-performance-method"><summary>历史涨幅口径</summary><p>近1年、3年、5年均用分红、拆分调整后的前复权价格比值计算累计涨幅，不是年化收益。VOO 为美元计价，国内场内 ETF 为人民币计价，不做汇率换算。VOO 固定首行，不参与基金排序。</p><p>历史涨幅采用已有完整数据的统一截止日期；起点取各自对应周年或之前最近交易日，最多回退14天，实际起止日期见数值提示。中美收盘时刻不同。不足年限显示“未满N年”，缺失数据显示“—”，不以成立以来收益替代。最新价、溢价仍采用原始行情。</p></details>
+        <p class="fund-source">历史前复权行情与 VOO：Yahoo Finance。</p>
+        <p class="fund-source"><a id="benchmark-fee-source" href="https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf" target="_blank" rel="noreferrer">VOO 总费用率：Vanguard 官方披露 ↗</a></p>
+        <p class="fund-source"><span id="fund-source">行情：东方财富 / 腾讯财经</span> · <a href="https://fund.eastmoney.com/" target="_blank" rel="noreferrer">规模与费率：天天基金 ↗</a></p>
+      </section>
+
+    </main>
+    <footer><span>国内场内 · 每日快照</span><a href="./#price-title">返回定投助手</a></footer>
+  </div>
+  <script type="module" src="./js/funds-page.mjs"></script>
+</body>
+</html>

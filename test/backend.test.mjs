@@ -282,6 +282,24 @@ test('刷新全部或部分失败可立即重试，成功后才进入冷却，�
 });
 
 
+test('基金历史收益失败时允许立即重试，历史补齐后才进入刷新冷却', async t => {
+  let calls = 0;
+  const server = createServer({ refresh: async () => {
+    calls++;
+    return { complete: true, results: [{ symbol: 'QQQ', ok: true, fresh: true }],
+      funds: { ok: true, performance: { ok: true, complete: calls > 1 } } };
+  } });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const url = 'http://127.0.0.1:' + server.address().port + '/api/refresh';
+  await fetch(url, { method: 'POST' });
+  await fetch(url, { method: 'POST' });
+  assert.equal(calls, 2);
+  await fetch(url, { method: 'POST' });
+  assert.equal(calls, 2);
+});
+
 test('ETF单独成功不能掩盖指数滞后，也不能刷新指数检查时间', async t => {
  const d=await dir(t);await seed(d);
  const first=await refreshAll({...opts(d),fetchText:async url=>url===CNN_URL?JSON.stringify(cnn(dates.slice(0,2))):url===ARCHIVE_URL?csv(dates.slice(0,2)):source(url)});

@@ -4,11 +4,13 @@ import {initMarketChart} from './features/market/chart.mjs';
 import {initStrategyOverlay} from './features/strategy/overlay.mjs';
 import {initStrategyDialog} from './ui/strategy-dialog.mjs';
 import {initSymbolDialog} from './ui/symbol-dialog.mjs';
+import {initFundNavigation} from './ui/fund-navigation.mjs';
 
 // Composition root: initialize feature controls before starting data loading.
 await initSymbolDialog();
 initStrategyOverlay();
 initMarketChart();
+initFundNavigation();
 initStrategyDialog();
 initApplication();
 

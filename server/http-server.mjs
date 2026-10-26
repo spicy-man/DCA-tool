@@ -108,9 +108,10 @@ export function createServer({
         }
 
         if (!active && (!lastResult || Date.now() - lastRun >= cooldownMs)) {
-          active = refresh({ dataDir })
+          active = refresh({ dataDir, includeFunds: true })
             .then(value => {
-              if (value.results.length && value.results.every(r => r.ok)) {
+              if (value.results.length && value.results.every(r => r.ok) && value.funds?.ok !== false && value.funds?.complete !== false &&
+                  value.funds?.performance?.ok !== false && value.funds?.performance?.complete !== false) {
                 lastResult = value;
                 lastRun = Date.now();
               }

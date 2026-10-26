@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.8.7">
+  <link rel="stylesheet" href="./style.css?v=1.9.0">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.8.7">v1.8.7</span>
+        <span class="version-badge" aria-label="版本 1.9.0">v1.9.0</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
       <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
@@ -188,6 +188,7 @@
           </span>
         </div>
 
+        <div class="price-card-footer">
         <details class="accessible-data">
           <summary>查看行情、定投明细与计算口径</summary>
           <p class="adjustment-note">数据源：Yahoo Finance。每日开、高、低、收四价同乘（调整后收盘价 ÷ 收盘价）÷ 最新完整交易日因子，以最新交易日价格为基准。周线／月线 由复权后的日线聚合；历史窗口不改变复权基准。成交量为来源原始成交量。未上市、缺失或尚未收盘的交易日不补值。</p>
@@ -220,6 +221,8 @@
             <button id="signal-download">导出定投信号 CSV</button>
           </section>
         </details>
+          <a id="fund-entry" class="fund-entry" href="./nasdaq-funds.html" hidden>纳指100 场内 ETF 对比 <span aria-hidden="true">↗</span></a>
+        </div>
       </section>
 
       <section class="chart-card" aria-labelledby="chart-title">

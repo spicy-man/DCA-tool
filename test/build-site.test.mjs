@@ -10,13 +10,14 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
   const root = await mkdtemp(path.join(os.tmpdir(), 'dca-build-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const file of ['scripts/build-site.mjs', 'scripts/version.mjs', 'package.json', 'CHANGELOG.md',
-    'public/index.html', 'public/style.css', 'public/js/domain/market.mjs', 'public/js/domain/trading-calendar.mjs']) {
+    'public/index.html', 'public/nasdaq-funds.html', 'public/sp500-funds.html', 'public/js/funds-page.mjs',
+    'public/style.css', 'public/js/domain/market.mjs', 'public/js/domain/trading-calendar.mjs']) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await copyFile(new URL('../' + file, import.meta.url), path.join(root, file));
   }
   const dataDir = path.join(root, 'public/data');
   await mkdir(dataDir, { recursive: true });
-  const files = ['fear-greed.csv', ...SYMBOLS.map(symbol => symbol.toLowerCase() + '.json'),
+  const files = ['fear-greed.csv', 'nasdaq100-etfs.json', 'sp500-etfs.json', ...SYMBOLS.map(symbol => symbol.toLowerCase() + '.json'),
     'custom-symbols.json', 'voo.json', 'aapl.json', '.refresh.lock', 'spy.json.tmp'];
   for (const file of files) await writeFile(path.join(dataDir, file), 'fixture');
   const sources = ['Fear & Greed', ...SYMBOLS];
@@ -32,8 +33,14 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
   await save();
   const original = await readFile(localFile, 'utf8');
   build();
+  assert.equal(await readFile(path.join(root, 'dist/nasdaq-funds.html'), 'utf8'),
+    await readFile(path.join(root, 'public/nasdaq-funds.html'), 'utf8'));
+  assert.equal(await readFile(path.join(root, 'dist/sp500-funds.html'), 'utf8'),
+    await readFile(path.join(root, 'public/sp500-funds.html'), 'utf8'));
+  assert.equal(await readFile(path.join(root, 'dist/js/funds-page.mjs'), 'utf8'),
+    await readFile(path.join(root, 'public/js/funds-page.mjs'), 'utf8'));
   assert.deepEqual((await readdir(path.dirname(outputFile))).sort(),
-    ['status.json', 'fear-greed.csv', ...SYMBOLS.map(symbol => symbol.toLowerCase() + '.json')].sort());
+    ['status.json', 'fear-greed.csv', 'nasdaq100-etfs.json', 'sp500-etfs.json', ...SYMBOLS.map(symbol => symbol.toLowerCase() + '.json')].sort());
   let published = JSON.parse(await readFile(outputFile, 'utf8'));
   assert.deepEqual(published.results, status.results.slice(0, sources.length));
   assert.deepEqual(published.requestedSources, sources);
