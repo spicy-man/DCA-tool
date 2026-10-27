@@ -1,5 +1,5 @@
 import { NASDAQ_FUNDS } from '../public/js/domain/nasdaq-funds.mjs';
-import { yearsBefore, parsePerformanceHistory, calculateFundPerformance } from '../public/js/domain/fund-performance.mjs';
+import { yearsBefore, parsePerformanceHistory, parseBenchmarkHistory, calculateFundPerformance } from '../public/js/domain/fund-performance.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
 
 export function performanceHistoryURL(symbol, now) {
@@ -8,13 +8,17 @@ export function performanceHistoryURL(symbol, now) {
     `period1=${Date.parse(start) / 1000}&period2=${Math.floor(now / 1000)}&interval=1d&events=div%2Csplits&includeAdjustedClose=true`;
 }
 
-export async function fetchFundPerformance({ fetchText, now, previous, quoteDate, funds = NASDAQ_FUNDS, benchmarkSymbol = 'QQQ' }) {
+export async function fetchFundPerformance({ fetchText, now, previous, quoteDate, funds = NASDAQ_FUNDS, benchmarkSymbol = 'QQQ', benchmarkSnapshot, loadBenchmarkSnapshot }) {
   const checkedAt = new Date(now).toISOString();
   previous = previous?.version === 2 && previous.benchmark?.code === benchmarkSymbol ? previous : null;
   try {
+    if (loadBenchmarkSnapshot) benchmarkSnapshot = await loadBenchmarkSnapshot();
     const load = async (symbol, options) => parsePerformanceHistory(
       JSON.parse(await fetchText(performanceHistoryURL(symbol, now))), options);
-    const qqq = await load(benchmarkSymbol, { symbols: [benchmarkSymbol], currency: 'USD', timezone: 'America/New_York', cutoff: latestClosedSession(now, 0) });
+    const latest = latestClosedSession(now, 0);
+    const qqq = benchmarkSnapshot
+      ? parseBenchmarkHistory(benchmarkSnapshot, { symbol: benchmarkSymbol, cutoff: latest })
+      : await load(benchmarkSymbol, { symbols: [benchmarkSymbol], currency: 'USD', timezone: 'America/New_York', cutoff: latest });
     const cutoff = qqq.rows.map(r => r.date).filter(date => date <= quoteDate).at(-1);
     const histories = [];
     // Bound concurrent requests to this public history service.

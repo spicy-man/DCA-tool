@@ -78,4 +78,4 @@ style.css 按 page.css → header.css → strategy-dialog.css → strategy-summa
 
 ## 国内基金分组
 
-`domain/fund-groups.mjs` 固定配置纳指100/QQQ与标普500/VOO的基金名单、基准、费率来源、页面及快照路径。`fund-navigation` 随主页标的切换入口；共享二级页启动器按 body 的 `data-fund-group` 选择配置。网络层仅接受配置内的快照路径，界面校验基准代码，历史缓存不跨基准复用。updater 在同一数据锁内逐组校验、原子保存，单组失败保留该组原数据；返回的 groups 和 complete 汇总两组结果，逐组文件不包含汇总状态。静态构建只发布明确列入白名单的两组快照。
+`domain/fund-groups.mjs` 固定配置纳指100/QQQ与标普500/SPY的基金名单、基准、费率来源、页面及快照路径。`fund-navigation` 随主页标的切换入口；共享二级页启动器按 body 的 `data-fund-group` 选择配置。网络层仅接受配置内的快照路径，界面校验基准代码，基准历史优先复用本地 `qqq.json` / `spy.json` 快照，历史缓存不跨基准复用。updater 在同一数据锁内逐组校验、原子保存，单组失败保留该组原数据；返回的 groups 和 complete 汇总两组结果，逐组文件不包含汇总状态。静态构建只发布明确列入白名单的两组快照。

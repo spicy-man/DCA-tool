@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { NASDAQ_FUNDS, normalizeFundQuotes, premiumRate, sortFunds } from '../public/js/domain/nasdaq-funds.mjs';
-import { FUND_QUOTES_URL, TENCENT_QUOTES_URL, parseFundProfile, parseTencentQuotes } from '../server/nasdaq-funds.mjs';
+import { FUND_QUOTES_URL, TENCENT_QUOTES_URL, parseFundProfile, parseTencentQuotes, fetchFundSnapshot } from '../server/nasdaq-funds.mjs';
 import { refreshFunds } from '../server/updater.mjs';
 
 const now = Date.parse('2026-10-26T08:00:00Z');
@@ -32,6 +32,27 @@ test('腾讯备用源校验溢价口径、人民币、完整名单和成交额�
   assert.throws(() => parseTencentQuotes(tencent().replace('~14.59~', '~1.59~'), now));
   assert.throws(() => parseTencentQuotes(tencent().replace('~CNY~', '~USD~'), now));
   assert.throws(() => parseTencentQuotes(tencent().split('\n').slice(1).join('\n'), now));
+});
+
+test('主源延迟落后缓存时尝试备用源，两源均倒退时拒绝替换', async () => {
+  const previous = { rows: parseTencentQuotes(tencent().replaceAll('20261026150000', '20261026151500'), now) };
+  const saved = structuredClone(previous);
+  let backupCalls = 0;
+  const options = { now, previous, fetchText: async url => {
+    if (url === FUND_QUOTES_URL) return JSON.stringify(payload());
+    if (url === TENCENT_QUOTES_URL) {
+      backupCalls++;
+      return tencent().replaceAll('20261026150000', '20261026153000');
+    }
+    return profile;
+  } };
+  const next = await fetchFundSnapshot(options);
+  assert.equal(backupCalls, 1);
+  assert.equal(next.quoteSource, '腾讯财经');
+  assert.equal(next.rows[0].quoteTime, '2026-10-26T07:30:00.000Z');
+  await assert.rejects(fetchFundSnapshot({ ...options, fetchText: async url =>
+    url === FUND_QUOTES_URL ? JSON.stringify(payload()) : tencent() }), /基金行情时间倒退/);
+  assert.deepEqual(previous, saved);
 });
 
 test('溢价以价格和IOPV计算，缺失/零净值不产生虚假溢价；全部12只校验', () => {

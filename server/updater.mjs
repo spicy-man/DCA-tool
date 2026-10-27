@@ -28,7 +28,11 @@ async function updateFundGroup({ dataDir, fetchText = fetchPublicText, now = Dat
   try {
     next = await fetchFundSnapshot({ fetchText, now, previous, funds: group.funds });
     next.performance = await fetchFundPerformance({ fetchText, now, previous: previous?.performance,
-      quoteDate: next.rows.map(row => row.quoteDate).sort()[0], funds: group.funds, benchmarkSymbol: group.benchmark.symbol });
+      quoteDate: next.rows.map(row => row.quoteDate).sort()[0], funds: group.funds,
+      benchmarkSymbol: group.benchmark.symbol, loadBenchmarkSnapshot: async () => {
+        const text = await readOptional(path.join(dataDir, (group.homeSymbol || group.benchmark.symbol).toLowerCase() + '.json'));
+        return text ? JSON.parse(text) : null;
+      } });
   } catch {
     next = { ...(previous || { version: 1, source: '东方财富 / 天天基金', rows: [], checkedAt: null }),
       ok: false, lastAttemptAt: new Date(now).toISOString(),
@@ -113,8 +117,22 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
   const file = path.join(dataDir, symbol.toLowerCase() + '.json');
   const saved = await readOptional(file);
   const previous = saved ? JSON.parse(saved) : null;
-  const payload = JSON.parse(await fetchText(yahooURL(symbol)));
-  const next = normalizeYahoo(payload, symbol, now);
+  let text;
+  try {
+    text = await fetchText(yahooURL(symbol));
+  } catch (error) {
+    error.publicMessage = sourceFailure('Yahoo Finance', error) + '；已保留上次有效数据';
+    throw error;
+  }
+  let payload, next;
+  try {
+    payload = JSON.parse(text);
+    next = normalizeYahoo(payload, symbol, now);
+    if (previous) preserveHistory(filterMarketHistory(symbol, previous.rows), next.rows);
+  } catch (error) {
+    error.publicMessage = validationFailure('Yahoo Finance', error) + '；已保留上次有效数据';
+    throw error;
+  }
   const result = payload.chart.result[0];
   const latest = latestClosedSession(now, 0);
   const incompleteDates = (result.timestamp || []).flatMap((timestamp, i) => {
@@ -126,7 +144,6 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
       result.indicators.adjclose[0].adjclose?.[i]];
     return date <= latest && (!HISTORY_STARTS[symbol] || date >= HISTORY_STARTS[symbol]) && values.some(v => v == null) ? [date] : [];
   });
-  if (previous) preserveHistory(filterMarketHistory(symbol, previous.rows), next.rows);
   await atomicWrite(file, JSON.stringify(next));
   return { date: next.anchorDate, count: next.rows.length, source: 'Yahoo Finance',
     ...(incompleteDates.length ? {
@@ -146,7 +163,9 @@ function validationFailure(name, error) {
     'CNN 缺少历史数据', 'CNN 日期或分数无效', 'CNN 没有可用历史数据',
     'CSV 列名不匹配', 'CSV 数据无效或日期重复', '没有可用数据',
     '上游缺失已有历史日期，已保留原数据', '指数数据已超过 7 天未更新',
-    '缺少 2021 年以前历史存档，请先使用 archive 初始化'
+    '缺少 2021 年以前历史存档，请先使用 archive 初始化',
+    'Yahoo 行情标识或币种不匹配', '行情缺少 OHLC 或复权因子',
+    '行情价格无效或日期重复', 'OHLC 范围异常', '成交量异常', '无完整交易日数据'
   ]);
   const reason = error instanceof SyntaxError ? '响应不是有效 JSON' :
     reasons.has(error.message) ? error.message : '数据格式无效';

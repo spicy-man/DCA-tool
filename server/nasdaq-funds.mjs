@@ -43,17 +43,20 @@ export function parseFundProfile(html) {
 
 // Returns a validated candidate; only updater.mjs owns locking and disk writes.
 export async function fetchFundSnapshot({ fetchText, now, previous, funds = NASDAQ_FUNDS }) {
+  const validateCandidate = rows => {
+    for (const row of rows) {
+      const old = previous?.rows?.find(item => item.code === row.code);
+      if (old?.quoteTime > row.quoteTime) throw Error('基金行情时间倒退');
+    }
+    return rows;
+  };
   let rows, quoteSource;
   try {
-    rows = normalizeFundQuotes(JSON.parse(await fetchText(fundQuotesURL(funds))), now, funds);
+    rows = validateCandidate(normalizeFundQuotes(JSON.parse(await fetchText(fundQuotesURL(funds))), now, funds));
     quoteSource = '东方财富';
   } catch {
-    rows = parseTencentQuotes(await fetchText(tencentQuotesURL(funds)), now, funds);
+    rows = validateCandidate(parseTencentQuotes(await fetchText(tencentQuotesURL(funds)), now, funds));
     quoteSource = '腾讯财经';
-  }
-  for (const row of rows) {
-    const old = previous?.rows?.find(item => item.code === row.code);
-    if (old?.quoteTime > row.quoteTime) throw Error('基金行情时间倒退');
   }
   const checkedAt = new Date(now).toISOString();
   const enriched = await Promise.all(rows.map(async row => {

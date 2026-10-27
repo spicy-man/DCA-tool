@@ -37,6 +37,24 @@ export function parsePerformanceHistory(payload, { symbols, currency, timezone, 
   return { rows, firstDate: Number.isFinite(firstTradeDate) ? format.format(new Date(firstTradeDate * 1000)) : rows[0].date };
 }
 
+export function parseBenchmarkHistory(snapshot, { symbol = 'QQQ', cutoff } = {}) {
+  if (snapshot?.symbol !== symbol || snapshot?.currency !== 'USD' || !Array.isArray(snapshot.rows)) {
+    throw Error('本地基准行情无效');
+  }
+  const rows = [];
+  for (const row of snapshot.rows) {
+    if (!row?.date || row.date > cutoff) continue;
+    const close = fundNumber(row.adjClose ?? row.close);
+    const rawClose = fundNumber(row.sourceClose ?? row.close);
+    if (!(close > 0) || !(rawClose > 0) || (rows.length && row.date <= rows.at(-1).date)) {
+      throw Error('历史价格缺失或日期无序');
+    }
+    rows.push({ date: row.date, close, rawClose });
+  }
+  if (!rows.length) throw Error('历史行情为空');
+  return { rows, firstDate: snapshot.rows[0]?.date || rows[0].date };
+}
+
 export function calculateFundPerformance(history, endDate) {
   const prices = new Map(history.rows.map(r => [r.date, r.close]));
   const dates = history.rows.map(r => r.date).filter(date => date <= endDate);

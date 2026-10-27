@@ -19,11 +19,33 @@ async function dir(t){const d=await mkdtemp(path.join(os.tmpdir(),'dca-backend-'
 async function seed(d){await writeFile(path.join(d,'fear-greed.csv'),csv(dates.slice(0,2)));for(const symbol of SYMBOLS)await writeFile(path.join(d,symbol.toLowerCase()+'.json'),JSON.stringify(normalizeYahoo(yahoo(symbol,dates.slice(0,2)),symbol,now)));}
 function source(url){if(url===CNN_URL)return JSON.stringify(cnn(dates));if(url===ARCHIVE_URL)return csv(dates);return JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1)));}
 const opts=d=>({dataDir:d,now,wait:async()=>{}});
+test('Yahoo失败记录HTTP、网络或校验原因，不泄露原错误且保留行情', async t => {
+ const d=await dir(t);await seed(d);
+ const file=path.join(d,'spy.json');const saved=await readFile(file,'utf8');
+ const cases=[
+  [()=>{throw Error('HTTP 429 private-secret');}, /Yahoo Finance 接口返回 429/, 1],
+  [()=>{throw Error('timeout private-secret');}, /Yahoo Finance 请求超时/, 2],
+  [()=>{throw Error('private-secret');}, /Yahoo Finance 网络连接失败/, 2],
+  [()=>'<html>private-secret</html>', /响应不是有效 JSON/, 2],
+  [()=>JSON.stringify(yahoo('SPY',[dates[0],dates[2]])), /上游缺失已有历史日期/, 2],
+  [()=>{const p=yahoo('SPY');p.chart.result[0].meta.currency='CNY';return JSON.stringify(p);}, /Yahoo 行情标识或币种不匹配/, 2]
+ ];
+ for(const [respond,diagnostic,attempts] of cases){
+  let calls=0;
+  const status=await refreshAll({...opts(d),sources:['SPY'],fetchText:async()=>{calls++;return respond();}});
+  const entry=status.results.find(r=>r.symbol==='SPY');
+  assert.equal(entry.ok,false);assert.match(entry.error,diagnostic);
+  assert.doesNotMatch(entry.error,/private-secret/);assert.equal(calls,attempts);
+  assert.equal(await readFile(file,'utf8'),saved);
+ }
+ const recovered=await refreshAll({...opts(d),sources:['SPY'],fetchText:async url=>source(url)});
+ assert.equal(recovered.results.find(r=>r.symbol==='SPY').ok,true);
+});
 test('交易日历：夏冬时、收盘缓冲、周末及未来调度',()=>{
  assert.equal(sessionClose('2026-10-16'),Date.parse('2026-10-16T20:00Z'));
  assert.equal(sessionClose('2026-11-02'),Date.parse('2026-11-02T21:00Z'));
- assert.equal(latestClosedSession(Date.parse('2026-10-16T20:02:59Z')),'2026-10-15');
- assert.equal(latestClosedSession(Date.parse('2026-10-16T20:03Z')),'2026-10-16');
+ assert.equal(latestClosedSession(Date.parse('2026-10-16T20:00:59Z')),'2026-10-15');
+ assert.equal(latestClosedSession(Date.parse('2026-10-16T20:01Z')),'2026-10-16');
  assert.equal(latestClosedSession(Date.parse('2026-10-17T02:17Z')),'2026-10-16');
  assert.equal(latestClosedSession(Date.parse('2026-10-19T10:00Z')),'2026-10-16');
 });
