@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-26T23:32:17.162Z",
+  "checkedAt": "2026-10-27T00:11:01.842Z",
   "expectedDate": "2026-10-26",
   "requestedSources": [
     "Fear & Greed",
@@ -9,8 +9,8 @@
     "VGT",
     "SMH"
   ],
-  "requestedComplete": true,
-  "complete": true,
+  "requestedComplete": false,
+  "complete": false,
   "results": [
     {
       "symbol": "Fear & Greed",
@@ -20,52 +20,56 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-26",
-      "checkedAt": "2026-10-26T23:32:17.162Z",
-      "lastSuccessAt": "2026-10-26T23:32:17.162Z"
+      "checkedAt": "2026-10-27T00:11:01.842Z",
+      "lastSuccessAt": "2026-10-27T00:11:01.842Z"
     },
     {
       "symbol": "SPY",
+      "ok": false,
+      "fresh": true,
       "date": "2026-10-26",
       "count": 8493,
-      "source": "Yahoo Finance",
-      "ok": true,
-      "fresh": true,
       "expectedDate": "2026-10-26",
-      "checkedAt": "2026-10-26T23:32:17.162Z",
-      "lastSuccessAt": "2026-10-26T23:32:17.162Z"
+      "checkedAt": "2026-10-27T00:11:01.842Z",
+      "lastSuccessAt": "2026-10-26T23:32:17.162Z",
+      "source": "Yahoo Finance",
+      "error": "更新失败，保留上次有效数据"
     },
     {
       "symbol": "QQQ",
+      "ok": false,
+      "fresh": true,
       "date": "2026-10-26",
       "count": 6951,
-      "source": "Yahoo Finance",
-      "ok": true,
-      "fresh": true,
       "expectedDate": "2026-10-26",
-      "checkedAt": "2026-10-26T23:32:17.162Z",
-      "lastSuccessAt": "2026-10-26T23:32:17.162Z"
+      "checkedAt": "2026-10-27T00:11:01.842Z",
+      "lastSuccessAt": "2026-10-26T23:32:17.162Z",
+      "source": "Yahoo Finance",
+      "error": "更新失败，保留上次有效数据"
     },
     {
       "symbol": "VGT",
+      "ok": false,
+      "fresh": true,
       "date": "2026-10-26",
       "count": 5721,
-      "source": "Yahoo Finance",
-      "ok": true,
-      "fresh": true,
       "expectedDate": "2026-10-26",
-      "checkedAt": "2026-10-26T23:32:17.162Z",
-      "lastSuccessAt": "2026-10-26T23:32:17.162Z"
+      "checkedAt": "2026-10-27T00:11:01.842Z",
+      "lastSuccessAt": "2026-10-26T23:32:17.162Z",
+      "source": "Yahoo Finance",
+      "error": "更新失败，保留上次有效数据"
     },
     {
       "symbol": "SMH",
+      "ok": false,
+      "fresh": true,
       "date": "2026-10-26",
       "count": 3733,
-      "source": "Yahoo Finance",
-      "ok": true,
-      "fresh": true,
       "expectedDate": "2026-10-26",
-      "checkedAt": "2026-10-26T23:32:17.162Z",
-      "lastSuccessAt": "2026-10-26T23:32:17.162Z"
+      "checkedAt": "2026-10-27T00:11:01.842Z",
+      "lastSuccessAt": "2026-10-26T23:32:17.162Z",
+      "source": "Yahoo Finance",
+      "error": "更新失败，保留上次有效数据"
     }
   ]
 }
