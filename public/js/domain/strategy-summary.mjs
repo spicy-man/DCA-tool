@@ -2,9 +2,10 @@ import { daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-str
 import { isTradingDay } from './trading-calendar.mjs';
 
 // Estimate using today's completed data; the future signal can change with prices.
-export function estimateMonthlyBuy(rows, baseAmount) {
+export function estimateMonthlyBuy(rows, baseAmount, lastExecutionDate) {
   if (!rows.length) return null;
   const latest = rows.at(-1);
+  if (lastExecutionDate && latest.date <= lastExecutionDate) return null;
   const cutoff = previousMonthCutoff(latest.date);
   const monthHigh = Math.max(...rows.filter(row => row.date >= cutoff).map(row => row.high));
   const drawdown = Math.max(0, 1 - latest.close / monthHigh);

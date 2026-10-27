@@ -128,6 +128,7 @@ export function initFundComparison() {
     $('fund-coverage').textContent = known.length + ' / ' + group.funds.length + ' 只参考溢价可用';
     $('fund-source').textContent = '行情：' + (snapshot?.quoteSource || '东方财富 / 腾讯财经');
     $('fund-performance-status').textContent = (history?.ok === false ? history.error + ' · ' : '') +
+      (history?.benchmark?.quoteDate ? '基准行情截至 ' + history.benchmark.quoteDate + ' · ' : '') +
       (history?.endDate ? '历史涨幅截至 ' + history.endDate : '暂无完整历史收益') +
       ' · 前复权累计涨幅 · ' + benchmarkInfo.symbol + ' 美元 / 场内 ETF 人民币 · 不做汇率换算' +
       (history?.complete === false ? ' · 部分历史数据不完整' : '');

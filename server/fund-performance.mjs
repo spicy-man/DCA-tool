@@ -11,6 +11,7 @@ export function performanceHistoryURL(symbol, now) {
 export async function fetchFundPerformance({ fetchText, now, previous, quoteDate, funds = NASDAQ_FUNDS, benchmarkSymbol = 'QQQ', benchmarkSnapshot, loadBenchmarkSnapshot }) {
   const checkedAt = new Date(now).toISOString();
   previous = previous?.version === 2 && previous.benchmark?.code === benchmarkSymbol ? previous : null;
+  let benchmarkQuote;
   try {
     if (loadBenchmarkSnapshot) benchmarkSnapshot = await loadBenchmarkSnapshot();
     const load = async (symbol, options) => parsePerformanceHistory(
@@ -19,6 +20,8 @@ export async function fetchFundPerformance({ fetchText, now, previous, quoteDate
     const qqq = benchmarkSnapshot
       ? parseBenchmarkHistory(benchmarkSnapshot, { symbol: benchmarkSymbol, cutoff: latest })
       : await load(benchmarkSymbol, { symbols: [benchmarkSymbol], currency: 'USD', timezone: 'America/New_York', cutoff: latest });
+    const latestPrice = qqq.rows.at(-1);
+    benchmarkQuote = { code: benchmarkSymbol, currency: 'USD', price: latestPrice.rawClose, quoteDate: latestPrice.date };
     const cutoff = qqq.rows.map(r => r.date).filter(date => date <= quoteDate).at(-1);
     const histories = [];
     // Bound concurrent requests to this public history service.
@@ -49,10 +52,10 @@ export async function fetchFundPerformance({ fetchText, now, previous, quoteDate
     return { version: 2, ok: true, complete: Object.values(benchmarkPeriods).every(p => p.status === 'ok') &&
       rows.every(r => r.ok && Object.values(r.periods).every(p => p.status !== 'missing')), endDate, checkedAt, lastAttemptAt: checkedAt,
       source: 'Yahoo Finance', currency: 'native',
-      benchmark: { code: benchmarkSymbol, currency: 'USD', price: qqq.rows.find(row => row.date === endDate).rawClose,
-        quoteDate: endDate, periods: benchmarkPeriods }, adjustment: 'AdjClose 比值（分红、拆分调整后的前复权收益）', rows };
+      benchmark: { ...benchmarkQuote, periods: benchmarkPeriods }, adjustment: 'AdjClose 比值（分红、拆分调整后的前复权收益）', rows };
   } catch {
     return { ...(previous || { version: 2, rows: [], checkedAt: null }), ok: false, lastAttemptAt: checkedAt,
+      ...(benchmarkQuote ? { benchmark: { ...previous?.benchmark, ...benchmarkQuote } } : {}),
       error: '历史收益更新失败，保留上次有效区间' };
   }
 }

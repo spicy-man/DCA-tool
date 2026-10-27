@@ -211,8 +211,8 @@
     "benchmark": {
       "code": "QQQ",
       "currency": "USD",
-      "price": 704.4000244140625,
-      "quoteDate": "2026-10-23",
+      "price": 712.2000122070312,
+      "quoteDate": "2026-10-26",
       "periods": {
         "1": {
           "status": "ok",

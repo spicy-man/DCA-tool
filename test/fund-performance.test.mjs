@@ -137,3 +137,31 @@ test('中美假期不同时选可用共同收盘日，不以中国休市日覆�
   assert.equal(regressed.endDate, newer.endDate);
   assert.deepEqual(regressed.rows, newer.rows);
 });
+
+test('基准最新报价独立于收益共同截止日，历史失败仍更新有效基准报价', async () => {
+  const benchmarkSnapshot = { symbol: 'QQQ', currency: 'USD', rows: [
+    ...dates.map((date, i) => ({ date, adjClose: [1, 1.2, 1.5, 2][i], sourceClose: [2, 2.4, 3, 4][i] })),
+    { date: '2026-10-26', adjClose: 2.2, sourceClose: 4.4 },
+    { date: '2026-10-27', adjClose: 9, sourceClose: 18 }
+  ] };
+  const opts = { now: Date.parse('2026-10-27T08:00Z'), quoteDate: '2026-10-27', benchmarkSnapshot,
+    fetchText: async url => {
+      const symbol = decodeURIComponent(new URL(url).pathname.split('/').at(-1));
+      assert.notEqual(symbol, 'QQQ');
+      return JSON.stringify(yahoo(symbol, 'CNY'));
+    } };
+  const result = await fetchFundPerformance(opts);
+  assert.equal(result.complete, true);
+  assert.equal(result.benchmark.quoteDate, '2026-10-26');
+  assert.equal(result.benchmark.price, 4.4);
+  assert.equal(result.endDate, '2026-10-23');
+  assert.equal(result.benchmark.periods[1].endDate, '2026-10-23');
+  assert.ok(Math.abs(result.benchmark.periods[1].return - 100 / 3) < 1e-9);
+  const previous = { ...result, benchmark: { ...result.benchmark, price: 4, quoteDate: '2026-10-23' } };
+  const failed = await fetchFundPerformance({ ...opts, previous,
+    quoteDate: '2020-01-01' });
+  assert.equal(failed.ok, false);
+  assert.equal(failed.benchmark.quoteDate, '2026-10-26');
+  assert.equal(failed.benchmark.price, 4.4);
+  assert.deepEqual(failed.benchmark.periods, result.benchmark.periods);
+});

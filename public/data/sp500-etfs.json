@@ -83,8 +83,8 @@
     "benchmark": {
       "code": "SPY",
       "currency": "USD",
-      "price": 759.969970703125,
-      "quoteDate": "2026-10-23",
+      "price": 765.3699951171875,
+      "quoteDate": "2026-10-26",
       "periods": {
         "1": {
           "status": "ok",
