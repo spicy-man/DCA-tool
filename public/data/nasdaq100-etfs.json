@@ -2,8 +2,8 @@
   "version": 1,
   "source": "腾讯财经 / 天天基金",
   "quoteSource": "腾讯财经",
-  "checkedAt": "2026-10-27T08:44:24.536Z",
-  "lastAttemptAt": "2026-10-27T08:44:24.536Z",
+  "checkedAt": "2026-10-27T09:07:08.879Z",
+  "lastAttemptAt": "2026-10-27T09:07:08.879Z",
   "ok": true,
   "rows": [
     {
@@ -20,7 +20,7 @@
       "netAssets": 35053000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "159501",
@@ -36,7 +36,7 @@
       "netAssets": 13368000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "159696",
@@ -52,7 +52,7 @@
       "netAssets": 5705000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "159659",
@@ -68,7 +68,7 @@
       "netAssets": 10274000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "159660",
@@ -84,7 +84,7 @@
       "netAssets": 5774000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "159632",
@@ -100,7 +100,7 @@
       "netAssets": 11808000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "159513",
@@ -116,7 +116,7 @@
       "netAssets": 8247000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "513100",
@@ -132,7 +132,7 @@
       "netAssets": 19766000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "513300",
@@ -148,7 +148,7 @@
       "netAssets": 13913999999.999998,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "513390",
@@ -164,7 +164,7 @@
       "netAssets": 5048000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "513870",
@@ -180,7 +180,7 @@
       "netAssets": 2890000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     },
     {
       "code": "513110",
@@ -196,7 +196,7 @@
       "netAssets": 5206000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-10-27T08:44:24.536Z"
+      "profileCheckedAt": "2026-10-27T09:07:08.879Z"
     }
   ],
   "performance": {
@@ -204,8 +204,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-10-23",
-    "checkedAt": "2026-10-27T08:44:24.536Z",
-    "lastAttemptAt": "2026-10-27T08:44:24.536Z",
+    "checkedAt": "2026-10-27T09:07:08.879Z",
+    "lastAttemptAt": "2026-10-27T09:07:08.879Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
