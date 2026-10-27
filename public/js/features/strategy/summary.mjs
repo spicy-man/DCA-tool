@@ -13,7 +13,7 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     return;
   }
   const lastDate = data.rows.at(-1).date;
-  set('strategy-asof', data.symbol + ' · 行情截至 ' + lastDate + ' · 指数截至 ' + (fear.latest?.date || '暂无记录'));
+  set('strategy-asof', '行情截至 ' + lastDate);
   const latest = signals.at(-1);
   if (latest) {
     const sameDate = signals.filter(signal => signal.date === latest.date);

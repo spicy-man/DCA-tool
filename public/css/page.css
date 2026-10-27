@@ -1654,3 +1654,33 @@ footer {
     width: calc(100% - 24px);
   }
 }
+
+.scale-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  z-index: 3;
+  height: 22px;
+  min-width: 38px;
+  padding: 0 7px;
+  border: 1px solid #b8c4ce;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 88%);
+  color: #4a5c68;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.scale-toggle:hover {
+  border-color: #6f8695;
+  background: #ffffff;
+  color: var(--navy);
+}
+
+.scale-toggle[aria-pressed="true"] {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: #ffffff;
+}

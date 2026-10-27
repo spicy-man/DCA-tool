@@ -7,6 +7,7 @@ import {
 } from '../strategy/overlay.mjs';
 import {
   createTradingScale,
+  createPriceAxis,
   candleMetrics,
   paintCandle,
   chartInsets,
@@ -18,6 +19,7 @@ import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 
 const $ = id => document.getElementById(id);
 const symbolStorageKey = 'seeker.symbol.v1';
+const priceScaleStorageKey = 'seeker.priceScale.v1';
 const store = new Map();
 let settings;
 let shown = [];
@@ -27,6 +29,7 @@ let hoverDate = null;
 let hoverY = null;
 let loading = false;
 let requestID = 0;
+let logScale = false;
 
 export async function loadMarket(force = false) {
   const id = ++requestID;
@@ -157,28 +160,21 @@ export function drawPrice(crossDate) {
 
   const lowest = shown.reduce((best, row) => row.low < best.low ? row : best);
   const highest = shown.reduce((best, row) => row.high > best.high ? row : best);
-  let low = lowest.low;
-  let high = highest.high;
-  const pad = Math.max((high - low) * 0.1, high * 0.002);
-  low -= pad;
-  high += pad;
+  const priceAxis = createPriceAxis(lowest.low, highest.high, top, ph, logScale);
 
   const scale = createTradingScale(settings.calendar, settings.frequency, left, pw);
   const x = scale.x;
-  const y = v => top + ((high - v) / (high - low)) * ph;
-  frame = { left, right, top, bottom, pw, ph, start, end, w, h, x, y, scale };
+  const y = priceAxis.y;
+  frame = { left, right, top, bottom, pw, ph, start, end, w, h, x, y, scale, logScale };
+  canvas.dataset.priceScale = logScale ? 'log' : 'linear';
 
   c.font = '11px Segoe UI, sans-serif';
   c.textAlign = 'left';
-  const target = (high - low) / Math.max(3, Math.floor(ph / 85));
-  const unit = 10 ** Math.floor(Math.log10(target));
-  const tickStep = [1, 2, 2.5, 5, 10]
-    .map(n => n * unit)
-    .reduce((best, n) => (Math.abs(n - target) < Math.abs(best - target) ? n : best));
-
-  for (let price = Math.ceil(low / tickStep) * tickStep; price <= high; price += tickStep) {
+  for (const price of priceAxis.ticks()) {
+    const py = y(price);
+    if (py > h - bottom - 4) continue;
     c.fillStyle = '#555555';
-    c.fillText(price.toFixed(2), w - right + 10, y(price) + 4);
+    c.fillText(price.toFixed(2), w - right + 10, py + 4);
   }
 
   c.save();
@@ -312,12 +308,26 @@ function hide() {
 
 export function initMarketChart() {
   const symbolSelect = $('symbol');
+  const scaleToggle = $('price-scale-toggle');
+  logScale = false;
   try {
     const saved = localStorage.getItem(symbolStorageKey);
     if (Array.from(symbolSelect.options).some(option => option.value === saved)) {
       symbolSelect.value = saved;
     }
+    logScale = localStorage.getItem(priceScaleStorageKey) === 'log';
   } catch {}
+  scaleToggle.setAttribute('aria-pressed', String(logScale));
+
+  scaleToggle.addEventListener('click', () => {
+    logScale = !logScale;
+    scaleToggle.setAttribute('aria-pressed', String(logScale));
+    try {
+      localStorage.setItem(priceScaleStorageKey, logScale ? 'log' : 'linear');
+    } catch {}
+    $('price-tooltip').hidden = true;
+    drawPrice();
+  });
 
   $('price-table').closest('details').addEventListener('toggle', () => {
     if ($('price-table').closest('details').open) renderPriceTable();

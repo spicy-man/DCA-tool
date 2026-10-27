@@ -7,12 +7,15 @@ import { loadMarket, invalidateMarket, initMarketChart } from '../public/js/feat
 import { initStrategyDialog } from '../public/js/ui/strategy-dialog.mjs';
 
 function element() {
+  const attrs = {};
   return {
-    textContent: '', dataset: {}, style: {}, children: [], value: '', checked: true,
-    listeners: {}, open: true,
+    textContent: '', dataset: {}, style: { setProperty() {} }, children: [], value: '', checked: true,
+    listeners: {}, open: true, clientWidth: 600, clientHeight: 300,
     replaceChildren(...children) { this.children = children; },
     append(child) { this.children.push(child); },
-    setAttribute() {}, closest() { return this; },
+    setAttribute(name, value) { attrs[name] = String(value); },
+    getAttribute(name) { return attrs[name]; },
+    closest() { return this; },
     addEventListener(name, fn) { this.listeners[name] = fn; }
   };
 }
@@ -26,7 +29,9 @@ function dom(t) {
       if (!nodes.has(id)) nodes.set(id, element());
       return nodes.get(id);
     },
-    createElement: element
+    createElement: element,
+    createElementNS: (_, tag) => Object.assign(element(), { tag }),
+    querySelector: () => null
   };
   t.after(() => {
     if (previous) Object.defineProperty(globalThis, 'document', previous);
@@ -198,4 +203,70 @@ test('QQQ 首次加载及强制刷新均派发最新交易日历', async t => {
   snapshot = { ...data, rows: [...rows, { ...rows[0], date: '2025-01-07' }] };
   await invalidateMarket();
   assert.equal(dates.at(-1), '2025-01-07');
+});
+
+test('K 线图与回测曲线图右下角对数切换按钮各自生效并记住偏好', t => {
+  const $ = dom(t);
+  const saved = new Map();
+  const oldStorage = globalThis.localStorage;
+  const oldResize = globalThis.ResizeObserver;
+  const oldDPR = globalThis.devicePixelRatio;
+  globalThis.localStorage = {
+    getItem: k => saved.get(k) ?? null,
+    setItem: (k, v) => saved.set(k, v)
+  };
+  globalThis.ResizeObserver = class { observe() {} };
+  globalThis.devicePixelRatio = 1;
+  t.after(() => {
+    globalThis.localStorage = oldStorage;
+    globalThis.ResizeObserver = oldResize;
+    globalThis.devicePixelRatio = oldDPR;
+  });
+
+  $('symbol').options = [{ value: 'QQQ' }];
+  $('symbol').value = 'QQQ';
+  $('price-chart').getContext = () => new Proxy({}, {
+    get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {},
+    set: () => true
+  });
+
+  initStrategyOverlay();
+  initMarketChart();
+  updateSignals(data, settings);
+
+  assert.equal($('price-scale-toggle').getAttribute('aria-pressed'), 'false');
+  assert.equal($('backtest-scale-toggle').getAttribute('aria-pressed'), 'false');
+  assert.equal($('backtest-plot').dataset.scale, 'linear');
+
+  $('price-scale-toggle').listeners.click();
+  assert.equal($('price-scale-toggle').getAttribute('aria-pressed'), 'true');
+  assert.equal(saved.get('seeker.priceScale.v1'), 'log');
+
+  $('backtest-scale-toggle').listeners.click();
+  assert.equal($('backtest-scale-toggle').getAttribute('aria-pressed'), 'true');
+  assert.equal(saved.get('seeker.backtestScale.v1'), 'log');
+  assert.equal($('backtest-plot').dataset.scale, 'log');
+  assert.equal($('backtest-tab-equity').getAttribute('aria-selected'), 'true');
+  assert.equal($('backtest-tab-profit').getAttribute('aria-selected'), 'false');
+  assert.equal($('backtest-principal-legend').hidden, false);
+  assert.equal($('backtest-plot').children.filter(c => c.tag === 'path').length, 4);
+
+  $('backtest-tab-profit').listeners.click();
+  assert.equal($('backtest-tab-equity').getAttribute('aria-selected'), 'false');
+  assert.equal($('backtest-tab-profit').getAttribute('aria-selected'), 'true');
+  assert.equal(saved.get('seeker.backtestSeries.v1'), 'profit');
+  assert.equal($('backtest-principal-legend').hidden, true);
+  assert.equal($('backtest-plot').children.filter(c => c.tag === 'path').length, 3);
+
+  $('backtest-tab-equity').listeners.click();
+  $('backtest-mode').value = 'actual';
+  $('backtest-mode').listeners.change();
+  assert.equal($('backtest-principal-legend').hidden, true);
+  assert.equal($('backtest-plot').children.filter(c => c.tag === 'path').length, 3);
+  assert.ok($('backtest-plot').children.some(c => c.tag === 'text' && c.textContent === '0'));
+
+  updateSignals(data, { ...settings, frequency: 'monthly' });
+  const firstPath = $('backtest-plot').children.find(c => c.tag === 'path').getAttribute('d');
+  const xs = firstPath.split(' ').map(part => Number(part.slice(1).split(',')[0]));
+  assert.ok(xs.every((x, i) => !i || x > xs[i - 1]));
 });

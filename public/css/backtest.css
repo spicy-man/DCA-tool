@@ -12,16 +12,22 @@
 .backtest-table tbody th::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--strategy-color); margin-right: 7px; }
 .backtest-note { margin: 12px 0 20px; }
 .backtest-chart-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-.backtest-chart-heading h3 { margin: 0; font-size: 12px; }
+.backtest-chart-tabs { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: 5px; background: #f5f7fa; }
+.backtest-chart-tab { height: 26px; padding: 0 10px; border: 0; border-radius: 3px; background: transparent; color: #607487; font-size: 12px; font-weight: 500; cursor: pointer; }
+.backtest-chart-tab:hover { color: var(--navy); }
+.backtest-chart-tab[aria-selected="true"] { background: #fff; color: var(--navy); font-weight: 650; box-shadow: 0 1px 2px rgb(25 55 74 / 10%); }
 .backtest-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; color: #607487; }
 .backtest-legend span::before { content: ''; display: inline-block; width: 16px; height: 2px; vertical-align: middle; margin-right: 6px; background: #607487; }
 .backtest-legend span:nth-child(2)::before { background: #0d9488; }
 .backtest-legend span:nth-child(3)::before { background: #2563eb; }
-.backtest-plot { display: block; width: 100%; height: 280px; margin-top: 8px; }
+.backtest-legend span.is-principal::before { height: 0; border-top: 2px dashed #94a3b8; background: none; }
+.backtest-legend span[hidden] { display: none; }
+.backtest-plot-wrap { position: relative; margin-top: 8px; }
+.backtest-plot { display: block; width: 100%; height: 280px; }
 .backtest-method { border-top: 1px solid var(--border); padding-top: 10px; font-size: 11px; line-height: 1.9; color: #607487; }
 .backtest-method summary { cursor: pointer; }
 .backtest-method ul { padding-left: 18px; margin-bottom: 0; }
-@media(max-width: 600px) {
+@media(max-width: 800px) {
   .backtest-panel > #backtest-heading { padding: 14px 12px; }
   .backtest-content { padding: 0 12px 14px; }
   .backtest-toolbar { align-items: flex-start; }

@@ -1,7 +1,12 @@
 import { compareStrategies } from '../../domain/backtest.mjs';
+import { chartInsets, createTradingScale, createProfitAxis } from '../../charts/geometry.mjs';
 
+const backtestScaleStorageKey = 'seeker.backtestScale.v1';
+const backtestSeriesStorageKey = 'seeker.backtestSeries.v1';
 let context = null;
 let shownResult = null;
+let logScale = false;
+let seriesMode = 'equity';
 const colors = ['#607487', '#0d9488', '#2563eb'];
 const amount = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const percent = value => value === null ? '—' : (Math.abs(value) < 0.00005 ? 0 : value * 100).toFixed(2) + '%';
@@ -10,36 +15,68 @@ const $ = id => document.getElementById(id);
 function drawProfitChart(result) {
   const svg = $('backtest-plot');
   svg.replaceChildren();
+  svg.dataset.scale = logScale ? 'log' : 'linear';
+  svg.dataset.series = seriesMode;
+  const showEquity = seriesMode === 'equity';
+  const showPrincipal = showEquity && result.mode === 'equal';
+  $('backtest-principal-legend').hidden = !showPrincipal;
   const add = (tag, attributes, text) => {
     const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
     for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
     if (text !== undefined) node.textContent = text;
     svg.append(node);
   };
-  const all = result.results.flatMap(strategy => strategy.curve.map(point => point.profit));
-  const min = Math.min(0, ...all);
-  const max = Math.max(0, ...all);
-  const span = max - min || 1;
+  const metric = point => showEquity ? point.equity : point.profit;
+  const principalCurve = result.results[0].curve;
+  const all = [
+    ...result.results.flatMap(strategy => strategy.curve.map(metric)),
+    ...(showPrincipal ? principalCurve.map(point => point.invested) : [])
+  ];
   const width = Math.max(320, svg.clientWidth || 980);
-  svg.setAttribute('viewBox', '0 0 ' + width + ' 280');
-  const left = 70, right = width - 20, top = 18, bottom = 230;
-  const start = Date.parse(result.start), end = Date.parse(result.end);
-  const x = date => left + (Date.parse(date) - start) / (end - start || 1) * (right - left);
-  const y = value => bottom - (value - min) / span * (bottom - top);
-  add('title', {}, '三种策略的累计盈亏，已扣除累计投入本金');
-  for (let i = 0; i <= 4; i++) {
-    const value = min + span * i / 4;
-    add('line', { x1: left, x2: right, y1: y(value), y2: y(value), stroke: '#e5eaf0', 'stroke-dasharray': '3 4' });
-    add('text', { x: left - 10, y: y(value) + 4, 'text-anchor': 'end', fill: '#607487', 'font-size': 12 }, value.toLocaleString('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }));
+  const height = 280;
+  svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+  const { left, right } = chartInsets(width);
+  const top = 18;
+  const bottom = height - 42;
+  const pw = width - left - right;
+  const calendar = context?.range?.calendar?.length
+    ? context.range.calendar
+    : principalCurve.map(point => point.date);
+  const scale = createTradingScale(calendar, 'daily', left, pw);
+  const x = scale.x;
+  const axis = createProfitAxis(all, top, bottom, logScale, context?.baseAmount);
+  const y = axis.y;
+  add('title', {}, showEquity
+    ? (showPrincipal ? '三种策略的累计资产与投入本金' : '三种策略的累计资产')
+    : '三种策略的累计盈亏，已扣除累计投入本金');
+  for (const value of axis.ticks) {
+    const py = y(value);
+    add('line', { x1: left, x2: width - right, y1: py, y2: py, stroke: '#e5eaf0', 'stroke-dasharray': '3 4' });
+    add('text', { x: width - right + 10, y: py + 4, 'text-anchor': 'start', fill: '#607487', 'font-size': 11 }, value.toLocaleString('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }));
+  }
+  if (showPrincipal) {
+    const principalPath = principalCurve
+      .map((point, index) => (index ? 'L' : 'M') + x(point.date).toFixed(2) + ',' + y(point.invested).toFixed(2))
+      .join(' ');
+    add('path', {
+      d: principalPath,
+      fill: 'none',
+      stroke: '#94a3b8',
+      'stroke-width': 1.6,
+      'stroke-dasharray': '5 4',
+      'vector-effect': 'non-scaling-stroke'
+    });
   }
   for (const [i, strategy] of result.results.entries()) {
-    const path = strategy.curve.map((point, index) => (index ? 'L' : 'M') + x(point.date).toFixed(2) + ',' + y(point.profit).toFixed(2)).join(' ');
+    const path = strategy.curve.map((point, index) => (index ? 'L' : 'M') + x(point.date).toFixed(2) + ',' + y(metric(point)).toFixed(2)).join(' ');
     add('path', { d: path, fill: 'none', stroke: colors[i], 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' });
     const last = strategy.curve.at(-1);
-    add('circle', { cx: x(last.date), cy: y(last.profit), r: 3, fill: colors[i] });
+    add('circle', { cx: x(last.date), cy: y(metric(last)), r: 3, fill: colors[i] });
   }
-  add('text', { x: left, y: 258, fill: '#607487', 'font-size': 12 }, result.start);
-  add('text', { x: right, y: 258, fill: '#607487', 'font-size': 12, 'text-anchor': 'end' }, result.end);
+  for (const tick of scale.ticks(width < 500 ? 3 : 6)) {
+    const labelX = Math.max(tick.label.length * 4 + 2, tick.x);
+    add('text', { x: labelX.toFixed(2), y: height - 10, 'text-anchor': 'middle', fill: '#607487', 'font-size': 11 }, tick.label);
+  }
 }
 
 function render() {
@@ -93,6 +130,44 @@ export function updateBacktest(next) {
 }
 
 export function initBacktest() {
+  const scaleToggle = $('backtest-scale-toggle');
+  const tabProfit = $('backtest-tab-profit');
+  const tabEquity = $('backtest-tab-equity');
+  logScale = false;
+  seriesMode = 'equity';
+  try {
+    logScale = localStorage.getItem(backtestScaleStorageKey) === 'log';
+    if (localStorage.getItem(backtestSeriesStorageKey) === 'profit') seriesMode = 'profit';
+  } catch {}
+  scaleToggle.setAttribute('aria-pressed', String(logScale));
+
+  const syncTabs = () => {
+    tabProfit.setAttribute('aria-selected', String(seriesMode === 'profit'));
+    tabEquity.setAttribute('aria-selected', String(seriesMode === 'equity'));
+  };
+  syncTabs();
+
+  for (const [button, mode] of [[tabProfit, 'profit'], [tabEquity, 'equity']]) {
+    button.addEventListener('click', () => {
+      if (seriesMode === mode) return;
+      seriesMode = mode;
+      syncTabs();
+      try {
+        localStorage.setItem(backtestSeriesStorageKey, seriesMode);
+      } catch {}
+      if (shownResult) drawProfitChart(shownResult);
+    });
+  }
+
+  scaleToggle.addEventListener('click', () => {
+    logScale = !logScale;
+    scaleToggle.setAttribute('aria-pressed', String(logScale));
+    try {
+      localStorage.setItem(backtestScaleStorageKey, logScale ? 'log' : 'linear');
+    } catch {}
+    if (shownResult) drawProfitChart(shownResult);
+  });
+
   $('backtest-mode').addEventListener('change', render);
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(() => {
