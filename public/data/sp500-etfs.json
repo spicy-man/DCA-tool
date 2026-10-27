@@ -2,8 +2,8 @@
   "version": 1,
   "source": "腾讯财经 / 天天基金",
   "quoteSource": "腾讯财经",
-  "checkedAt": "2026-10-27T18:33:51.010Z",
-  "lastAttemptAt": "2026-10-27T18:33:51.010Z",
+  "checkedAt": "2026-10-27T22:45:33.989Z",
+  "lastAttemptAt": "2026-10-27T22:45:33.989Z",
   "ok": true,
   "rows": [
     {
@@ -20,7 +20,7 @@
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-10-27T18:33:51.010Z"
+      "profileCheckedAt": "2026-10-27T22:45:33.989Z"
     },
     {
       "code": "513650",
@@ -36,7 +36,7 @@
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-10-27T18:33:51.010Z"
+      "profileCheckedAt": "2026-10-27T22:45:33.989Z"
     },
     {
       "code": "159612",
@@ -52,7 +52,7 @@
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-10-27T18:33:51.010Z"
+      "profileCheckedAt": "2026-10-27T22:45:33.989Z"
     },
     {
       "code": "159655",
@@ -68,7 +68,7 @@
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-10-27T18:33:51.010Z"
+      "profileCheckedAt": "2026-10-27T22:45:33.989Z"
     }
   ],
   "performance": {
@@ -76,8 +76,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-10-26",
-    "checkedAt": "2026-10-27T18:33:51.010Z",
-    "lastAttemptAt": "2026-10-27T18:33:51.010Z",
+    "checkedAt": "2026-10-27T22:45:33.989Z",
+    "lastAttemptAt": "2026-10-27T22:45:33.989Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
