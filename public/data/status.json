@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-28T00:20:31.005Z",
+  "checkedAt": "2026-10-28T01:21:04.390Z",
   "expectedDate": "2026-10-27",
   "requestedSources": [
     "Fear & Greed",
@@ -9,8 +9,8 @@
     "VGT",
     "SMH"
   ],
-  "requestedComplete": false,
-  "complete": false,
+  "requestedComplete": true,
+  "complete": true,
   "results": [
     {
       "symbol": "Fear & Greed",
@@ -20,56 +20,52 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-27",
-      "checkedAt": "2026-10-28T00:20:31.005Z",
-      "lastSuccessAt": "2026-10-28T00:20:31.005Z"
+      "checkedAt": "2026-10-28T01:21:04.390Z",
+      "lastSuccessAt": "2026-10-28T01:21:04.390Z"
     },
     {
       "symbol": "SPY",
-      "ok": false,
-      "fresh": true,
       "date": "2026-10-27",
       "count": 8494,
-      "expectedDate": "2026-10-27",
-      "checkedAt": "2026-10-28T00:20:31.005Z",
-      "lastSuccessAt": "2026-10-27T23:27:13.675Z",
       "source": "Yahoo Finance",
-      "error": "Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留原数据；已保留上次有效数据"
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-27",
+      "checkedAt": "2026-10-28T01:21:04.390Z",
+      "lastSuccessAt": "2026-10-28T01:21:04.390Z"
     },
     {
       "symbol": "QQQ",
-      "ok": false,
-      "fresh": true,
       "date": "2026-10-27",
       "count": 6952,
-      "expectedDate": "2026-10-27",
-      "checkedAt": "2026-10-28T00:20:31.005Z",
-      "lastSuccessAt": "2026-10-27T23:27:13.675Z",
       "source": "Yahoo Finance",
-      "error": "Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留原数据；已保留上次有效数据"
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-27",
+      "checkedAt": "2026-10-28T01:21:04.390Z",
+      "lastSuccessAt": "2026-10-28T01:21:04.390Z"
     },
     {
       "symbol": "VGT",
-      "ok": false,
-      "fresh": true,
       "date": "2026-10-27",
       "count": 5722,
-      "expectedDate": "2026-10-27",
-      "checkedAt": "2026-10-28T00:20:31.005Z",
-      "lastSuccessAt": "2026-10-27T23:27:13.675Z",
       "source": "Yahoo Finance",
-      "error": "Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留原数据；已保留上次有效数据"
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-27",
+      "checkedAt": "2026-10-28T01:21:04.390Z",
+      "lastSuccessAt": "2026-10-28T01:21:04.390Z"
     },
     {
       "symbol": "SMH",
-      "ok": false,
-      "fresh": true,
       "date": "2026-10-27",
       "count": 3734,
-      "expectedDate": "2026-10-27",
-      "checkedAt": "2026-10-28T00:20:31.005Z",
-      "lastSuccessAt": "2026-10-27T23:27:13.675Z",
       "source": "Yahoo Finance",
-      "error": "Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留原数据；已保留上次有效数据"
+      "ok": true,
+      "fresh": true,
+      "expectedDate": "2026-10-27",
+      "checkedAt": "2026-10-28T01:21:04.390Z",
+      "lastSuccessAt": "2026-10-28T01:21:04.390Z"
     }
   ]
 }
