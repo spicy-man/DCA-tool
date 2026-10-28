@@ -1,26 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { summarizeFunding, nextMonthlyPlan, estimateMonthlyBuy } from '../public/js/domain/strategy-summary.mjs';
 import { evaluateFearStrategy, calculateFearSignals } from '../public/js/domain/fear-strategy.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
 
 const market = dates => dates.map(date => ({ date, high: 100, close: 100 }));
 
-test('预计买入按最新完整行情的近月回撤估算，复用档位边界且不受过期高点影响', () => {
-  assert.equal(estimateMonthlyBuy([], 1000), null);
-  assert.equal(estimateMonthlyBuy(market(['2026-10-26']), 2000, '2026-10-26'), null);
-  assert.equal(estimateMonthlyBuy(market(['2026-10-26']), 2000, '2026-10-27'), null);
-  assert.equal(estimateMonthlyBuy(market(['2026-10-26', '2026-10-27']), 2000, '2026-10-26').multiple, 1);
+test('预计买入按下期执行窗口内的已知行情估算，复用档位边界并剔除过期高点', () => {
+  assert.equal(estimateMonthlyBuy([], 1000, '2026-11-25'), null);
+  assert.equal(estimateMonthlyBuy(market(['2026-10-26']), 2000, '2026-11-25', '2026-10-26'), null);
+  assert.equal(estimateMonthlyBuy(market(['2026-10-26']), 2000, '2026-11-25', '2026-10-27'), null);
+  assert.equal(estimateMonthlyBuy(market(['2026-10-26', '2026-10-27']), 2000, '2026-11-25', '2026-10-26').multiple, 1);
   for (const [close, multiple] of [[100, 1], [95.01, 1], [95, 2], [90, 4], [85, 6], [1, 38]]) {
     const rows = [
       { date: '2026-01-01', high: 1000, close: 1000 },
       { date: '2026-02-28', high: 100, close: 100 },
       { date: '2026-03-31', high: 100, close }
     ];
-    const result = estimateMonthlyBuy(rows, 123.45);
+    const result = estimateMonthlyBuy(rows, 123.45, '2026-03-31');
     assert.equal(result.date, '2026-03-31');
     assert.equal(result.multiple, multiple);
     assert.equal(result.amount, 123.45 * multiple);
+  }
+});
+
+test('截图行情：下期窗口排除十月初高点，已执行的2N不变', async () => {
+  const { rows } = JSON.parse(await readFile(new URL('../public/data/qqq.json', import.meta.url), 'utf8'));
+  const october = rows.filter(row => row.date >= '2026-09-01' && row.date <= '2026-10-27');
+  const signals = calculatePyramidSignals(october, { buyDay: 25, baseAmount: 2000 });
+  assert.equal(signals.at(-1).date, '2026-10-26');
+  assert.equal(signals.at(-1).multiple, 2);
+  const plan = nextMonthlyPlan(october, signals, 25);
+  const estimate = estimateMonthlyBuy(october, 2000, plan.expectedDate, signals.at(-1).date);
+  assert.equal(estimate.cutoff, '2026-10-25');
+  assert.equal(estimate.multiple, 1);
+  assert.equal(estimate.amount, 2000);
+  assert.ok(Math.abs(estimate.drawdown - 0.0022272437044353888) < 1e-10);
+});
+
+test('下期窗口按实际预计执行日回溯，包含截止日；无已知行情时待定', () => {
+  const rows = [
+    { date: '2026-01-29', high: 200, close: 200 },
+    { date: '2026-01-30', high: 100, close: 95 }
+  ];
+  const plan = nextMonthlyPlan(rows, calculatePyramidSignals(rows, { buyDay: 31 }), 31);
+  assert.equal(plan.expectedDate, '2026-02-02');
+  assert.equal(estimateMonthlyBuy(rows, 1000, plan.expectedDate).cutoff, '2026-01-02');
+  // February's plan rolls into March; the estimate must use March 2's cutoff.
+  const february = market(['2026-02-27']);
+  const march = nextMonthlyPlan(february, calculatePyramidSignals(february, { buyDay: 31 }), 31);
+  assert.equal(march.expectedDate, '2026-03-02');
+  assert.equal(estimateMonthlyBuy(february, 1000, march.expectedDate).cutoff, '2026-02-02');
+  assert.equal(estimateMonthlyBuy(february, 1000, '2026-03-31'), null);
+  for (const [expected, cutoff] of [['2024-03-31', '2024-02-29'], ['2025-03-31', '2025-02-28'], ['2026-01-02', '2025-12-02']]) {
+    const bars = [{ date: cutoff, high: 100, close: 100 }, { date: expected, high: 95, close: 95 }];
+    const estimate = estimateMonthlyBuy(bars, 1000, expected);
+    assert.equal(estimate.cutoff, cutoff);
+    assert.equal(estimate.multiple, 2);
   }
 });
 
@@ -140,7 +177,7 @@ test('摘要使用完整历史状态和选区统计，数据失效时清除旧�
   assert.equal(text('strategy-asof'), '行情截至 2026-02-02');
   assert.equal(text('funding-total'), '2,000.00（2N）');
   assert.equal(text('recent-signal'), '2026-02-02');
-  assert.equal(text('next-plan-estimate'), '金额待定，等待新的完整日线');
+  assert.equal(text('next-plan-estimate'), '金额待定，等待下期窗口内的新完整日线');
   renderStrategySummary(data, { start: '2026-01-01', end: '2026-01-31' }, settings, signals, fear);
   assert.equal(text('funding-total'), '1,000.00（1N）');
   assert.equal(text('recent-signal'), '2026-02-02');
@@ -158,12 +195,12 @@ test('摘要使用完整历史状态和选区统计，数据失效时清除旧�
   assert.equal(text('recent-signal'), '2026-10-26');
   assert.match(text('recent-signal-note'), /月度定投 2N/);
   assert.equal(text('next-plan'), '2026-11-25（周三）');
-  assert.equal(text('next-plan-estimate'), '金额待定，等待新的完整日线');
+  assert.equal(text('next-plan-estimate'), '金额待定，等待下期窗口内的新完整日线');
   october.push({ date: '2026-10-27', high: 720, close: 718 });
   renderStrategySummary({ symbol: 'QQQ', rows: october }, { start: '2026-10-01', end: '2026-10-27' },
     { ...settings, buyDay: 25, baseAmount: 2000 }, octoberSignals, fear);
   assert.equal(text('next-plan'), '2026-11-25（周三）');
-  assert.equal(text('next-plan-estimate'), '预计买入 2N · 4,000.00（按 2026-10-27 行情估算）');
+  assert.equal(text('next-plan-estimate'), '暂估买入 1N · 2,000.00（当前自10-25窗口高点回撤0.28%）');
   renderStrategySummary(null, null, settings);
   assert.equal(text('funding-total'), '—');
   assert.equal(text('next-plan'), '等待行情数据');

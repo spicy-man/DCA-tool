@@ -26,10 +26,10 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
   const monthlySignals = signals.filter(signal => signal.type === 'monthly');
   const plan = nextMonthlyPlan(data.rows, monthlySignals, settings.buyDay);
   set('next-plan', dateWithWeekday(plan.expectedDate));
-  const estimate = estimateMonthlyBuy(data.rows, settings.baseAmount, monthlySignals.at(-1)?.date);
+  const estimate = estimateMonthlyBuy(data.rows, settings.baseAmount, plan.expectedDate, monthlySignals.at(-1)?.date);
   set('next-plan-estimate', estimate
-    ? '预计买入 ' + estimate.multiple + 'N · ' + money(estimate.amount) + '（按 ' + estimate.date + ' 行情估算）'
-    : '金额待定，等待新的完整日线');
+    ? '暂估买入 ' + estimate.multiple + 'N · ' + money(estimate.amount) + '（当前自' + estimate.cutoff.slice(5) + '窗口高点回撤' + (estimate.drawdown * 100).toFixed(2) + '%）'
+    : '金额待定，等待下期窗口内的新完整日线');
   if (!fear.latest) {
     set('fear-state', '暂无指数记录');
     set('fear-state-note', '等待指数数据后判断加投状态');

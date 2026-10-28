@@ -1,16 +1,18 @@
 import { daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
 import { isTradingDay } from './trading-calendar.mjs';
 
-// Estimate using today's completed data; the future signal can change with prices.
-export function estimateMonthlyBuy(rows, baseAmount, lastExecutionDate) {
+// Use the next execution's window and only its known daily bars; future prices can change the estimate.
+export function estimateMonthlyBuy(rows, baseAmount, expectedDate, lastExecutionDate) {
   if (!rows.length) return null;
   const latest = rows.at(-1);
   if (lastExecutionDate && latest.date <= lastExecutionDate) return null;
-  const cutoff = previousMonthCutoff(latest.date);
-  const monthHigh = Math.max(...rows.filter(row => row.date >= cutoff).map(row => row.high));
+  const cutoff = previousMonthCutoff(expectedDate);
+  const knownRows = rows.filter(row => row.date >= cutoff && row.date <= expectedDate);
+  if (!knownRows.length) return null;
+  const monthHigh = Math.max(...knownRows.map(row => row.high));
   const drawdown = Math.max(0, 1 - latest.close / monthHigh);
   const { multiple } = pyramidMultiple(drawdown);
-  return { date: latest.date, drawdown, multiple, amount: baseAmount * multiple };
+  return { date: latest.date, cutoff, drawdown, multiple, amount: baseAmount * multiple };
 }
 
 // Next unrepresented monthly plan and its calendar estimate, subject to available data.
