@@ -10,6 +10,15 @@ test('SMH 仅保留 2011-12-20 改制当日及之后的数据，其他标的不�
 test('前复权使用整根 K 线同一因子，最新价不变，非 1 基准因子正确归一',()=>{const data=normalizeYahoo(fixture(),'SPY',Date.parse('2025-01-06'));assert.equal(data.anchorDate,'2025-01-03');const r=data.rows[0];for(const key of ['Open','High','Low','Close'])assert.ok(Math.abs(r[key.toLowerCase()]-r['source'+key]*(.9/.95))<1e-9);assert.equal(data.rows.at(-1).close,104);assert.equal(r.volume,10);});
 test('缺少复权字段时拒绝回退到未复权价格；无效 OHLC 拒绝',()=>{const p=fixture();delete p.chart.result[0].indicators.adjclose;assert.throws(()=>normalizeYahoo(p,'SPY'));const bad=fixture();bad.chart.result[0].indicators.quote[0].high[0]=50;assert.throws(()=>normalizeYahoo(bad,'SPY'));});
 test('美国交易日期、未来与未收盘行情过滤',()=>{const p=fixture();p.chart.result[0].meta.currentTradingPeriod={regular:{end:Date.parse('2025-01-03T21:00:00Z')/1000}};assert.equal(normalizeYahoo(p,'SPY',Date.parse('2025-01-03T20:00:00Z')).rows.length,1);assert.equal(normalizeYahoo(p,'SPY',Date.parse('2025-01-03T21:01:00Z')).rows.length,2);});
+test('最新已收盘日线仅缺 close/adjclose 但 meta 已带当日收盘时间与收盘价时，补齐最新日线；盘中或无收盘时间戳仍跳过',()=>{
+ const p=fixture();const r=p.chart.result[0];
+ r.indicators.quote[0].close[1]=null;r.indicators.adjclose[0].adjclose[1]=null;
+ r.meta.regularMarketPrice=104;r.meta.regularMarketTime=Date.parse('2025-01-03T21:00:01Z')/1000;
+ const closed=normalizeYahoo(p,'SPY',Date.parse('2025-01-04T01:00:00Z'));
+ assert.equal(closed.anchorDate,'2025-01-03');assert.equal(closed.rows.at(-1).close,104);
+ r.meta.regularMarketTime=Date.parse('2025-01-03T20:30:00Z')/1000;
+ assert.equal(normalizeYahoo(p,'SPY',Date.parse('2025-01-04T01:00:00Z')).anchorDate,'2025-01-02');
+});
 test('周月 K 线聚合首开最高最低末收及成交量',()=>{const rows=normalizeYahoo(fixture(),'SPY',Date.parse('2025-01-06')).rows;for(const frequency of ['weekly','monthly']){const result=aggregateOHLC(rows,frequency);assert.equal(result.length,1);assert.equal(result[0].open,rows[0].open);assert.equal(result[0].close,rows[1].close);assert.equal(result[0].high,Math.max(...rows.map(r=>r.high)));assert.equal(result[0].low,Math.min(...rows.map(r=>r.low)));assert.equal(result[0].volume,30);}});
 test('真实 ETF 快照有序、复权范围正确、QQQ 上市前无数据',async()=>{for(const symbol of ['SPY','QQQ','VGT','SMH']){const data=JSON.parse(await readFile(new URL('../public/data/'+symbol.toLowerCase()+'.json',import.meta.url),'utf8'));assert.equal(data.symbol,symbol);assert.ok(data.rows.length>1000);assert.equal(data.rows.at(-1).close,data.rows.at(-1).sourceClose);assert.ok(data.rows.every((r,i)=>(!i||r.date>data.rows[i-1].date)&&r.low<=Math.min(r.open,r.close)+1e-7&&r.high>=Math.max(r.open,r.close)-1e-7));if(symbol==='SMH')assert.equal(data.rows[0].date,'2011-12-20');if(symbol==='QQQ')assert.ok(data.rows[0].date<'2000-01-01');if(symbol==='SPY')assert.ok(data.rows[0].date<'1994-01-01');assert.ok(data.rows[0].factor<1);}});
 

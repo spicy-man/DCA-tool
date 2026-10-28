@@ -23,9 +23,12 @@ export function healthSummary(status, now = Date.now()) {
     const fresh = !!r.date && r.date >= expected;
     const state = !r.ok ? '最近更新失败' : !fresh
       ? (r.expectedDate === expected && r.message ? '来源数据未到齐，等待更新' : '等待更新') : '';
-    const source = !fresh || !r.ok || r.source === 'whit3rabbit/fear-greed-data'
+    const issue = (r.ok ? r.warning : r.error)
+      ?.replace('，已保留原数据；已保留上次有效数据', '，已保留上次有效数据');
+    const rawSource = !fresh || !r.ok || r.source === 'whit3rabbit/fear-greed-data'
       ? (r.source === 'whit3rabbit/fear-greed-data' ? '第三方备用存档' : r.source) : '';
-    const detail = [state, source, r.ok ? r.warning : r.error].filter(Boolean).join('；');
+    const source = rawSource && !issue?.includes(rawSource) ? rawSource : '';
+    const detail = [state, source, issue].filter(Boolean).join('；');
     const suffix = detail ? '（' + detail + '）' : '';
     return (r.date || '无数据') + suffix;
   };
@@ -38,12 +41,16 @@ export function healthSummary(status, now = Date.now()) {
   const lines = results.filter(r => r.symbol === 'Fear & Greed')
     .map(r => '恐慌与贪婪指数：' + description(r) + '；检查：' + formatNewYorkTime(r.checkedAt));
   // Healthy tickers share a date even when checked in different batches.
-  // Keep failures, delays, warnings and unknown check times separate.
+  // Tickers with identical diagnostics and the same valid check time also group together.
   const tickerGroups = new Map();
   for (const r of results.filter(r => r.symbol !== 'Fear & Greed')) {
-    const healthy = r.ok && r.date >= expected && !r.warning &&
-      r.checkedAt != null && r.checkedAt !== '' && Number.isFinite(Date.parse(r.checkedAt));
-    const key = healthy ? JSON.stringify([r.date, r.source]) : r.symbol;
+    const validTime = r.checkedAt != null && r.checkedAt !== '' && Number.isFinite(Date.parse(r.checkedAt));
+    const healthy = r.ok && r.date >= expected && !r.warning && validTime;
+    const key = healthy
+      ? JSON.stringify(['healthy', r.date, r.source])
+      : validTime
+        ? JSON.stringify(['issue', description(r), formatNewYorkTime(r.checkedAt)])
+        : r.symbol;
     if (!tickerGroups.has(key)) tickerGroups.set(key, []);
     tickerGroups.get(key).push(r);
   }
@@ -59,9 +66,15 @@ export function healthSummary(status, now = Date.now()) {
       return group.map(r => r.symbol).join(' / ') + '：' + description(group[0]) + '；检查：' + checked;
     }));
   }
-  const complete = ['Fear & Greed', ...SYMBOLS].every(symbol =>
-    status.results.some(r => r.symbol === symbol)) &&
-    status.results.every(r => r.ok && r.date >= expected);
-  return lines.join('。\n') + '。\n整体数据：' + (complete ? '已到齐' : '未全部到齐') +
+  const hasAllSymbols = ['Fear & Greed', ...SYMBOLS].every(symbol =>
+    status.results.some(r => r.symbol === symbol));
+  const allFresh = hasAllSymbols && status.results.every(r => !!r.date && r.date >= expected);
+  const complete = allFresh && status.results.every(r => r.ok);
+  const overall = complete
+    ? '已到齐'
+    : allFresh
+      ? '已到齐（最近更新失败，继续使用已保存数据）'
+      : '未全部到齐';
+  return lines.join('。\n') + '。\n整体数据：' + overall +
     '；应有数据截至 ' + expected + '；时间均为纽约时间。';
 }

@@ -101,6 +101,32 @@ test('已收盘日价格为空：保留有效历史，明确缺失日期，不�
  assert.doesNotMatch(healthSummary(status,Date.parse('2025-01-07T23:00Z')),/来源数据未到齐/);
 });
 
+test('本地已保存最新完整日线后，上游最新日线回退为空值时保留完整快照且不误报历史缺失',async t=>{
+ const d=await dir(t);await seed(d);
+ const first=await refreshAll({...opts(d),fetchText:async url=>source(url)});
+ const original=await readFile(path.join(d,'qqq.json'),'utf8');
+ const second=await refreshAll({...opts(d),now:now+3600000,sources:['QQQ'],fetchText:async()=>{
+  const payload=yahoo('QQQ');const result=payload.chart.result[0];
+  result.indicators.quote[0].close[2]=null;
+  result.indicators.adjclose[0].adjclose[2]=null;
+  return JSON.stringify(payload);
+ }});
+ const qqq=second.results.find(r=>r.symbol==='QQQ');
+ assert.equal(second.complete,true);assert.equal(second.requestedComplete,true);
+ assert.equal(qqq.ok,true);assert.equal(qqq.fresh,true);assert.equal(qqq.date,'2025-01-06');
+ assert.equal(qqq.lastSuccessAt,first.checkedAt);
+ assert.equal(await readFile(path.join(d,'qqq.json'),'utf8'),original);
+ const missingHistory=await refreshAll({...opts(d),now:now+7200000,sources:['QQQ'],fetchText:async()=>{
+  const payload=yahoo('QQQ',[dates[0],dates[2]]);const result=payload.chart.result[0];
+  result.indicators.quote[0].close[1]=null;
+  result.indicators.adjclose[0].adjclose[1]=null;
+  return JSON.stringify(payload);
+ }});
+ const failed=missingHistory.results.find(r=>r.symbol==='QQQ');
+ assert.equal(failed.ok,false);assert.equal(failed.fresh,true);
+ assert.equal(failed.error,'Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留原数据');
+});
+
 test('CNN 被拒且备用存档滞后时保留两项诊断，不把抓取成功当作数据已更新',async t=>{
  const d=await dir(t);await seed(d);
  const status=await refreshAll({...opts(d),fetchText:async url=>{

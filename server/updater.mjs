@@ -124,26 +124,37 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
     error.publicMessage = sourceFailure('Yahoo Finance', error) + '；已保留上次有效数据';
     throw error;
   }
-  let payload, next;
+  let payload, next, incompleteDates;
+  const latest = latestClosedSession(now, 0);
   try {
     payload = JSON.parse(text);
     next = normalizeYahoo(payload, symbol, now);
-    if (previous) preserveHistory(filterMarketHistory(symbol, previous.rows), next.rows);
+    const result = payload.chart.result[0];
+    const completeDates = new Set(next.rows.map(r => r.date));
+    incompleteDates = (result.timestamp || []).flatMap((timestamp, i) => {
+      const date = new Date(timestamp * 1000).toLocaleDateString('en-CA', {
+        timeZone: 'America/New_York'
+      });
+      if (completeDates.has(date)) return [];
+      const quote = result.indicators.quote[0];
+      const values = [quote.open?.[i], quote.high?.[i], quote.low?.[i], quote.close?.[i],
+        result.indicators.adjclose[0].adjclose?.[i]];
+      return date <= latest && (!HISTORY_STARTS[symbol] || date >= HISTORY_STARTS[symbol]) && values.some(v => v == null) ? [date] : [];
+    });
+    if (previous) {
+      const previousRows = filterMarketHistory(symbol, previous.rows);
+      const tailIncomplete = new Set(incompleteDates.filter(date => date > next.anchorDate));
+      if (tailIncomplete.size && previousRows.some(r => tailIncomplete.has(r.date))) {
+        preserveHistory(previousRows.filter(r => !tailIncomplete.has(r.date)), next.rows);
+        return { date: previous.anchorDate, count: previousRows.length, source: 'Yahoo Finance', retained: true };
+      }
+      preserveHistory(previousRows, next.rows);
+    }
   } catch (error) {
-    error.publicMessage = validationFailure('Yahoo Finance', error) + '；已保留上次有效数据';
+    const message = validationFailure('Yahoo Finance', error);
+    error.publicMessage = message.includes('已保留') ? message : message + '；已保留上次有效数据';
     throw error;
   }
-  const result = payload.chart.result[0];
-  const latest = latestClosedSession(now, 0);
-  const incompleteDates = (result.timestamp || []).flatMap((timestamp, i) => {
-    const date = new Date(timestamp * 1000).toLocaleDateString('en-CA', {
-      timeZone: 'America/New_York'
-    });
-    const quote = result.indicators.quote[0];
-    const values = [quote.open?.[i], quote.high?.[i], quote.low?.[i], quote.close?.[i],
-      result.indicators.adjclose[0].adjclose?.[i]];
-    return date <= latest && (!HISTORY_STARTS[symbol] || date >= HISTORY_STARTS[symbol]) && values.some(v => v == null) ? [date] : [];
-  });
   await atomicWrite(file, JSON.stringify(next));
   return { date: next.anchorDate, count: next.rows.length, source: 'Yahoo Finance',
     ...(incompleteDates.length ? {
@@ -345,9 +356,10 @@ async function run({
           symbol === 'Fear & Greed'
             ? await updateSentiment(context)
             : await retry(() => updateETF(symbol, context), wait);
+        const { retained, ...rest } = value;
         return {
           symbol,
-          ...value,
+          ...rest,
           ok: true,
           fresh: value.date >= expectedDate,
           ...(value.date < expectedDate ? {
@@ -356,7 +368,7 @@ async function run({
           } : {}),
           expectedDate,
           checkedAt,
-          lastSuccessAt: checkedAt
+          lastSuccessAt: retained && last?.lastSuccessAt ? last.lastSuccessAt : checkedAt
         };
       } catch (error) {
         let cached;

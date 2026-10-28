@@ -1,4 +1,4 @@
-import { latestClosedSession, periodKey } from './trading-calendar.mjs';
+import { latestClosedSession, periodKey, sessionClose } from './trading-calendar.mjs';
 
 export const SYMBOLS = ['SPY', 'QQQ', 'VGT', 'SMH'];
 
@@ -46,7 +46,25 @@ export function normalizeYahoo(payload, symbol, now = Date.now()) {
     ) {
       continue;
     }
-    const values = [quote.open?.[i], quote.high?.[i], quote.low?.[i], quote.close?.[i], adjusted[i]];
+    let closeVal = quote.close?.[i];
+    let adjVal = adjusted[i];
+    if (
+      closeVal == null &&
+      adjVal == null &&
+      i === result.timestamp.length - 1 &&
+      date === latest &&
+      quote.open?.[i] != null &&
+      quote.high?.[i] != null &&
+      quote.low?.[i] != null &&
+      Number.isFinite(result.meta?.regularMarketPrice) &&
+      Number.isFinite(result.meta?.regularMarketTime) &&
+      dateNY(result.meta.regularMarketTime) === date &&
+      result.meta.regularMarketTime >= (session && dateNY(session.end) === date ? session.end : sessionClose(date) / 1000)
+    ) {
+      closeVal = result.meta.regularMarketPrice;
+      adjVal = result.meta.regularMarketPrice;
+    }
+    const values = [quote.open?.[i], quote.high?.[i], quote.low?.[i], closeVal, adjVal];
     // Yahoo may include empty bars. Never replace them with zero or previous prices.
     if (values.some(v => v === null || v === undefined)) continue;
     if (values.some(v => !Number.isFinite(v) || v <= 0) || seen.has(date)) {

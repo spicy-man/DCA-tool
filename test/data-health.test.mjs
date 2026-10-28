@@ -76,3 +76,22 @@ test('完整状态覆盖全部默认来源并检查每个个人标的，不依�
  assert.match(healthSummary(s,now),/整体数据：未全部到齐/);
  assert.match(healthSummary(s,now),/SMH：无数据.*尚无检查记录，请更新数据/);
 });
+
+test('本地数据已达应有日期但同批刷新失败时：合并同错标的、去除重复来源与保留文案，并区分已到齐状态', () => {
+ const s=status();
+ for(const r of s.results.slice(1)){
+  Object.assign(r,{
+   ok:false,
+   error:'Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留原数据；已保留上次有效数据'
+  });
+ }
+ const text=healthSummary(s,now);const lines=text.split('\n');
+ assert.equal(lines.length,3);
+ assert.equal(
+  lines[1],
+  'SPY / QQQ / VGT / SMH：2026-10-20（最近更新失败；Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留上次有效数据）；检查：2026-10-20 19:56:18 EDT。'
+ );
+ assert.match(lines[2],/整体数据：已到齐（最近更新失败，继续使用已保存数据）；应有数据截至 2026-10-20/);
+ s.results[4].checkedAt='2026-10-20T23:59:00Z';
+ assert.equal(healthSummary(s,now).split('\n').length,4);
+});
