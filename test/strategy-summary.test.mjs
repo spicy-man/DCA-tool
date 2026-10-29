@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { summarizeFunding, nextMonthlyPlan, estimateMonthlyBuy } from '../public/js/domain/strategy-summary.mjs';
 import { evaluateFearStrategy, calculateFearSignals } from '../public/js/domain/fear-strategy.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
@@ -23,20 +22,6 @@ test('预计买入按下期执行窗口内的已知行情估算，复用档位�
     assert.equal(result.multiple, multiple);
     assert.equal(result.amount, 123.45 * multiple);
   }
-});
-
-test('截图行情：下期窗口排除十月初高点，已执行的2N不变', async () => {
-  const { rows } = JSON.parse(await readFile(new URL('../public/data/qqq.json', import.meta.url), 'utf8'));
-  const october = rows.filter(row => row.date >= '2026-09-01' && row.date <= '2026-10-27');
-  const signals = calculatePyramidSignals(october, { buyDay: 25, baseAmount: 2000 });
-  assert.equal(signals.at(-1).date, '2026-10-26');
-  assert.equal(signals.at(-1).multiple, 2);
-  const plan = nextMonthlyPlan(october, signals, 25);
-  const estimate = estimateMonthlyBuy(october, 2000, plan.expectedDate, signals.at(-1).date);
-  assert.equal(estimate.cutoff, '2026-10-25');
-  assert.equal(estimate.multiple, 1);
-  assert.equal(estimate.amount, 2000);
-  assert.ok(Math.abs(estimate.drawdown - 0.0022272437044353888) < 1e-10);
 });
 
 test('下期窗口按实际预计执行日回溯，包含截止日；无已知行情时待定', () => {

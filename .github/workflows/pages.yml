@@ -95,7 +95,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Test
+      # Application regressions gate code pushes, not recurring market refreshes.
+      # Each updater validates fetched data before replacing valid snapshots.
+      - name: Test application on code push
+        if: github.event_name == 'push'
         run: node --test test/*.test.mjs
       - name: Update sources
         id: update
