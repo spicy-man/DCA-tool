@@ -36,7 +36,7 @@ export function signalForDate(date) {
   return current.filter(signal => signal.date === date);
 }
 
-export function updateSignals(data, next) {
+export function updateSignals(data, next, { syncBacktest = true } = {}) {
   market = data;
   settings = next;
   if (!data || !next) {
@@ -64,14 +64,14 @@ export function updateSignals(data, next) {
     computed.set(key, calculatePyramidSignals(data.rows, state));
   }
 
-  const fear = evaluateFearStrategy(data.rows, sentimentRows, state);
+  const fear = evaluateFearStrategy(data.rows, next.replay ? sentimentRows.filter(row => row.date <= next.end) : sentimentRows, state);
   const history = [
     ...computed.get(key).map(s => ({ ...s, type: 'monthly' })),
     ...fear.signals
   ]
     .sort((a, b) => a.date.localeCompare(b.date));
   renderStrategySummary(data, next, state, history, fear);
-  updateBacktest({ rows: data.rows, monthlySignals: computed.get(key), fearSignals: fear.signals, range: next, baseAmount: state.baseAmount, symbol: data.symbol, sentiment: sentimentRows });
+  if (syncBacktest) updateBacktest({ rows: data.rows, monthlySignals: computed.get(key), fearSignals: fear.signals, range: next, baseAmount: state.baseAmount, symbol: data.symbol, sentiment: sentimentRows });
   allCurrent = history.filter(r => r.date >= next.start && r.date <= next.end);
 
   current = state.enabled && next.frequency === 'daily' ? allCurrent : [];

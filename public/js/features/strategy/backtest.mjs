@@ -1,4 +1,5 @@
-import { compareStrategies } from '../../domain/backtest.mjs';
+import { compareStrategies, findLatestPeakRecovery } from '../../domain/backtest.mjs';
+import { appEvents, events } from '../../services/events.mjs';
 import { chartInsets, createTradingScale, createProfitAxis } from '../../charts/geometry.mjs';
 
 const backtestScaleStorageKey = 'seeker.backtestScale.v1';
@@ -7,12 +8,17 @@ let context = null;
 let shownResult = null;
 let logScale = false;
 let seriesMode = 'equity';
+let replay = null;
+let replayTimer = null;
+let replayFrame = null;
+let previewIndex = null;
 const colors = ['#607487', '#0d9488', '#2563eb'];
 const amount = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const percent = value => value === null ? '—' : (Math.abs(value) < 0.00005 ? 0 : value * 100).toFixed(2) + '%';
 const $ = id => document.getElementById(id);
 
 function drawProfitChart(result) {
+  replayFrame = null;
   const svg = $('backtest-plot');
   svg.replaceChildren();
   svg.dataset.scale = logScale ? 'log' : 'linear';
@@ -25,6 +31,7 @@ function drawProfitChart(result) {
     for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
     if (text !== undefined) node.textContent = text;
     svg.append(node);
+    return node;
   };
   const metric = point => showEquity ? point.equity : point.profit;
   const principalCurve = result.results[0].curve;
@@ -39,7 +46,7 @@ function drawProfitChart(result) {
   const top = 18;
   const bottom = height - 42;
   const pw = width - left - right;
-  const calendar = context?.range?.calendar?.length
+  const calendar = replay ? replay.dates.slice(0, Math.max(80, replay.maxIndex + 1)) : context?.range?.calendar?.length
     ? context.range.calendar
     : principalCurve.map(point => point.date);
   const scale = createTradingScale(calendar, 'daily', left, pw);
@@ -69,9 +76,41 @@ function drawProfitChart(result) {
   }
   for (const [i, strategy] of result.results.entries()) {
     const path = strategy.curve.map((point, index) => (index ? 'L' : 'M') + x(point.date).toFixed(2) + ',' + y(metric(point)).toFixed(2)).join(' ');
-    add('path', { d: path, fill: 'none', stroke: colors[i], 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' });
+    add('path', { d: path, fill: 'none', stroke: colors[i], 'stroke-width': 2, 'data-strategy': strategy.id, 'aria-label': strategy.name, 'vector-effect': 'non-scaling-stroke' });
     const last = strategy.curve.at(-1);
     add('circle', { cx: x(last.date), cy: y(metric(last)), r: 3, fill: colors[i] });
+  }
+  let recoveryLabel = null;
+  const combined = result.results.find(strategy => strategy.id === 'combined');
+  const recovery = replay && combined && findLatestPeakRecovery(combined.curve, seriesMode);
+  if (recovery) {
+    const x1 = x(recovery.start);
+    const x2 = x(recovery.end);
+    const py = y(recovery.value);
+    const label = recovery.recovered ? '前高修复 · ' + recovery.days + ' 天' : '未修复 · 已 ' + recovery.days + ' 天';
+    add('line', {
+      x1, x2, y1: py, y2: py, stroke: colors[2], 'stroke-width': 1.5,
+      'stroke-dasharray': '6 4', 'data-recovery-line': '',
+      'aria-label': '金字塔＋恐慌加投' + (showEquity ? '累计资产' : '累计盈亏') + '前高 ' + amount(recovery.value) + '，' + recovery.start + ' 至 ' + recovery.end + '，' + label
+    });
+    for (const px of [x1, x2]) add('circle', { cx: px, cy: py, r: 3, fill: '#fff', stroke: colors[2], 'stroke-width': 1.5 });
+    const halfLabel = label.length * 5.5 + 4;
+    const labelRight = replay ? Math.min(width - right, x(principalCurve.at(-1).date) - 4) : width - right;
+    recoveryLabel = add('text', {
+      x: Math.max(left + halfLabel, Math.min(labelRight - halfLabel, (x1 + x2) / 2)),
+      y: Math.max(top + 12, py - 9), 'text-anchor': 'middle', fill: colors[2],
+      'font-size': 11, stroke: '#fff', 'stroke-width': 4, 'paint-order': 'stroke',
+      'stroke-linejoin': 'round', 'data-recovery-label': ''
+    }, label);
+  }
+  if (replay) {
+    const mask = add('rect', { y: top, height: bottom - top, fill: '#fff', 'pointer-events': 'none', 'data-replay-mask': '' });
+    const cursor = add('line', { y1: top, y2: bottom, stroke: '#607487', 'stroke-dasharray': '4 4', 'pointer-events': 'none', 'data-replay-cursor': '' });
+    const dateLabel = add('text', { y: top - 5, fill: '#607487', 'font-size': 11, 'text-anchor': 'middle', 'pointer-events': 'none', 'data-replay-date': '' });
+    // Keep text readable even when only a few days fit left of the cursor.
+    if (recoveryLabel) svg.append(recoveryLabel);
+    replayFrame = { width, height, left, right: width - right, top, bottom, scale, mask, cursor, dateLabel, recoveryLabel };
+    paintReplayCursor();
   }
   for (const tick of scale.ticks(width < 500 ? 3 : 6)) {
     const labelX = Math.max(tick.label.length * 4 + 2, tick.x);
@@ -80,6 +119,7 @@ function drawProfitChart(result) {
 }
 
 function render() {
+  replayFrame = null;
   shownResult = null;
   $('backtest-results').replaceChildren();
   $('backtest-plot').replaceChildren();
@@ -90,7 +130,8 @@ function render() {
   }
   try {
     const mode = $('backtest-mode').value || 'equal';
-    const result = compareStrategies({ ...context, mode });
+    const range = replay ? { ...context.range, start: replay.start, end: replay.dates[replay.index] } : context.range;
+    const result = compareStrategies({ ...context, range, mode });
     if (!result) {
       $('backtest-period').textContent = '当前区间无行情，无法回测';
       $('backtest-note').textContent = '';
@@ -116,6 +157,12 @@ function render() {
     $('backtest-note').textContent = funding + ' 买入 N 数＝累计买入金额 ÷ 定投金额 N，包含月度金字塔和恐慌加投。' + ' ' + (result.deferredMonthly ? result.deferredMonthly + ' 笔区间内月度信号尚未在本区间成交。' : '') + ' ' + coverage;
     shownResult = result;
     drawProfitChart(result);
+    if (replay) {
+      // Keep individual candles legible even when entry is decades in the past.
+      const first = Math.max(0, replay.index - 79);
+      const calendar = replay.dates.slice(first, Math.max(80, replay.index + 1));
+      appEvents.dispatchEvent(new CustomEvent(events.replayRange, { detail: { start: replay.dates[first], end: replay.dates[replay.index], calendar, frequency: 'daily', replay: true } }));
+    }
   } catch (error) {
     $('backtest-results').replaceChildren();
     $('backtest-plot').replaceChildren();
@@ -124,12 +171,153 @@ function render() {
   }
 }
 
+function paintReplayCursor() {
+  if (!replay || !replayFrame) return;
+  const { scale, left, right, mask, cursor, dateLabel } = replayFrame;
+  const date = replay.dates[previewIndex ?? replay.index];
+  if (replayFrame.recoveryLabel) replayFrame.recoveryLabel.setAttribute('visibility', previewIndex !== null && previewIndex < replay.index ? 'hidden' : 'visible');
+  const px = scale.x(date);
+  mask.setAttribute('x', px);
+  mask.setAttribute('width', Math.max(0, right - px));
+  cursor.setAttribute('x1', px);
+  cursor.setAttribute('x2', px);
+  dateLabel.setAttribute('x', Math.max(left + 38, Math.min(right - 38, px)));
+  dateLabel.textContent = date;
+}
+
+function replayIndexAt(event) {
+  if (!replay || !replayFrame) return null;
+  const bounds = $('backtest-plot').getBoundingClientRect();
+  const frame = replayFrame;
+  // Match the SVG's default xMidYMid meet transform, including letterboxing.
+  const ratio = Math.min(bounds.width / frame.width, bounds.height / frame.height);
+  if (!(ratio > 0)) return null;
+  const px = (event.clientX - bounds.left - (bounds.width - frame.width * ratio) / 2) / ratio;
+  const py = (event.clientY - bounds.top - (bounds.height - frame.height * ratio) / 2) / ratio;
+  const halfSlot = frame.scale.spacing / 2;
+  if (py < frame.top || py > frame.bottom || px < frame.left || px > frame.right ||
+      px < frame.scale.x(replay.dates[0]) - halfSlot ||
+      px > frame.scale.x(replay.dates[replay.maxIndex]) + halfSlot) return null;
+  let nearest = 0;
+  for (let i = 1; i <= replay.maxIndex; i++) {
+    if (Math.abs(frame.scale.x(replay.dates[i]) - px) < Math.abs(frame.scale.x(replay.dates[nearest]) - px)) nearest = i;
+  }
+  return nearest;
+}
+
+function seekReplay(index) {
+  if (!replay || index === null || index < 0 || index > replay.maxIndex) return;
+  pauseReplay();
+  replay.index = index;
+  previewIndex = null;
+  render();
+  syncReplayControls();
+}
+
+function pauseReplay() {
+  clearInterval(replayTimer);
+  replayTimer = null;
+}
+
+function startReplayTimer() {
+  pauseReplay();
+  const speed = Number($('backtest-replay-speed').value);
+  const daysPerSecond = [1, 2, 4, 8, 16].includes(speed) ? speed : 4;
+  replayTimer = setInterval(() => {
+    replay.index++;
+    replay.maxIndex = Math.max(replay.maxIndex, replay.index);
+    if (replay.index === replay.dates.length - 1) pauseReplay();
+    render();
+    syncReplayControls();
+  }, 1000 / daysPerSecond);
+}
+
+function syncReplayControls() {
+  const input = $('backtest-replay-start');
+  const dates = context?.rows.map(row => row.date) || [];
+  input.min = dates[0] || '';
+  input.max = dates.at(-1) || '';
+  input.disabled = !dates.length;
+  $('backtest-replay-random').disabled = !dates.length;
+  const selected = dates.some(date => date >= input.value) && input.value >= input.min && input.value <= input.max;
+  $('backtest-replay-play').disabled = !selected;
+  $('backtest-replay-play').textContent = replayTimer !== null ? '暂停' : replay && replay.index === replay.dates.length - 1 ? '重新播放' : '播放';
+  $('backtest-replay-reset').disabled = !replay;
+  $('backtest-replay-status').textContent = replay
+    ? '复盘至 ' + replay.dates[replay.index] + (replayTimer !== null ? ' · 播放中' : replay.index === replay.dates.length - 1 ? ' · 已结束' : ' · 已暂停')
+    : '选择起始日并播放后展示前高修复';
+}
+
+function resetReplay() {
+  const wasReplaying = replay !== null;
+  pauseReplay();
+  replay = null;
+  previewIndex = null;
+  syncReplayControls();
+  render();
+  if (wasReplaying) appEvents.dispatchEvent(new CustomEvent(events.replayRange, { detail: null }));
+}
+
 export function updateBacktest(next) {
   context = next;
-  render();
+  if ($('backtest-replay-start')) $('backtest-replay-start').value = '';
+  resetReplay();
 }
 
 export function initBacktest() {
+  pauseReplay();
+  replay = null;
+  previewIndex = null;
+  const plot = $('backtest-plot');
+  plot.addEventListener('pointermove', event => {
+    previewIndex = replayIndexAt(event);
+    plot.style.cursor = previewIndex === null ? '' : 'crosshair';
+    paintReplayCursor();
+  });
+  plot.addEventListener('pointerleave', () => {
+    previewIndex = null;
+    plot.style.cursor = '';
+    paintReplayCursor();
+  });
+  plot.addEventListener('click', event => seekReplay(replayIndexAt(event)));
+  plot.addEventListener('keydown', event => {
+    if (!replay || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const target = event.key === 'Home' ? 0 : event.key === 'End' ? replay.maxIndex : replay.index + (event.key === 'ArrowLeft' ? -1 : 1);
+    seekReplay(Math.max(0, Math.min(replay.maxIndex, target)));
+  });
+  $('backtest-replay-start').addEventListener('change', resetReplay);
+  $('backtest-replay-reset').addEventListener('click', resetReplay);
+  $('backtest-replay-random').addEventListener('click', () => {
+    const dates = context?.rows.map(row => row.date) || [];
+    if (!dates.length) return;
+    // Leave at least one following session to play when the interval permits it.
+    const count = Math.max(1, dates.length - 1);
+    $('backtest-replay-start').value = dates[Math.floor(Math.random() * count)];
+    resetReplay();
+  });
+  $('backtest-replay-speed').addEventListener('change', () => {
+    if (replayTimer !== null) startReplayTimer();
+    syncReplayControls();
+  });
+  $('backtest-replay-play').addEventListener('click', () => {
+    if (replayTimer !== null) {
+      pauseReplay();
+      syncReplayControls();
+      return;
+    }
+    const start = $('backtest-replay-start').value;
+    const dates = context?.rows.filter(row => row.date >= start).map(row => row.date) || [];
+    if (!start || start < $('backtest-replay-start').min || start > $('backtest-replay-start').max || !dates.length) return;
+    if (!replay || replay.index === replay.dates.length - 1) replay = { start: dates[0], dates, index: 0, maxIndex: 0 };
+    previewIndex = null;
+    if (replay.index < replay.dates.length - 1) {
+      startReplayTimer();
+    }
+    render();
+    syncReplayControls();
+  });
+  syncReplayControls();
   const scaleToggle = $('backtest-scale-toggle');
   const tabProfit = $('backtest-tab-profit');
   const tabEquity = $('backtest-tab-equity');

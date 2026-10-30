@@ -35,3 +35,10 @@
 }
 
 .backtest-content > .backtest-navigator { margin: 14px 0 0; }
+
+.backtest-replay { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; font-size: 12px; }
+.backtest-replay label { display: flex; align-items: center; gap: 8px; }
+.backtest-replay input { max-width: 100%; min-width: 0; }
+.backtest-replay span { color: #607487; font-size: 11px; }
+
+.backtest-replay-hint { margin: 8px 0 0; color: #607487; font-size: 11px; line-height: 1.6; }

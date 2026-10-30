@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { compareStrategies, moneyWeightedReturn } from '../public/js/domain/backtest.mjs';
+import { compareStrategies, moneyWeightedReturn, findLatestPeakRecovery } from '../public/js/domain/backtest.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
 import { calculateFearSignals } from '../public/js/domain/fear-strategy.mjs';
 import { parseCSV } from '../public/js/domain/sentiment.mjs';
@@ -15,6 +15,42 @@ const rows = [
 const monthlySignals = [{ date: '2025-01-02', amount: 200 }];
 const fearSignals = [{ date: '2025-01-06', amount: 100 }];
 const input = { rows, monthlySignals, fearSignals, range: { start: '2025-01-01', end: '2025-01-31' }, baseAmount: 100 };
+
+test('前高修复取最近一轮，按自然日计时，平台从最后触及高点起算', () => {
+  const curve = [100, 100, 80, 100, 120, 110, 120, 130].map((equity, i) => ({
+    date: ['2024-02-27', '2024-02-28', '2024-02-29', '2024-03-04', '2024-03-05', '2024-03-06', '2024-03-08', '2024-03-11'][i],
+    equity, invested: 100
+  }));
+  assert.deepEqual(findLatestPeakRecovery(curve.slice(0, 4)), {
+    start: '2024-02-28', end: '2024-03-04', value: 100, recovered: true, days: 5
+  });
+  assert.deepEqual(findLatestPeakRecovery(curve.slice(0, 6)), {
+    start: '2024-03-05', end: '2024-03-06', value: 120, recovered: false, days: 1
+  });
+  assert.deepEqual(findLatestPeakRecovery(curve), {
+    start: '2024-03-05', end: '2024-03-08', value: 120, recovered: true, days: 3
+  });
+});
+
+test('资产与盈亏独立判断修复，兼容负盈亏、无投入和无回落', () => {
+  const curve = [
+    { date: '2025-01-02', equity: 0, profit: 0, invested: 0 },
+    { date: '2025-01-03', equity: 90, profit: -10, invested: 100 },
+    { date: '2025-01-06', equity: 80, profit: -20, invested: 100 },
+    { date: '2025-01-07', equity: 180, profit: -20, invested: 200 }
+  ];
+  assert.deepEqual(findLatestPeakRecovery(curve), {
+    start: '2025-01-03', end: '2025-01-07', value: 90, recovered: true, days: 4
+  });
+  assert.deepEqual(findLatestPeakRecovery(curve, 'profit'), {
+    start: '2025-01-03', end: '2025-01-07', value: -10, recovered: false, days: 4
+  });
+  assert.equal(findLatestPeakRecovery([]), null);
+  assert.equal(findLatestPeakRecovery(curve.slice(0, 1)), null);
+  assert.equal(findLatestPeakRecovery(curve.slice(0, 2)), null);
+  assert.equal(findLatestPeakRecovery([curve[1], { ...curve[3], equity: 90 }]), null);
+  assert.equal(findLatestPeakRecovery([curve[1], curve[3]]), null);
+});
 
 test('月度收盘信号在后续开盘成交，恐慌信号不再多延迟一天', () => {
   const result = compareStrategies(input);

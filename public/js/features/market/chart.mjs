@@ -22,6 +22,7 @@ const symbolStorageKey = 'seeker.symbol.v1';
 const priceScaleStorageKey = 'seeker.priceScale.v1';
 const store = new Map();
 let settings;
+let browsingSettings;
 let shown = [];
 let frame;
 let active = -1;
@@ -49,10 +50,9 @@ export async function loadMarket(force = false) {
     appEvents.dispatchEvent(
       new CustomEvent(events.marketCalendar, { detail: store.get(symbol).rows.map(r => r.date) })
     );
-    renderMarket(settings);
+    renderMarket(browsingSettings);
   } catch (error) {
     if (id !== requestID) return;
-    loading = false;
     $('price-asof').textContent = error.message;
     shown = [];
     $('price-close').textContent = '—';
@@ -60,6 +60,7 @@ export async function loadMarket(force = false) {
     $('price-observations').textContent = '0 根 K 线';
     $('price-table').replaceChildren();
     updateSignals(null, null);
+    loading = false;
     drawPrice();
   }
 }
@@ -69,22 +70,24 @@ export function invalidateMarket() {
   return loadMarket(true);
 }
 
-export function renderMarket(next) {
+export function renderMarket(next, { syncBacktest = true } = {}) {
+  if (syncBacktest) browsingSettings = next;
   settings = next;
   if (!next || loading) return;
   const symbol = $('symbol').value;
   const data = store.get(symbol);
   if (!data) return;
 
-  updateSignals(data, next);
+  const signalData = next.replay ? { ...data, rows: data.rows.filter(row => row.date <= next.end) } : data;
+  updateSignals(signalData, next, { syncBacktest });
   const daily = data.rows.filter(r => r.date >= next.start && r.date <= next.end);
   shown = aggregateOHLC(daily, next.frequency);
   active = -1;
   hoverDate = null;
   hoverY = null;
   $('price-tooltip').hidden = true;
-  $('price-title').textContent = symbol + ' · 前复权 K 线';
-  $('price-asof').textContent = 'Yahoo Finance · 数据截至 ' + data.anchorDate;
+  $('price-title').textContent = symbol + (next.replay ? ' · 日线复盘' : ' · 前复权 K 线');
+  $('price-asof').textContent = next.replay ? '复盘至 ' + next.end : 'Yahoo Finance · 数据截至 ' + data.anchorDate;
 
   const last = shown.at(-1);
   const previous = shown.at(-2);
@@ -306,7 +309,15 @@ function hide() {
   appEvents.dispatchEvent(new CustomEvent(events.marketHover, { detail: null }));
 }
 
+function renderReplayMarket(event) {
+  if (!browsingSettings || loading) return;
+  const range = event.detail || browsingSettings;
+  renderMarket(range, { syncBacktest: false });
+  $('date-range').textContent = range.start + ' – ' + range.end;
+}
+
 export function initMarketChart() {
+  appEvents.addEventListener(events.replayRange, renderReplayMarket);
   const symbolSelect = $('symbol');
   const scaleToggle = $('price-scale-toggle');
   logScale = false;
@@ -376,7 +387,7 @@ export function initMarketChart() {
   });
 
   appEvents.addEventListener(events.strategySettings, () => {
-    if (settings) renderMarket(settings);
+    if (browsingSettings) renderMarket(browsingSettings);
   });
 
   new ResizeObserver(() => {

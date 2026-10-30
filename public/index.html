@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.11.3">
+  <link rel="stylesheet" href="./style.css?v=1.12.0">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.11.3">v1.11.3</span>
+        <span class="version-badge" aria-label="版本 1.12.0">v1.12.0</span>
       </div>
       <span class="brand-caption">行情 · 情绪 · 定投</span>
       <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
@@ -309,8 +309,25 @@
             </div>
             <div class="backtest-legend"><span>普通定投</span><span>回撤金字塔</span><span>金字塔＋恐慌加投</span><span id="backtest-principal-legend" class="is-principal">投入本金</span></div>
           </div>
+          <div class="backtest-replay">
+            <label>复盘起始日 <input id="backtest-replay-start" type="date" aria-label="复盘起始日"></label>
+            <button id="backtest-replay-random" type="button" disabled title="从该标的全部历史交易日随机选择复盘起始日">随机</button>
+            <label>播放速度
+              <select id="backtest-replay-speed" aria-label="复盘播放速度">
+                <option value="1">1 交易日／秒</option>
+                <option value="2">2 交易日／秒</option>
+                <option value="4" selected>4 交易日／秒</option>
+                <option value="8">8 交易日／秒</option>
+                <option value="16">16 交易日／秒</option>
+              </select>
+            </label>
+            <button id="backtest-replay-play" type="button" disabled>播放</button>
+            <button id="backtest-replay-reset" type="button" disabled>重置</button>
+            <span id="backtest-replay-status">选择起始日并播放后展示前高修复</span>
+          </div>
+          <p class="backtest-replay-hint" id="backtest-replay-hint">复盘时，移动鼠标预览日期，点击回到当天并暂停；也可聚焦图表后用左右方向键逐日回看。</p>
           <div class="backtest-plot-wrap">
-            <svg id="backtest-plot" class="backtest-plot" viewBox="0 0 980 280" role="img" aria-label="三种策略回测曲线"></svg>
+            <svg id="backtest-plot" tabindex="0" aria-describedby="backtest-replay-hint" class="backtest-plot" viewBox="0 0 980 280" role="img" aria-label="三种策略回测曲线"></svg>
             <button id="backtest-scale-toggle" class="scale-toggle backtest-scale-toggle" type="button" aria-pressed="false" aria-label="切换回测曲线对数坐标" title="切换对数坐标">对数</button>
           </div>
           <details class="backtest-method">
@@ -322,6 +339,7 @@
               <li>同一供资计划：以“金字塔＋恐慌加投”的买入日及所需金额，为三组同时注入相同资金，各组按自身规则买入，剩余现金按 3% 年化收益率、实际日数／365 复利计息，含周末与休市日；当日新增余额当日不计息。利息留在现金中继续计息，并计入期末资产、盈亏及收益率，不计为外部投入；“闲置现金”仅列未投入股票的本金，不含单列的“现金收益”；“股权收益”为股票部分盈亏，加上“现金收益”等于“累计盈亏”。各自投入口径则仅在买入时注入所需金额。</li>
               <li>资金加权年化采用 XIRR，以买入时入金及期末资产为现金流，按实际间隔天数／365 年化。无投入、仅同日现金流或无有效解时显示“—”；短区间年化可能明显放大波动。<a href="https://support.microsoft.com/en-us/excel/functions/xirr-function?nochrome=true" target="_blank" rel="noreferrer">XIRR 定义 ↗</a></li>
               <li>最大净值回撤按日收盘单位净值计算，入金按当日开盘前资产净值折算份额，剔除外部入金影响；同一供资模式包含闲置现金。累计盈亏曲线为资产减累计本金，不将入金视为盈利；累计资产曲线展示期末资产，并在同一供资计划下叠加投入本金虚线。历史结果不代表未来表现。</li>
+              <li>选定复盘起始日并播放后，蓝色水平虚线表示“金字塔＋恐慌加投”最近一轮前高修复，随页签分别按累计资产或累计盈亏计算。从回落前最后一次触及前高之日，计至首次收盘回到该高度之日，按自然日计天数；未修复则计至当前播放日。暂停保留结果，重选起始日或重置后隐藏；复盘按起始日零持仓重新计算，仅展示已播放的行情。当前创新高时保留最近一轮已完成修复，无回落时不画线。累计资产修复包含后续新增投入的影响，不等同于净值修复。</li>
             </ul>
           </details>
           <div class="navigator backtest-navigator">

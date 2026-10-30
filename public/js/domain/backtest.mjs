@@ -2,6 +2,31 @@ const DAY_MS = 86400000;
 const CASH_ANNUAL_RATE = 0.03;
 const yearsBetween = (start, end) => (Date.parse(end) - Date.parse(start)) / DAY_MS / 365;
 
+// Latest high-water-mark drawdown: keep the last completed episode until a new
+// one starts. Ignore the empty account before its first contribution.
+export function findLatestPeakRecovery(curve, metric = 'equity') {
+  let peak = null;
+  let active = false;
+  let completed = null;
+  const episode = (end, recovered) => ({
+    start: peak.date, end: end.date, value: peak[metric], recovered,
+    days: (Date.parse(end.date) - Date.parse(peak.date)) / DAY_MS
+  });
+  for (const point of curve) {
+    if (point.invested <= 0) continue;
+    if (!peak) { peak = point; continue; }
+    const tolerance = Math.max(1, Math.abs(peak[metric]), Math.abs(point[metric])) * 1e-10;
+    if (point[metric] >= peak[metric] - tolerance) {
+      if (active) completed = episode(point, true);
+      active = false;
+      peak = point;
+    } else {
+      active = true;
+    }
+  }
+  return active ? episode(curve.at(-1), false) : completed;
+}
+
 // Only contributions and one terminal valuation: a monotonic future-value equation.
 // Solve in log(1+r) space to support negative and very large annualized returns.
 export function moneyWeightedReturn(deposits, end, finalValue) {
