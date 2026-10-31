@@ -3,10 +3,12 @@ export function initStrategyDialog() {
   const strategyDialog = $('strategy-dialog');
   const diagramScroll = strategyDialog.querySelector('.strategy-dialog-body');
 
-  $('strategy-help').addEventListener('click', () => {
+  function open() {
     strategyDialog.showModal();
     document.body.classList.add('strategy-dialog-open');
-  });
+  }
+
+  $('strategy-help').addEventListener('click', open);
 
   $('strategy-dialog-close').addEventListener('click', () => strategyDialog.close());
 
@@ -31,4 +33,6 @@ export function initStrategyDialog() {
       window.open(viewer.href, '_blank', 'noopener,noreferrer');
     });
   });
+
+  return open;
 }

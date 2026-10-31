@@ -30,7 +30,7 @@ let hoverDate = null;
 let hoverY = null;
 let loading = false;
 let requestID = 0;
-let logScale = false;
+let logScale = true;
 
 export async function loadMarket(force = false) {
   const id = ++requestID;
@@ -320,13 +320,13 @@ export function initMarketChart() {
   appEvents.addEventListener(events.replayRange, renderReplayMarket);
   const symbolSelect = $('symbol');
   const scaleToggle = $('price-scale-toggle');
-  logScale = false;
+  logScale = true;
   try {
     const saved = localStorage.getItem(symbolStorageKey);
     if (Array.from(symbolSelect.options).some(option => option.value === saved)) {
       symbolSelect.value = saved;
     }
-    logScale = localStorage.getItem(priceScaleStorageKey) === 'log';
+    logScale = localStorage.getItem(priceScaleStorageKey) !== 'linear';
   } catch {}
   scaleToggle.setAttribute('aria-pressed', String(logScale));
 

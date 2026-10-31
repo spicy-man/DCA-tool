@@ -3,6 +3,8 @@ import {initApplication} from './application.mjs';
 import {initMarketChart} from './features/market/chart.mjs';
 import {initStrategyOverlay} from './features/strategy/overlay.mjs';
 import {initStrategyDialog} from './ui/strategy-dialog.mjs';
+import {initWelcomeDialog} from './ui/welcome-dialog.mjs';
+import {initChartVisibility} from './ui/chart-visibility.mjs';
 import {initSymbolDialog} from './ui/symbol-dialog.mjs';
 import {initFundNavigation} from './ui/fund-navigation.mjs';
 
@@ -10,8 +12,10 @@ import {initFundNavigation} from './ui/fund-navigation.mjs';
 await initSymbolDialog();
 initStrategyOverlay();
 initMarketChart();
+initChartVisibility();
 initFundNavigation();
-initStrategyDialog();
+const openStrategyDialog = initStrategyDialog();
 initApplication();
 
 initFloatingCharts();
+initWelcomeDialog({ openStrategyDialog });

@@ -352,13 +352,13 @@ test('K 线图与回测曲线图右下角对数切换按钮各自生效并记住
   initMarketChart();
   updateSignals(data, settings);
 
-  assert.equal($('price-scale-toggle').getAttribute('aria-pressed'), 'false');
+  assert.equal($('price-scale-toggle').getAttribute('aria-pressed'), 'true');
   assert.equal($('backtest-scale-toggle').getAttribute('aria-pressed'), 'false');
   assert.equal($('backtest-plot').dataset.scale, 'linear');
 
   $('price-scale-toggle').listeners.click();
-  assert.equal($('price-scale-toggle').getAttribute('aria-pressed'), 'true');
-  assert.equal(saved.get('seeker.priceScale.v1'), 'log');
+  assert.equal($('price-scale-toggle').getAttribute('aria-pressed'), 'false');
+  assert.equal(saved.get('seeker.priceScale.v1'), 'linear');
 
   $('backtest-scale-toggle').listeners.click();
   assert.equal($('backtest-scale-toggle').getAttribute('aria-pressed'), 'true');

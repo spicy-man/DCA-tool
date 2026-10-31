@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.12.0">
+  <link rel="stylesheet" href="./style.css?v=1.13.0">
 </head>
 <body>
   <div class="shell">
@@ -21,9 +21,10 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.12.0">v1.12.0</span>
+        <span class="version-badge" aria-label="版本 1.13.0">v1.13.0</span>
       </div>
-      <span class="brand-caption">行情 · 情绪 · 定投</span>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
       <a class="updated" href="https://github.com/spicy-man/DCA-tool" target="_blank" rel="noopener noreferrer"><strong>本项目开源代码 ↗</strong></a>
       <label class="header-layout">布局
         <select id="layout">
@@ -74,7 +75,7 @@
             </div>
             <p id="price-asof">正在读取 ETF 行情…</p>
           </div>
-          <div class="score-block">
+          <div id="price-quote" class="score-block is-concealed" aria-hidden="true" inert>
             <div><strong id="price-close">—</strong></div>
             <span id="price-change">—</span>
           </div>
@@ -145,7 +146,7 @@
           </div>
         </section>
 
-        <div class="chart-wrap price-wrap expanded" id="price-wrap">
+        <div class="chart-wrap price-wrap expanded is-concealed" id="price-wrap">
           <div class="toolbar chart-toolbar" aria-label="两图共用的显示设置">
             <label>范围
               <select id="range">
@@ -173,9 +174,17 @@
               <button id="latest">回到最新</button>
             </div>
           </div>
-          <canvas id="price-chart" role="img" aria-label="ETF 前复权开高低收 K 线图"></canvas>
-          <div id="signal-layer" class="signal-layer"></div>
-          <button id="price-scale-toggle" class="scale-toggle" type="button" aria-pressed="false" aria-label="切换 K 线对数坐标" title="切换对数坐标">对数</button>
+          <button id="price-visibility-toggle" class="chart-visibility-toggle" type="button" aria-pressed="false" aria-label="显示主图" aria-controls="price-chart signal-layer price-quote" title="显示主图">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+              <circle cx="12" cy="12" r="3"/>
+              <path class="eye-slash" d="m3 3 18 18"/>
+            </svg>
+          </button>
+          <canvas id="price-chart" role="img" aria-label="ETF 前复权开高低收 K 线图" inert></canvas>
+          <div id="signal-layer" class="signal-layer" inert></div>
+          <p class="chart-visibility-note">主图已隐藏，点击右上角眼睛按钮查看。</p>
+          <button id="price-scale-toggle" class="scale-toggle" type="button" aria-pressed="true" aria-label="切换 K 线对数坐标" title="切换对数坐标">对数</button>
           <div id="price-tooltip" class="tooltip" hidden></div>
           <p id="price-empty" class="price-empty" hidden></p>
         </div>
@@ -209,7 +218,7 @@
             <h3 id="strategy-heading">近月回撤金字塔买入信号</h3>
             <p>回看前一个日历月（包含当天、月底对齐）的最高价，以当日收盘价计算回撤。不足 5% 投入 N；5% 为 2N；10% 为 4N；15% 为 6N，之后每多 5% 增加 2N，最多 38N。</p>
             <p>不存在的定投日对齐当月月末，非交易日顺延。每个定投所属月份各买一次；上月顺延到本月的买入不占用本月额度，因此同一执行月份可能有两笔月度定投。月度额度不限制恐慌加投。仅在完整日线上显示信号。按全部已取得的历史日线计算，缩放和拖动不会重新触发定投。</p>
-            <p>1N = 设置中的定投金额。F&amp;G 日终指数从不低于阈值跌至阈值下方时，按“恐慌加投倍数 × N”加投（默认 1N，即蓝色 buy 1N；设为 3 则一次加投 3N），与绿色月度定投独立累加。默认阈值 10，可调整；触发后须回升到阈值 +5 才可再次触发，避免临界值附近重复买入。这是策略缓冲带，并非统计置信区间。信号在指数日期之后的首个可用 ETF 交易日展示；无后续完整行情时暂不生成买入。</p>
+            <p>1N = 设置中的定投金额。F&amp;G 日终指数从不低于阈值跌至阈值下方时，按“恐慌加投倍数 × N”加投（默认 3N，即蓝色 buy 3N；倍数可在主图调整），与绿色月度定投独立累加。默认阈值 10，可调整；触发后须回升到阈值 +5 才可再次触发，避免临界值附近重复买入。这是策略缓冲带，并非统计置信区间。信号在指数日期之后的首个可用 ETF 交易日展示；无后续完整行情时暂不生成买入。</p>
             <p id="signal-total"></p>
             <div class="table-scroll">
               <table>
@@ -460,6 +469,41 @@
         <button id="symbol-submit" type="submit">添加并获取行情</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="welcome-dialog" class="welcome-dialog" aria-labelledby="welcome-title">
+    <div class="welcome-heading">
+      <span class="welcome-eyebrow">写在开始之前</span>
+      <button id="welcome-close" class="welcome-close" type="button" aria-label="关闭开场引导">×</button>
+    </div>
+    <div class="welcome-body">
+      <h2 id="welcome-title" tabindex="-1" autofocus>与时间同行</h2>
+      <p class="welcome-lead">定投的道理并不复杂，难的是陪它走过漫长的岁月。</p>
+      <figure class="welcome-quote">
+        <blockquote>
+          <p class="welcome-quote-en" lang="en">“If you invested in a very low-cost index fund — where you don't put the money in at one time, but average in over 10 years — you'll do better than 90% of people who start investing at the same time.”</p>
+          <p class="welcome-quote-zh">“如果你投资于一只成本极低的指数基金——<strong>不要把钱一次性全部投进去，而是在 10 年间分批买入</strong>——你的表现将会优于同一时间开始投资的 90% 的人。”</p>
+        </blockquote>
+        <figcaption>沃伦·巴菲特（Warren Buffett）· 2004 年伯克希尔·哈撒韦股东大会
+          <a href="https://buffett.cnbc.com/video/2004/05/01/morning-session---2004-berkshire-hathaway-annual-meeting.html" target="_blank" rel="noopener noreferrer">大会记录 ↗</a>
+        </figcaption>
+      </figure>
+      <p>市场平静时，按月买入似乎轻而易举；当价格不断下跌，账户迟迟不见起色，我们也难免动摇：这条路，是否还值得继续？</p>
+      <p>前人的智慧，让我们在犹疑时有所回望；事先想清楚的规则，让每一次行动有所依据。先为生活留好余地，确定能够持续承担的定投金额与备用资金，再从容地开始。</p>
+      <section class="welcome-rules" aria-labelledby="welcome-rules-title">
+        <h3 id="welcome-rules-title">心中有尺度，行动有章法</h3>
+        <p>平日按月积累，回撤时依档位增加投入，恐慌信号出现时按设定倍数独立加投。具体的加仓规则由本工具设计，可在「策略说明」中细读。</p>
+        <p>下跌可能持续，加仓之后仍可能亏损，历史回测也无法许诺未来。愿每一笔投入，都在自己理解并能承受的范围之内。</p>
+      </section>
+      <p class="welcome-ending">愿这份小工具，陪你理解自己的选择，然后安心地回到工作与生活。</p>
+    </div>
+    <div class="welcome-footer">
+      <label class="welcome-preference"><input id="welcome-show-again" type="checkbox">每次打开时，读一读这段话</label>
+      <div class="welcome-actions">
+        <button id="welcome-strategy" type="button">策略说明</button>
+        <button id="welcome-start" class="primary" type="button">开始查看</button>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="strategy-dialog" class="strategy-dialog" aria-labelledby="strategy-dialog-title" aria-describedby="strategy-diagram-note">

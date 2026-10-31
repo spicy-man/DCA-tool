@@ -39,7 +39,7 @@
 <path class="line" d="M727 566 V604"/>
 <rect x="390" y="608" width="674" height="184" rx="16" fill="#e5eff9" stroke="#ccdeef" stroke-width="1.5"/>
 <text x="418" y="641" class="number">03 / 触发日之后的首个 ETF 交易日</text>
-<text x="418" y="681" class="heading">加投金额 = 倍数 × N</text>
+<text x="418" y="681" class="heading">加投金额 = 倍数 × N（默认 3N）</text>
 <text x="418" y="717" class="body">蓝色标记落在该交易日；回测按当日开盘成交</text>
 <text x="418" y="759" class="small">无后续完整行情则等待；周五触发可顺延至周一</text>
 <path class="line" d="M727 792 V830"/>
@@ -58,20 +58,20 @@
 <text x="806" y="1254" class="small">重置后，回到步骤 02</text>
 <rect x="56" y="440" width="280" height="470" rx="16" fill="#edf2f5" stroke="#dbe3e8"/>
 <text x="80" y="479" class="heading">触发与重置示例</text>
-<text x="80" y="519" class="small">以阈值 10、1N为例</text>
+<text x="80" y="519" class="small">以阈值 10、3N 为例</text>
 <text x="80" y="565" class="body">12 → 9：日终触发</text>
-<text x="80" y="597" class="money">后续交易日买入 N</text>
+<text x="80" y="597" class="money">后续交易日买入 3N</text>
 <path d="M80 622 H312" stroke="#d0dae1"/>
 <text x="80" y="659" class="body">9 → 8 → 11 → 9</text>
 <text x="80" y="691" class="money">不重复买入</text>
 <text x="80" y="723" class="small">尚未回到 15，不重置</text>
 <path d="M80 748 H312" stroke="#d0dae1"/>
 <text x="80" y="785" class="body">回到 15，再跌至 9</text>
-<text x="80" y="817" class="money">可以再买一次 N</text>
+<text x="80" y="817" class="money">可以再买一次 3N</text>
 <text x="80" y="864" class="small">先重置，再等待新的下穿</text>
 <rect x="56" y="1300" width="1008" height="134" rx="14" fill="#e7edf1"/>
 <text x="80" y="1337" class="heading">月度定投 + 恐慌加投，可以同日发生</text>
-<text x="80" y="1375" class="body">例如月投 4N，恐慌加投 2N，总投入为 6N。</text>
+<text x="80" y="1375" class="body">例如月投 4N，恐慌加投 3N，总投入为 7N。</text>
 <text x="80" y="1408" class="small">恐慌加投不占月度定投次数，也不受每月一次限制。</text>
 <text x="56" y="1463" class="small">N = 设置中的定投金额 · K = 主图 F&amp;G 加投阈值</text>
 </svg>

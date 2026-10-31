@@ -1,0 +1,74 @@
+.brand-divider {
+  width: 1px;
+  height: 18px;
+  flex-shrink: 0;
+  background: #d4dce3;
+}
+
+.welcome-help {
+  flex-shrink: 0;
+  height: 28px;
+  margin-left: 0;
+  padding: 0 9px;
+  color: var(--navy);
+  font-size: 11px;
+}
+
+.welcome-dialog {
+  width: min(680px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e3e2dc;
+  border-radius: 16px;
+  background: #fdfcf9;
+  color: #34434a;
+  box-shadow: 0 24px 90px #19374a30;
+}
+
+.welcome-dialog[open] { display: flex; flex-direction: column; }
+.welcome-dialog::backdrop { background: #19374a75; }
+body.welcome-dialog-open { overflow: hidden; }
+
+.welcome-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 18px 28px 0;
+}
+
+.welcome-eyebrow { font-size: 11px; letter-spacing: 3px; color: #7c817a; }
+.welcome-close { width: 30px; height: 30px; padding: 0; border: 0; background: transparent; font-size: 23px; color: #7c817a; }
+.welcome-body { min-height: 0; padding: 6px 36px 14px; overflow-y: auto; overscroll-behavior: contain; }
+.welcome-body h2 { margin: 0 0 10px; color: var(--navy); font-family: "Songti SC", "Noto Serif CJK SC", SimSun, serif; font-size: 30px; font-weight: 600; letter-spacing: 3px; }
+.welcome-body h2:focus { outline: none; }
+.welcome-body p { margin: 12px 0; font-size: 13px; line-height: 1.95; }
+.welcome-body .welcome-lead { margin-top: 0; color: #778078; }
+.welcome-quote { margin: 20px 0; padding: 17px 20px; border-left: 3px solid #82988a; background: #f0f2ec; }
+.welcome-quote blockquote { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", SimSun, serif; font-size: 18px; line-height: 1.8; color: #344e43; }
+.welcome-quote figcaption { margin-top: 9px; color: #737e73; font-size: 10px; line-height: 1.8; }
+.welcome-quote a { margin-left: 5px; color: inherit; text-underline-offset: 3px; }
+.welcome-quote .welcome-quote-en { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 13px; font-style: italic; line-height: 1.75; }
+.welcome-quote .welcome-quote-zh { margin: 12px 0 0; color: #59675b; font-size: 14px; line-height: 1.9; }
+.welcome-quote strong { font-weight: 600; }
+.welcome-rules { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e6df; }
+.welcome-rules h3 { margin: 0; color: #435b50; font-size: 13px; font-weight: 600; }
+.welcome-body .welcome-ending { color: #737e73; }
+.welcome-footer { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 12px; padding: 16px 28px; border-top: 1px solid #e5e6df; background: #f8f8f3; }
+.welcome-preference { display: flex; align-items: center; gap: 6px; color: #737e73; font-size: 11px; line-height: 1.6; }
+.welcome-preference input { margin: 0; accent-color: #587f6d; }
+.welcome-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.welcome-actions button { height: 34px; padding: 0 14px; font-size: 12px; }
+
+@media (max-width: 520px) {
+  .welcome-dialog { width: calc(100% - 24px); max-height: calc(100dvh - 24px); border-radius: 12px; }
+  .welcome-heading { padding: 12px 18px 0; }
+  .welcome-body { padding: 6px 22px 10px; }
+  .welcome-body h2 { font-size: 26px; }
+  .welcome-quote { padding: 12px 14px; margin: 16px 0; }
+  .welcome-quote blockquote { font-size: 17px; }
+  .welcome-footer { align-items: stretch; flex-direction: column; padding: 12px 18px; gap: 10px; }
+  .welcome-actions { justify-content: flex-end; }
+}
