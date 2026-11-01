@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-31T23:02:19.115Z",
+  "checkedAt": "2026-11-01T08:51:54.931Z",
   "expectedDate": "2026-10-30",
   "requestedSources": [
     "Fear & Greed"
@@ -16,8 +16,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-10-30",
-      "checkedAt": "2026-10-31T23:02:19.115Z",
-      "lastSuccessAt": "2026-10-31T23:02:19.115Z"
+      "checkedAt": "2026-11-01T08:51:54.931Z",
+      "lastSuccessAt": "2026-11-01T08:51:54.931Z"
     },
     {
       "symbol": "SPY",
