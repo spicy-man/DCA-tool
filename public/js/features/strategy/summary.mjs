@@ -1,4 +1,5 @@
 import { estimateMonthlyBuy, nextMonthlyPlan, summarizeFunding } from '../../domain/strategy-summary.mjs';
+import { resetPlanEstimateHelp } from '../../ui/plan-estimate-help.mjs';
 
 const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const signalName = signal => signal.type === 'fear' ? '恐慌加投' : '月度定投';
@@ -6,6 +7,11 @@ const dateWithWeekday = date => date + '（周' + '日一二三四五六'[new Da
 
 export function renderStrategySummary(data, range, settings, signals = [], fear = null) {
   const set = (id, value) => { document.getElementById(id).textContent = value; };
+  const help = document.getElementById('next-plan-help');
+  help.hidden = true;
+  resetPlanEstimateHelp();
+  document.getElementById('next-plan-estimate-note').hidden = true;
+  set('next-plan-estimate-note', '');
   if (!data?.rows.length || !range) {
     for (const id of ['strategy-asof', 'recent-signal', 'next-plan', 'fear-state', 'funding-range']) set(id, '等待行情数据');
     for (const id of ['recent-signal-note', 'next-plan-estimate', 'fear-state-note', 'funding-split', 'funding-average-note', 'funding-peak-note']) set(id, '');
@@ -28,8 +34,13 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
   set('next-plan', dateWithWeekday(plan.expectedDate));
   const estimate = estimateMonthlyBuy(data.rows, settings.baseAmount, plan.expectedDate, monthlySignals.at(-1)?.date);
   set('next-plan-estimate', estimate
-    ? '暂估买入 ' + estimate.multiple + 'N · ' + money(estimate.amount) + '（当前自' + estimate.cutoff.slice(5) + '窗口高点回撤' + (estimate.drawdown * 100).toFixed(2) + '%）'
+    ? '暂估买入 ' + estimate.multiple + 'N · ' + money(estimate.amount)
     : '金额待定，等待下期窗口内的新完整日线');
+  if (estimate) {
+    const note = '当前自' + estimate.cutoff.slice(5) + '窗口高点回撤' + (estimate.drawdown * 100).toFixed(2) + '%';
+    set('next-plan-estimate-note', note);
+    help.hidden = false;
+  }
   if (!fear.latest) {
     set('fear-state', '暂无指数记录');
     set('fear-state-note', '等待指数数据后判断加投状态');

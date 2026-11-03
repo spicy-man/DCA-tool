@@ -11,8 +11,15 @@
 .summary-grid strong { display: block; color: var(--navy); font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .funding-grid strong { font-size: 22px; }
 .summary-grid p { margin-top: 4px; }
+.plan-estimate-row { display: flex; align-items: baseline; gap: 6px; }
+.plan-estimate-help { position: relative; flex: 0 0 auto; color: #607487; font-size: 11px; }
+.plan-estimate-help button { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 1px solid #a4b1bc; border-radius: 50%; color: inherit; font-size: inherit; cursor: pointer; line-height: 1; }
+.plan-estimate-help button:hover, .plan-estimate-help button[aria-expanded="true"] { color: var(--navy); border-color: var(--navy); }
+.plan-estimate-note { position: fixed; z-index: 5; box-sizing: border-box; width: max-content; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; box-shadow: 0 4px 14px #17364d1a; line-height: 1.7; overflow-wrap: anywhere; }
+.plan-estimate-note::before { content: ''; position: absolute; right: 100%; top: 0; bottom: 0; width: 9px; }
 .summary-footnote { margin-top: 10px; color: #7d8994; }
 @media (max-width: 600px) {
+  .plan-estimate-row p { max-width: calc(100% - 100px); }
   .funding-overview { padding: 14px 12px; }
   .summary-grid { grid-template-columns: 1fr; gap: 12px; }
   .summary-grid > div + div { border-left: 0; padding-left: 0; border-top: 1px solid #edf0f3; padding-top: 10px; }

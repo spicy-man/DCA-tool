@@ -185,11 +185,15 @@ test('摘要使用完整历史状态和选区统计，数据失效时清除旧�
   renderStrategySummary({ symbol: 'QQQ', rows: october }, { start: '2026-10-01', end: '2026-10-27' },
     { ...settings, buyDay: 25, baseAmount: 2000 }, octoberSignals, fear);
   assert.equal(text('next-plan'), '2026-11-25（周三）');
-  assert.equal(text('next-plan-estimate'), '暂估买入 1N · 2,000.00（当前自10-25窗口高点回撤0.28%）');
+  assert.equal(text('next-plan-estimate'), '暂估买入 1N · 2,000.00');
+  assert.equal(text('next-plan-estimate-note'), '当前自10-25窗口高点回撤0.28%');
+  assert.equal(nodes.get('next-plan-help').hidden, false);
   renderStrategySummary(null, null, settings);
   assert.equal(text('funding-total'), '—');
   assert.equal(text('next-plan'), '等待行情数据');
   assert.equal(text('next-plan-estimate'), '');
+  assert.equal(text('next-plan-estimate-note'), '');
+  assert.equal(nodes.get('next-plan-help').hidden, true);
   assert.equal(text('fear-state-note'), '');
 });
 

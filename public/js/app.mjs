@@ -7,9 +7,11 @@ import {initWelcomeDialog} from './ui/welcome-dialog.mjs';
 import {initChartVisibility} from './ui/chart-visibility.mjs';
 import {initSymbolDialog} from './ui/symbol-dialog.mjs';
 import {initFundNavigation} from './ui/fund-navigation.mjs';
+import {initPlanEstimateHelp} from './ui/plan-estimate-help.mjs';
 
 // Composition root: initialize feature controls before starting data loading.
 await initSymbolDialog();
+initPlanEstimateHelp();
 initStrategyOverlay();
 initMarketChart();
 initChartVisibility();
