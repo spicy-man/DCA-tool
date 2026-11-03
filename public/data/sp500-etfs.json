@@ -2,8 +2,8 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-03T07:24:46.774Z",
-  "lastAttemptAt": "2026-11-03T07:24:46.774Z",
+  "checkedAt": "2026-11-03T14:59:32.540Z",
+  "lastAttemptAt": "2026-11-03T14:59:32.540Z",
   "ok": true,
   "rows": [
     {
@@ -16,11 +16,11 @@
       "amount": 562909392,
       "shares": 10683638528,
       "quoteDate": "2026-11-03",
-      "quoteTime": "2026-11-03T07:24:42.000Z",
+      "quoteTime": "2026-11-03T08:11:54.000Z",
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-03T07:24:46.774Z"
+      "profileCheckedAt": "2026-11-03T14:59:32.540Z"
     },
     {
       "code": "513650",
@@ -32,11 +32,11 @@
       "amount": 690380447,
       "shares": 5191734016,
       "quoteDate": "2026-11-03",
-      "quoteTime": "2026-11-03T07:24:25.000Z",
+      "quoteTime": "2026-11-03T08:12:01.000Z",
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-03T07:24:46.774Z"
+      "profileCheckedAt": "2026-11-03T14:59:32.540Z"
     },
     {
       "code": "159612",
@@ -48,7 +48,7 @@
       "amount": 39649410.2,
       "shares": 510898656,
       "quoteDate": "2026-11-03",
-      "quoteTime": "2026-11-03T07:24:15.000Z",
+      "quoteTime": "2026-11-03T07:34:12.000Z",
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
@@ -64,20 +64,20 @@
       "amount": 284297346.485,
       "shares": 2286143040,
       "quoteDate": "2026-11-03",
-      "quoteTime": "2026-11-03T07:24:00.000Z",
+      "quoteTime": "2026-11-03T07:34:27.000Z",
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-03T07:24:46.774Z"
+      "profileCheckedAt": "2026-11-03T14:59:32.540Z"
     }
   ],
   "performance": {
     "version": 2,
     "ok": true,
     "complete": true,
-    "endDate": "2026-10-30",
-    "checkedAt": "2026-11-03T07:24:46.774Z",
-    "lastAttemptAt": "2026-11-03T07:24:46.774Z",
+    "endDate": "2026-11-02",
+    "checkedAt": "2026-11-03T14:59:32.540Z",
+    "lastAttemptAt": "2026-11-03T14:59:32.540Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
@@ -89,23 +89,23 @@
         "1": {
           "status": "ok",
           "years": 1,
-          "startDate": "2025-10-30",
-          "endDate": "2026-10-30",
-          "return": 12.362377432630488
+          "startDate": "2025-10-31",
+          "endDate": "2026-11-02",
+          "return": 11.458540995890232
         },
         "3": {
           "status": "ok",
           "years": 3,
-          "startDate": "2023-10-30",
-          "endDate": "2026-10-30",
-          "return": 88.55483082328487
+          "startDate": "2023-11-02",
+          "endDate": "2026-11-02",
+          "return": 81.04313671215515
         },
         "5": {
           "status": "ok",
           "years": 5,
-          "startDate": "2021-10-29",
-          "endDate": "2026-10-30",
-          "return": 75.938026106835
+          "startDate": "2021-11-02",
+          "endDate": "2026-11-02",
+          "return": 74.09067392430286
         }
       }
     },
@@ -118,23 +118,23 @@
           "1": {
             "status": "ok",
             "years": 1,
-            "startDate": "2025-10-30",
-            "endDate": "2026-10-30",
-            "return": 7.440356310919416
+            "startDate": "2025-10-31",
+            "endDate": "2026-11-02",
+            "return": 8.14996120597442
           },
           "3": {
             "status": "ok",
             "years": 3,
-            "startDate": "2023-10-30",
-            "endDate": "2026-10-30",
-            "return": 86.19481286731832
+            "startDate": "2023-11-02",
+            "endDate": "2026-11-02",
+            "return": 81.40806128546885
           },
           "5": {
             "status": "ok",
             "years": 5,
-            "startDate": "2021-10-29",
-            "endDate": "2026-10-30",
-            "return": 92.67586396481985
+            "startDate": "2021-11-02",
+            "endDate": "2026-11-02",
+            "return": 90.52405105169892
           }
         }
       },
@@ -145,21 +145,21 @@
           "1": {
             "status": "ok",
             "years": 1,
-            "startDate": "2025-10-30",
-            "endDate": "2026-10-30",
-            "return": 9.50276552388203
+            "startDate": "2025-10-31",
+            "endDate": "2026-11-02",
+            "return": 10.289213806769704
           },
           "3": {
             "status": "ok",
             "years": 3,
-            "startDate": "2023-10-30",
-            "endDate": "2026-10-30",
-            "return": 84.3720842240762
+            "startDate": "2023-11-02",
+            "endDate": "2026-11-02",
+            "return": 80.27272700672307
           },
           "5": {
             "status": "short-history",
             "years": 5,
-            "endDate": "2026-10-30"
+            "endDate": "2026-11-02"
           }
         }
       },
@@ -170,21 +170,21 @@
           "1": {
             "status": "ok",
             "years": 1,
-            "startDate": "2025-10-30",
-            "endDate": "2026-10-30",
-            "return": 9.115132214600363
+            "startDate": "2025-10-31",
+            "endDate": "2026-11-02",
+            "return": 9.699885831235289
           },
           "3": {
             "status": "ok",
             "years": 3,
-            "startDate": "2023-10-30",
-            "endDate": "2026-10-30",
-            "return": 80.35241837314504
+            "startDate": "2023-11-02",
+            "endDate": "2026-11-02",
+            "return": 76.16179307194967
           },
           "5": {
             "status": "short-history",
             "years": 5,
-            "endDate": "2026-10-30"
+            "endDate": "2026-11-02"
           }
         }
       },
@@ -195,21 +195,21 @@
           "1": {
             "status": "ok",
             "years": 1,
-            "startDate": "2025-10-30",
-            "endDate": "2026-10-30",
-            "return": 9.010984087721784
+            "startDate": "2025-10-31",
+            "endDate": "2026-11-02",
+            "return": 9.140969712437785
           },
           "3": {
             "status": "ok",
             "years": 3,
-            "startDate": "2023-10-30",
-            "endDate": "2026-10-30",
-            "return": 80.36362950663936
+            "startDate": "2023-11-02",
+            "endDate": "2026-11-02",
+            "return": 76.02130648929398
           },
           "5": {
             "status": "short-history",
             "years": 5,
-            "endDate": "2026-10-30"
+            "endDate": "2026-11-02"
           }
         }
       }
