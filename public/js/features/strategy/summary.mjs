@@ -38,7 +38,9 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     : '金额待定，等待下期窗口内的新完整日线');
   if (estimate) {
     const note = '当前自' + estimate.cutoff.slice(5) + '窗口高点回撤' + (estimate.drawdown * 100).toFixed(2) + '%';
-    set('next-plan-estimate-note', note);
+    const ath = data.rows.reduce((peak, row) => Math.max(peak, row.high), 0);
+    const athDrawdown = Math.max(0, 1 - data.rows.at(-1).close / ath);
+    set('next-plan-estimate-note', note + '\n自 ATH 回撤 ' + (athDrawdown * 100).toFixed(2) + '%');
     help.hidden = false;
   }
   if (!fear.latest) {
