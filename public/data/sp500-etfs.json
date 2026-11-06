@@ -2,8 +2,8 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-05T23:03:47.864Z",
-  "lastAttemptAt": "2026-11-05T23:03:47.864Z",
+  "checkedAt": "2026-11-05T23:53:31.425Z",
+  "lastAttemptAt": "2026-11-05T23:53:31.425Z",
   "ok": true,
   "rows": [
     {
@@ -14,13 +14,13 @@
       "iopv": 2.441,
       "premium": 8.357230643179037,
       "amount": 409707857,
-      "shares": 10682638592,
+      "shares": 10684638720,
       "quoteDate": "2026-11-05",
       "quoteTime": "2026-11-05T08:11:47.000Z",
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-05T23:03:47.864Z"
+      "profileCheckedAt": "2026-11-05T23:53:31.425Z"
     },
     {
       "code": "513650",
@@ -30,13 +30,13 @@
       "iopv": 1.8607,
       "premium": 7.2177137636373345,
       "amount": 703052307,
-      "shares": 5181733888,
+      "shares": 5211734016,
       "quoteDate": "2026-11-05",
       "quoteTime": "2026-11-05T08:11:50.000Z",
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-05T23:03:47.864Z"
+      "profileCheckedAt": "2026-11-05T23:53:31.425Z"
     },
     {
       "code": "159612",
@@ -52,7 +52,7 @@
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-05T23:03:47.864Z"
+      "profileCheckedAt": "2026-11-05T23:53:31.425Z"
     },
     {
       "code": "159655",
@@ -62,13 +62,13 @@
       "iopv": 1.8692,
       "premium": 6.890648405735078,
       "amount": 266017035.5,
-      "shares": 2285143040,
+      "shares": 2288143040,
       "quoteDate": "2026-11-05",
       "quoteTime": "2026-11-05T07:34:03.000Z",
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-05T23:03:47.864Z"
+      "profileCheckedAt": "2026-11-05T23:53:31.425Z"
     }
   ],
   "performance": {
@@ -76,8 +76,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-04",
-    "checkedAt": "2026-11-05T23:03:47.864Z",
-    "lastAttemptAt": "2026-11-05T23:03:47.864Z",
+    "checkedAt": "2026-11-05T23:53:31.425Z",
+    "lastAttemptAt": "2026-11-05T23:53:31.425Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
