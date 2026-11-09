@@ -1,4 +1,5 @@
 import { estimateMonthlyBuy, nextMonthlyPlan, summarizeFunding } from '../../domain/strategy-summary.mjs';
+import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
 import { resetPlanEstimateHelp } from '../../ui/plan-estimate-help.mjs';
 
 const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -30,9 +31,10 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     set('recent-signal-note', '完整可用历史内尚未产生买入信号');
   }
   const monthlySignals = signals.filter(signal => signal.type === 'monthly');
-  const plan = nextMonthlyPlan(data.rows, monthlySignals, settings.buyDay);
+  const scheduleSignals = monthlySignals.length || settings.baseAmount > 0 ? monthlySignals : calculatePyramidSignals(data.rows, { buyDay: settings.buyDay, baseAmount: 1 });
+  const plan = nextMonthlyPlan(data.rows, scheduleSignals, settings.buyDay);
   set('next-plan', dateWithWeekday(plan.expectedDate));
-  const estimate = estimateMonthlyBuy(data.rows, settings.baseAmount, plan.expectedDate, monthlySignals.at(-1)?.date);
+  const estimate = estimateMonthlyBuy(data.rows, settings.baseAmount, plan.expectedDate, scheduleSignals.at(-1)?.date);
   set('next-plan-estimate', estimate
     ? '暂估买入 ' + estimate.multiple + 'N · ' + money(estimate.amount)
     : '金额待定，等待下期窗口内的新完整日线');
@@ -43,7 +45,10 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     set('next-plan-estimate-note', note + '\n自 ATH 回撤 ' + (athDrawdown * 100).toFixed(2) + '%');
     help.hidden = false;
   }
-  if (!fear.latest) {
+  if (fear.disabled) {
+    set('fear-state', '未启用恐慌加投');
+    set('fear-state-note', fear.latest ? '最新 F&G ' + fear.latest.score.toFixed(2) + ' · 当前标的未启用恐慌加投' : '当前标的未启用恐慌加投');
+  } else if (!fear.latest) {
     set('fear-state', '暂无指数记录');
     set('fear-state-note', '等待指数数据后判断加投状态');
   } else {
@@ -60,7 +65,7 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     return;
   }
   set('funding-range', funding.start + ' — ' + funding.end + ' · ' + funding.count + ' 笔信号');
-  const fundingMoney = value => money(value) + '（' + (value / settings.baseAmount).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'N）';
+  const fundingMoney = value => money(value) + '（' + (settings.baseAmount > 0 ? (value / settings.baseAmount).toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0') + 'N）';
   set('funding-total', fundingMoney(funding.total));
   set('funding-average', fundingMoney(funding.average));
   set('funding-peak', fundingMoney(funding.peak));

@@ -60,7 +60,7 @@ test('管理列表仅显示个人标的；删除当前标的切回 SPY 并同步
   } };
   const $ = id => document.getElementById(id);
   for (const id of ['symbol', 'floating-charts-symbol']) {
-    for (const value of ['SPY', 'QQQ', 'VGT', 'SMH', 'AAPL']) $(id).add({ value });
+    for (const value of ['SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B', 'AAPL']) $(id).add({ value });
     $(id).value = 'AAPL';
   }
   let fail = true;
@@ -102,7 +102,7 @@ test('管理列表仅显示个人标的；删除当前标的切回 SPY 并同步
   assert.equal($('floating-charts-symbol').value, 'SPY');
   assert.equal($('symbol').lastEvent, 'change');
   for (const id of ['symbol', 'floating-charts-symbol']) {
-    assert.deepEqual($(id).options.map(option => option.value), ['SPY', 'QQQ', 'VGT', 'SMH']);
+    assert.deepEqual($(id).options.map(option => option.value), ['SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B']);
   }
   assert.equal(buttons().length, 0);
   assert.equal($('custom-symbol-list').children.length, 0);

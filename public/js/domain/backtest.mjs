@@ -102,7 +102,7 @@ function simulate(rows, orders, commonDeposits, baseAmount) {
     capitalReturn: invested ? (equity - invested) / invested : null,
     xirr: moneyWeightedReturn(deposits, rows.at(-1).date, equity),
     maxDrawdown: invested ? maxDrawdown : null,
-    trades: orders.reduce((sum, order) => sum + order.amount, 0) / baseAmount, curve
+    trades: baseAmount > 0 ? orders.reduce((sum, order) => sum + order.amount, 0) / baseAmount : 0, curve
   };
 }
 
@@ -110,7 +110,7 @@ function simulate(rows, orders, commonDeposits, baseAmount) {
 // this fresh account. Monthly close-based decisions fill at the following open.
 export function compareStrategies({ rows, monthlySignals, fearSignals, range, baseAmount, mode = 'actual' }) {
   if (!['actual', 'equal'].includes(mode)) throw Error('回测供资口径无效');
-  if (!Number.isFinite(baseAmount) || baseAmount < 0.01) throw Error('回测定投金额无效');
+  if (!Number.isFinite(baseAmount) || (baseAmount !== 0 && baseAmount < 0.01)) throw Error('回测定投金额无效');
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     if ((i && row.date <= rows[i - 1].date) || !Number.isFinite(Date.parse(row.date)) ||
@@ -151,4 +151,159 @@ export function compareStrategies({ rows, monthlySignals, fearSignals, range, ba
     start, end, mode, deferredMonthly,
     results: strategies.map(strategy => ({ id: strategy.id, name: strategy.name, ...simulate(daily, strategy.orders, commonDeposits, baseAmount) }))
   };
+}
+
+export function comparePortfolioStrategies({ items, startDate, mode = 'equal', totalBaseAmount = 0 }) {
+  if (!['actual', 'equal'].includes(mode)) throw Error('回测供资口径无效');
+  if (!items?.length || !startDate) return null;
+  const active = [];
+  const dateSet = new Set();
+  for (const item of items) {
+    const { symbol, rows, monthlySignals = [], fearSignals = [], baseAmount } = item;
+    if (!rows?.length || !Number.isFinite(baseAmount) || baseAmount < 0.01) continue;
+    const daily = rows.filter(row => row.date >= startDate);
+    if (!daily.length) continue;
+    const start = daily[0].date;
+    const end = daily.at(-1).date;
+    const index = new Map(rows.map((row, i) => [row.date, i]));
+    const inRange = date => date >= start && date <= end;
+    const monthly = [];
+    for (const signal of monthlySignals) {
+      const i = index.get(signal.date);
+      if (i === undefined) continue;
+      const fill = rows[i + 1];
+      if (fill && inRange(fill.date)) monthly.push({ date: fill.date, amount: signal.amount });
+    }
+    const fear = fearSignals
+      .filter(signal => inRange(signal.date) && index.has(signal.date))
+      .map(signal => ({ date: signal.date, amount: signal.amount }));
+    const regular = monthly.map(order => ({ date: order.date, amount: baseAmount }));
+    const combined = [...monthly, ...fear].sort((a, b) => a.date.localeCompare(b.date));
+    const rowByDate = new Map(daily.map(row => [row.date, row]));
+    for (const row of daily) dateSet.add(row.date);
+    active.push({
+      symbol,
+      baseAmount,
+      rowByDate,
+      ordersByStrategy: {
+        regular,
+        pyramid: monthly,
+        combined
+      }
+    });
+  }
+  if (!active.length || !dateSet.size) return null;
+  const dates = [...dateSet].sort();
+  const start = dates[0];
+  const end = dates.at(-1);
+  const baseDenom = totalBaseAmount > 0 ? totalBaseAmount : active.reduce((sum, item) => sum + item.baseAmount, 0);
+
+  const commonDeposits = mode === 'equal' ? new Map() : null;
+  if (commonDeposits) {
+    for (const item of active) {
+      for (const order of item.ordersByStrategy.combined) {
+        commonDeposits.set(order.date, (commonDeposits.get(order.date) || 0) + order.amount);
+      }
+    }
+  }
+
+  const strategies = [
+    { id: 'regular', name: '普通定投' },
+    { id: 'pyramid', name: '回撤金字塔' },
+    { id: 'combined', name: '金字塔＋恐慌加投' }
+  ];
+
+  const results = strategies.map(({ id, name }) => {
+    const buysBySymbol = active.map(item => {
+      const map = new Map();
+      for (const order of item.ordersByStrategy[id]) {
+        map.set(order.date, (map.get(order.date) || 0) + order.amount);
+      }
+      return map;
+    });
+    const totalOrderAmount = active.reduce(
+      (sum, item) => sum + item.ordersByStrategy[id].reduce((s, order) => s + order.amount, 0),
+      0
+    );
+    const shares = active.map(() => 0);
+    const lastClose = active.map(() => 0);
+    let cash = 0;
+    let cashInterest = 0;
+    let previousDate = null;
+    let invested = 0;
+    let units = 0;
+    let peak = 1;
+    let maxDrawdown = 0;
+    const curve = [];
+    const deposits = [];
+    let equity = 0;
+
+    for (const date of dates) {
+      if (previousDate && cash > 0) {
+        const interest = cash * Math.expm1(Math.log1p(CASH_ANNUAL_RATE) * yearsBetween(previousDate, date));
+        cash += interest;
+        cashInterest += interest;
+      }
+      previousDate = date;
+      let openingStockValue = 0;
+      for (let k = 0; k < active.length; k++) {
+        const row = active[k].rowByDate.get(date);
+        const openPrice = row ? (row.open ?? row.close) : lastClose[k];
+        openingStockValue += shares[k] * openPrice;
+      }
+      const openingEquity = openingStockValue + cash;
+      const openingNAV = units > 0 ? openingEquity / units : 1;
+      let dayBuyAmount = 0;
+      for (let k = 0; k < active.length; k++) {
+        const row = active[k].rowByDate.get(date);
+        const amount = row ? (buysBySymbol[k].get(date) || 0) : 0;
+        dayBuyAmount += amount;
+      }
+      const deposit = commonDeposits ? (commonDeposits.get(date) || 0) : dayBuyAmount;
+      if (deposit > 0) {
+        units += deposit / openingNAV;
+        cash += deposit;
+        invested += deposit;
+        deposits.push({ date, amount: deposit });
+      }
+      cash -= dayBuyAmount;
+      if (Math.abs(cash) < Math.max(1, invested) * 1e-12) cash = 0;
+      for (let k = 0; k < active.length; k++) {
+        const row = active[k].rowByDate.get(date);
+        const amount = row ? (buysBySymbol[k].get(date) || 0) : 0;
+        if (amount > 0) {
+          shares[k] += amount / (row.open ?? row.close);
+        }
+      }
+      let closingStockValue = 0;
+      for (let k = 0; k < active.length; k++) {
+        const row = active[k].rowByDate.get(date);
+        if (row) lastClose[k] = row.close;
+        closingStockValue += shares[k] * lastClose[k];
+      }
+      equity = closingStockValue + cash;
+      const nav = units > 0 ? equity / units : 1;
+      peak = Math.max(peak, nav);
+      if (units > 0) maxDrawdown = Math.max(maxDrawdown, 1 - nav / peak);
+      curve.push({ date, equity, invested, profit: equity - invested, nav });
+    }
+
+    const profit = equity - invested;
+    return {
+      id,
+      name,
+      invested,
+      equity,
+      profit,
+      cash,
+      cashInterest,
+      capitalReturn: invested > 0 ? profit / invested : null,
+      xirr: moneyWeightedReturn(deposits, end, equity),
+      maxDrawdown: invested > 0 ? maxDrawdown : null,
+      trades: baseDenom > 0 ? Number((totalOrderAmount / baseDenom).toFixed(2)) : 0,
+      curve
+    };
+  });
+
+  return { start, end, mode, results };
 }

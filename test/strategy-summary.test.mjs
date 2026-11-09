@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeFunding, nextMonthlyPlan, estimateMonthlyBuy } from '../public/js/domain/strategy-summary.mjs';
+import { summarizeFunding, summarizePortfolioFunding, nextMonthlyPlan, estimateMonthlyBuy } from '../public/js/domain/strategy-summary.mjs';
 import { evaluateFearStrategy, calculateFearSignals } from '../public/js/domain/fear-strategy.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
 
@@ -218,4 +218,51 @@ test('基础、金字塔超额和恐慌投入独立拆分，避免加投倍数�
   const march = summarizeFunding(signals, rows, { start: '2026-03-01', end: '2026-03-31' });
   assert.equal(march.regularAmount, 200.5);
   assert.equal(march.pyramidExtraAmount, 401);
+  const portfolio = summarizePortfolioFunding({
+    items: [
+      { symbol: 'SPY', rows: market(['2026-01-02', '2026-02-02']), baseAmount: 600, fearBuyCount: 2 },
+      { symbol: 'QQQ', rows: market(['2026-01-02', '2026-02-02']), baseAmount: 400, fearBuyCount: 3 }
+    ],
+    sentiment: [
+      { date: '2026-01-02', score: 16 },
+      { date: '2026-01-30', score: 9 }
+    ],
+    buyDay: 1,
+    fearThreshold: 10
+  });
+  assert.equal(portfolio.peak, 3400);
+  assert.deepEqual(portfolio.peakMonths, ['2026-02']);
+  assert.deepEqual(portfolio.peakBreakdown, [
+    { symbol: 'SPY', amount: 1800 },
+    { symbol: 'QQQ', amount: 1600 }
+  ]);
+  assert.equal(portfolio.backtest.results.length, 3);
+  assert.equal(portfolio.backtest.results[2].invested, 3400);
+  assert.equal(portfolio.backtest.results[0].invested, 3400);
+  assert.equal(portfolio.backtest.results[0].cash > 0, true);
+  assert.equal(portfolio.backtest.results[2].curve.length, rows.length);
+
+  const actualPortfolio = summarizePortfolioFunding({
+    items: [
+      { symbol: 'SPY', rows: market(['2026-01-02', '2026-02-02']), baseAmount: 600, fearBuyCount: 2 },
+      { symbol: 'QQQ', rows: market(['2026-01-02', '2026-02-02']), baseAmount: 400, fearBuyCount: 0 }
+    ],
+    sentiment: [
+      { date: '2026-01-02', score: 16 },
+      { date: '2026-01-30', score: 9 }
+    ],
+    buyDay: 1,
+    fearThreshold: 10,
+    mode: 'actual',
+    totalBaseAmount: 1000
+  });
+  assert.equal(actualPortfolio.peak, 2200);
+  assert.deepEqual(actualPortfolio.peakBreakdown, [
+    { symbol: 'SPY', amount: 1800 },
+    { symbol: 'QQQ', amount: 400 }
+  ]);
+  assert.equal(actualPortfolio.backtest.mode, 'actual');
+  assert.equal(actualPortfolio.backtest.results[0].invested, 1000);
+  assert.equal(actualPortfolio.backtest.results[1].invested, 1000);
+  assert.equal(actualPortfolio.backtest.results[2].invested, 2200);
 });

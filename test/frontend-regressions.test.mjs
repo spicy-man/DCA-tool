@@ -477,3 +477,172 @@ test('复盘从起始日左端逐日展开主图 K 线，回看同步且重置�
   assert.equal($('price-close').textContent, '—');
   assert.equal($('backtest-period').textContent, '暂无可用行情，请先读取数据');
 });
+
+test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定投日与恐慌阈值全局共用，支持总金额按配比填入', t => {
+  const $ = dom(t);
+  const saved = new Map();
+  const oldStorage = globalThis.localStorage;
+  const oldResize = globalThis.ResizeObserver;
+  globalThis.localStorage = {
+    getItem: k => saved.get(k) ?? null,
+    setItem: (k, v) => saved.set(k, v)
+  };
+  globalThis.ResizeObserver = class { observe() {} };
+  t.after(() => {
+    globalThis.localStorage = oldStorage;
+    globalThis.ResizeObserver = oldResize;
+  });
+
+  $('symbol').options = [
+    { value: 'SPY', textContent: 'SPY · 标普 500' },
+    { value: 'QQQ', textContent: 'QQQ · 纳斯达克 100' },
+    { value: 'SMH', textContent: 'SMH · 半导体 ETF' }
+  ];
+  $('symbol').value = 'SPY';
+  $('price-chart').getContext = () => new Proxy({}, {
+    get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {},
+    set: () => true
+  });
+
+  // 1. 兼容旧版扁平缓存
+  saved.set('seeker.pyramid.v1', JSON.stringify({ buyDay: 15, baseAmount: 1500, fearThreshold: 12, fearBuyCount: 2, enabled: true }));
+  initStrategyOverlay();
+  assert.equal(signalSettings().buyDay, 15);
+  assert.equal(signalSettings().baseAmount, 1500);
+  assert.equal(signalSettings().fearThreshold, 12);
+  assert.equal(signalSettings().fearBuyCount, 2);
+
+  // 2. 在 SPY 下修改金额 N=3000、倍数=4、定投日=5、恐慌阈值=18
+  $('buy-day').value = '5';
+  $('buy-day').listeners.change();
+  $('fear-threshold').value = '18';
+  $('fear-threshold').listeners.input();
+  $('base-amount').value = '3000';
+  $('base-amount').listeners.input();
+  $('fear-buy-count').value = '4';
+  $('fear-buy-count').listeners.input();
+
+  // 切换到未单独设置过的 QQQ：定投日(5)和阈值(18)共用，金额和倍数在 QQQ 单独设置后与 SPY 独立
+  $('symbol').value = 'QQQ';
+  $('symbol').listeners.change();
+  $('base-amount').value = '1200';
+  $('base-amount').listeners.input();
+  $('fear-buy-count').value = '2';
+  $('fear-buy-count').listeners.input();
+  assert.equal(signalSettings().baseAmount, 1200);
+  assert.equal(signalSettings().fearBuyCount, 2);
+  assert.equal(signalSettings().buyDay, 5);
+  assert.equal(signalSettings().fearThreshold, 18);
+
+  // 切回 SPY：自动恢复 SPY 的 N=3000 和倍数=4
+  $('symbol').value = 'SPY';
+  $('symbol').listeners.change();
+  assert.equal(Number($('base-amount').value), 3000);
+  assert.equal(Number($('fear-buy-count').value), 4);
+  assert.equal(signalSettings().baseAmount, 3000);
+  assert.equal(signalSettings().fearBuyCount, 4);
+
+  // 3. 配比自动填入：打开配比弹窗，总金额 5000，SPY 60%（3000 -> 3000）、QQQ 30%（1500），SMH 留空保持不变
+  setSignalSentiment([{ date: '2025-01-02', score: 20 }, { date: '2025-01-03', score: 8 }]);
+  updateSignals({ ...data, symbol: 'QQQ' }, settings);
+  updateSignals({ ...data, symbol: 'SPY' }, settings);
+  $('allocation-open').listeners.click();
+  assert.equal($('allocation-list').children.length, 3);
+  $('allocation-total').value = '5000';
+  $('allocation-total').listeners.input();
+  const spyWeightInput = $('allocation-list').children[0].children[1].children[0];
+  const qqqWeightInput = $('allocation-list').children[1].children[1].children[0];
+  const smhPreview = $('allocation-list').children[2].children[2];
+  spyWeightInput.value = '50';
+  spyWeightInput.listeners.input();
+  qqqWeightInput.value = '30';
+  qqqWeightInput.listeners.input();
+  assert.match($('allocation-summary').textContent, /80%.*剩余 20% 未分配/);
+  assert.equal(smhPreview.textContent, '1N = 0.00');
+  assert.match($('allocation-estimate-average').textContent, /21,000\.00（4\.2N）/);
+  assert.match($('allocation-estimate-peak').textContent, /21,000\.00（4\.2N）/);
+  assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 15,000\.00 ＋ QQQ 6,000\.00）/);
+  assert.equal($('allocation-backtest-wrap').hidden, false);
+  assert.equal($('allocation-backtest-results').children.length, 3);
+  assert.equal($('allocation-backtest-results').children[0].children.length, 11);
+  assert.equal(
+    $('allocation-backtest-plot').children.filter(node => node.getAttribute?.('data-strategy')).length,
+    3
+  );
+
+  // 取消勾选 QQQ 的“恐慌加投”，QQQ 仅保留月度定投（3,000.00），总峰值由 21,000.00 降为 18,000.00
+  const qqqFearCheckbox = $('allocation-list').children[1].children[3].children[0];
+  assert.equal(qqqFearCheckbox.checked, true);
+  qqqFearCheckbox.checked = false;
+  qqqFearCheckbox.listeners.change();
+  assert.match($('allocation-estimate-peak').textContent, /18,000\.00（3\.6N）/);
+  assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 15,000\.00 ＋ QQQ 3,000\.00）/);
+
+  // 切换口径为 actual，并切换累计盈亏与对数坐标
+  $('allocation-backtest-mode').value = 'actual';
+  $('allocation-backtest-mode').listeners.change();
+  assert.equal($('allocation-principal-legend').hidden, true);
+  $('allocation-tab-profit').listeners.click();
+  assert.equal($('allocation-backtest-plot').dataset.series, 'profit');
+  $('allocation-scale-toggle').listeners.click();
+  assert.equal($('allocation-backtest-plot').dataset.scale, 'log');
+
+  // 恢复勾选 QQQ 的“恐慌加投”再测试提交
+  qqqFearCheckbox.checked = true;
+  qqqFearCheckbox.listeners.change();
+  assert.match($('allocation-estimate-peak').textContent, /21,000\.00（4\.2N）/);
+
+  $('allocation-form').listeners.submit({ preventDefault() {} });
+  // SPY 当前激活，立即更新为 5000 * 50% = 2500，且 SPY 原有的恐慌倍数 4 保留
+  assert.equal(Number($('base-amount').value), 2500);
+  assert.equal(signalSettings().baseAmount, 2500);
+  assert.equal(signalSettings().fearBuyCount, 4);
+
+  // 切换到 QQQ：金额已按 5000 * 30% = 1500 填入，QQQ 原有的恐慌倍数 2 保留
+  $('symbol').value = 'QQQ';
+  $('symbol').listeners.change();
+  assert.equal(Number($('base-amount').value), 1500);
+  assert.equal(signalSettings().baseAmount, 1500);
+  assert.equal(signalSettings().fearBuyCount, 2);
+
+  // 切换到配比为 0% 的 SMH：金额按 1N = 0 填入，恐慌倍数保持初始默认值 2
+  // 若在 QQQ 输入非法阈值未通过校验后切换到 SMH，全局输入框自动恢复合法值 18
+  $('fear-threshold').value = '99';
+  $('fear-threshold').listeners.input();
+  assert.match($('signal-error').textContent, /阈值/);
+  $('symbol').value = 'SMH';
+  $('symbol').listeners.change();
+  assert.equal($('signal-error').textContent, '');
+  assert.equal(Number($('fear-threshold').value), 18);
+  assert.equal(Number($('base-amount').value), 0);
+  assert.equal(signalSettings().baseAmount, 0);
+  updateSignals({ ...data, symbol: 'SMH' }, settings);
+  assert.equal($('signal-note').textContent, '当前标的 1N = 0.00，不生成买入信号');
+  assert.equal($('funding-total').textContent, '0.00（0N）');
+  assert.equal($('backtest-results').children.length, 3);
+  assert.equal(signalSettings().fearBuyCount, 2);
+
+  // 4. 刷新页面后从 localStorage 恢复最后选中的 QQQ 及各标的独立配置
+  saved.set('seeker.symbol.v1', 'QQQ');
+  $('symbol').value = 'SPY';
+  initStrategyOverlay();
+  assert.equal(Number($('base-amount').value), 1500);
+  assert.equal(Number($('fear-buy-count').value), 2);
+  assert.equal(Number($('buy-day').value), 5);
+  assert.equal(Number($('fear-threshold').value), 18);
+
+  // 5. 在配比界面关闭 QQQ 的恐慌加投并提交，主界面 QQQ 的恐慌加投显示为未启用（0），但原倍数 2 仍保留可恢复
+  $('allocation-open').listeners.click();
+  const qqqCheckAfterReload = $('allocation-list').children[1].children[3].children[0];
+  qqqCheckAfterReload.checked = false;
+  qqqCheckAfterReload.listeners.change();
+  $('allocation-form').listeners.submit({ preventDefault() {} });
+  $('symbol').value = 'QQQ';
+  $('symbol').listeners.change();
+  assert.equal(signalSettings().fearEnabled, false);
+  assert.equal(signalSettings().fearBuyCount, 2);
+  assert.equal(Number($('fear-buy-count').value), 0);
+  updateSignals({ ...data, symbol: 'QQQ' }, settings);
+  assert.equal($('fear-state').textContent, '未启用恐慌加投');
+  assert.match($('signal-note').textContent, /未启用恐慌加投/);
+});

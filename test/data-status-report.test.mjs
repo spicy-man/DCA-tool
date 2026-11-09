@@ -14,8 +14,8 @@ test('Actions 汇总区分部署、本轮与整体，数据未齐或更新异常
   }
   await mkdir(path.join(root, 'public/data'), { recursive: true });
   const status = { checkedAt: '2026-10-20T23:35:37Z', expectedDate: '2026-10-20',
-    requestedSources: ['SPY', 'QQQ', 'VGT', 'SMH'], requestedComplete: true, complete: false,
-    results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH'].map(symbol => ({ symbol, ok: true,
+    requestedSources: ['SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'], requestedComplete: true, complete: false,
+    results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'].map(symbol => ({ symbol, ok: true,
       date: symbol === 'Fear & Greed' ? '2026-10-19' : '2026-10-20', checkedAt: '2026-10-20T23:35:37Z' })) };
   const summary = path.join(root, 'summary.md');
   const run = outcome => spawnSync(process.execPath, [path.join(root, 'scripts/report-data-status.mjs')], {

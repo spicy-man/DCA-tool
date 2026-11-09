@@ -1,4 +1,6 @@
-import { daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
+import { calculatePyramidSignals, daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
+import { comparePortfolioStrategies } from './backtest.mjs';
+import { evaluateFearStrategy } from './fear-strategy.mjs';
 import { isTradingDay } from './trading-calendar.mjs';
 
 // Use the next execution's window and only its known daily bars; future prices can change the estimate.
@@ -74,4 +76,54 @@ export function summarizeFunding(signals, rows, { start, end }) {
   const peak = Math.max(0, ...monthly.values());
   const peakMonths = [...monthly].filter(([, amount]) => amount === peak).map(([month]) => month).sort();
   return { start, end, months, count, total, monthlyAmount, regularAmount, pyramidExtraAmount, monthlyCount, pyramidCount, fearAmount, fearCount, average: total / months, peak, peakMonths };
+}
+
+export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearThreshold = 10, mode = 'equal', totalBaseAmount = 0 }) {
+  if (!sentiment?.length || !items?.length) return null;
+  const fngStart = sentiment[0].date;
+  let start = null;
+  let end = null;
+  const monthly = new Map();
+  const byMonthSymbol = new Map();
+  const backtestItems = [];
+  let total = 0;
+  let count = 0;
+  for (const { symbol, rows, baseAmount, fearBuyCount = 1 } of items) {
+    if (!rows?.length || !Number.isFinite(baseAmount) || baseAmount < 0.01) continue;
+    const itemStart = rows[0].date > fngStart ? rows[0].date : fngStart;
+    const itemEnd = rows.at(-1).date;
+    if (itemStart > itemEnd) continue;
+    if (!start || itemStart < start) start = itemStart;
+    if (!end || itemEnd > end) end = itemEnd;
+    const monthlySignals = calculatePyramidSignals(rows, { buyDay, baseAmount });
+    const fearSignals = fearBuyCount > 0
+      ? evaluateFearStrategy(rows, sentiment, { baseAmount, fearThreshold, fearBuyCount }).signals
+      : [];
+    backtestItems.push({ symbol, rows, monthlySignals, fearSignals, baseAmount });
+    for (const signal of [...monthlySignals, ...fearSignals]) {
+      if (signal.date < fngStart || signal.date > itemEnd) continue;
+      const month = signal.date.slice(0, 7);
+      monthly.set(month, (monthly.get(month) || 0) + signal.amount);
+      if (!byMonthSymbol.has(month)) byMonthSymbol.set(month, new Map());
+      const symbolMap = byMonthSymbol.get(month);
+      symbolMap.set(symbol, (symbolMap.get(symbol) || 0) + signal.amount);
+      total += signal.amount;
+      count++;
+    }
+  }
+  if (!start || !end || start > end) return null;
+  const monthIndex = date => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
+  const months = monthIndex(end) - monthIndex(start) + 1;
+  const peak = Math.max(0, ...monthly.values());
+  const peakMonths = peak > 0
+    ? [...monthly].filter(([, amount]) => Math.abs(amount - peak) < 1e-9).map(([month]) => month).sort()
+    : [];
+  const peakMonth = peakMonths[0] || null;
+  const peakBreakdown = peakMonth
+    ? items
+        .map(({ symbol }) => ({ symbol, amount: byMonthSymbol.get(peakMonth)?.get(symbol) || 0 }))
+        .filter(entry => entry.amount > 0)
+    : [];
+  const backtest = comparePortfolioStrategies({ items: backtestItems, startDate: fngStart, mode, totalBaseAmount });
+  return { start, end, months, count, total, average: total / months, peak, peakMonths, peakBreakdown, backtest };
 }

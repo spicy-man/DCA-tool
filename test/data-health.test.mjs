@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { healthSummary, formatNewYorkTime } from '../public/js/domain/data-health.mjs';
 
 const now = Date.parse('2026-10-21T00:01:50Z');
-const status = () => ({ results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH'].map(symbol => ({
+const status = () => ({ results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'].map(symbol => ({
   symbol, date: '2026-10-20', ok: true, expectedDate: '2026-10-20',
   source: symbol === 'Fear & Greed' ? 'CNN' : 'Yahoo Finance',
   checkedAt: symbol === 'Fear & Greed' ? '2026-10-21T00:01:50Z' : '2026-10-20T23:56:18Z'
@@ -13,7 +13,7 @@ test('同状态ticker合并为一行，与指数保留不同纽约检查时间',
  const text=healthSummary(status(),now);const lines=text.split('\n');
  assert.equal(lines.length,3);
  assert.equal(lines[0],'恐慌与贪婪指数：2026-10-20；检查：2026-10-20 20:01:50 EDT。');
- assert.equal(lines[1],'SPY / QQQ / VGT / SMH：2026-10-20；检查：2026-10-20 19:56:18 EDT。');
+ assert.equal(lines[1],'SPY / QQQ / VGT / SMH / BRK-B：2026-10-20；检查：2026-10-20 19:56:18 EDT。');
  assert.match(lines[2],/整体数据：已到齐/);
  assert.doesNotMatch(text,/北京时间/);
  assert.doesNotMatch(lines[0],/（/);
@@ -23,7 +23,7 @@ test('同状态ticker合并为一行，与指数保留不同纽约检查时间',
 test('合并ticker时不隐藏单个滞后或失败，也不冒用其他ticker的检查时间', () => {
  const s=status();s.results[2]={...s.results[2],date:'2026-10-19',ok:false,error:'更新失败',checkedAt:'2026-10-20T22:00:00Z'};
  const text=healthSummary(s,now);const lines=text.split('\n');
- assert.match(lines[1],/SPY \/ VGT \/ SMH：2026-10-20/);
+ assert.match(lines[1],/SPY \/ VGT \/ SMH \/ BRK-B：2026-10-20/);
  assert.match(lines[2],/QQQ：2026-10-19（最近更新失败；Yahoo Finance；更新失败）；检查：2026-10-20 18:00:00 EDT/);
  assert.match(text,/整体数据：未全部到齐/);
 });
@@ -32,7 +32,7 @@ test('同日正常行情跨批次检查仍合并，显示纽约跨日时间范�
  const s=status();s.results[4].checkedAt='2026-10-21T05:06:27Z';
  const lines=healthSummary(s,Date.parse('2026-10-21T05:06:27Z')).split('\n');
  assert.equal(lines.length,3);
- assert.equal(lines[1],'SPY / QQQ / VGT / SMH：2026-10-20；检查：2026-10-20 19:56:18 EDT ～ 2026-10-21 01:06:27 EDT。');
+ assert.equal(lines[1],'SPY / QQQ / VGT / SMH / BRK-B：2026-10-20；检查：2026-10-20 19:56:18 EDT ～ 2026-10-21 01:06:27 EDT。');
  assert.match(lines[2],/整体数据：已到齐/);
 });
 
@@ -41,7 +41,7 @@ test('检查范围按真实时刻排序，夏冬时回拨不按本地文字排�
  for(const r of s.results)r.date='2026-10-30';
  s.results[1].checkedAt='2026-11-01T06:01:00Z';
  for(const r of s.results.slice(2))r.checkedAt='2026-11-01T05:59:00Z';
- assert.match(healthSummary(s,Date.parse('2026-11-01T07:00Z')),/SPY \/ QQQ \/ VGT \/ SMH：2026-10-30；检查：2026-11-01 01:59:00 EDT ～ 2026-11-01 01:01:00 EST/);
+ assert.match(healthSummary(s,Date.parse('2026-11-01T07:00Z')),/SPY \/ QQQ \/ VGT \/ SMH \/ BRK-B：2026-10-30；检查：2026-11-01 01:59:00 EDT ～ 2026-11-01 01:01:00 EST/);
 });
 
 test('失败、滞后、警告和未知检查时间保持独立，不合并隐藏异常', () => {
@@ -51,7 +51,7 @@ test('失败、滞后、警告和未知检查时间保持独立，不合并隐�
  ]) {
   const s=status();Object.assign(s.results[4],change);
   const lines=healthSummary(s,now).split('\n');
-  assert.match(lines[1],/^SPY \/ QQQ \/ VGT：/);
+  assert.match(lines[1],/^SPY \/ QQQ \/ VGT \/ BRK-B：/);
   assert.match(lines[2],/^SMH：/);
   assert.equal(lines.length,4);
  }
@@ -89,7 +89,7 @@ test('本地数据已达应有日期但同批刷新失败时：合并同错标�
  assert.equal(lines.length,3);
  assert.equal(
   lines[1],
-  'SPY / QQQ / VGT / SMH：2026-10-20（最近更新失败；Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留上次有效数据）；检查：2026-10-20 19:56:18 EDT。'
+  'SPY / QQQ / VGT / SMH / BRK-B：2026-10-20（最近更新失败；Yahoo Finance 数据校验失败：上游缺失已有历史日期，已保留上次有效数据）；检查：2026-10-20 19:56:18 EDT。'
  );
  assert.match(lines[2],/整体数据：已到齐（最近更新失败，继续使用已保存数据）；应有数据截至 2026-10-20/);
  s.results[4].checkedAt='2026-10-20T23:59:00Z';

@@ -1,6 +1,6 @@
 import { latestClosedSession, periodKey, sessionClose } from './trading-calendar.mjs';
 
-export const SYMBOLS = ['SPY', 'QQQ', 'VGT', 'SMH'];
+export const SYMBOLS = ['SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'];
 
 // VanEck's ETF replaced Semiconductor HOLDRS on 2011-12-20.
 export const HISTORY_STARTS = { SMH: '2011-12-20' };

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="only light">
   <meta name="theme-color" content="#f5f6fa">
-  <meta name="description" content="查看 SPY / QQQ / VGT / SMH 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。">
+  <meta name="description" content="查看 SPY / QQQ / VGT / SMH / BRK-B 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。">
   <title>定投助手</title>
   <link rel="icon" type="image/svg+xml" href="./logo.svg?v=dca">
   <style>
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.13.2">
+  <link rel="stylesheet" href="./style.css?v=1.14.0">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.13.2">v1.13.2</span>
+        <span class="version-badge" aria-label="版本 1.14.0">v1.14.0</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -62,6 +62,7 @@
                   <option value="QQQ">QQQ · 纳斯达克 100</option>
                   <option value="VGT">VGT · 信息技术 ETF</option>
                   <option value="SMH">SMH · 半导体 ETF</option>
+                  <option value="BRK-B">BRK-B · 伯克希尔 B</option>
                 </select>
               </label>
               <span id="add-symbol-hint" title="本地部署可添加个人标的" tabindex="0">
@@ -118,14 +119,17 @@
                 <option value="31">31 日</option>
               </select>
             </label>
-            <label>定投金额（N）
-              <input id="base-amount" aria-label="定投金额（N）" title="1N = 一次基础定投金额" type="number" min="0.01" step="any" value="2000" inputmode="decimal">
-            </label>
+            <div class="base-amount-group">
+              <label>定投金额（N）
+                <input id="base-amount" aria-label="定投金额（N）" title="1N = 一次基础定投金额（按当前标的独立保存）" type="number" min="0" step="any" value="2000" inputmode="decimal">
+              </label>
+              <button type="button" id="allocation-open" class="allocation-open" aria-haspopup="dialog" aria-controls="allocation-dialog" title="按总金额与配比自动填入各标的定投金额（N）">配比</button>
+            </div>
             <label>恐慌指数加投阈值
               <input id="fear-threshold" title="跌破此值按所设倍数加投；回升至阈值 +5 后重置" aria-label="恐慌指数加投阈值" type="number" min="0.01" max="95" step="any" value="10" inputmode="decimal">
             </label>
             <label>恐慌加投倍数
-              <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；填 3 表示一次加投 3N，与月度定投独立累加" type="number" min="1" step="1" value="3" inputmode="numeric">
+              <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；填 3 表示一次加投 3N，填 0 表示不启用恐慌加投（按当前标的独立保存）" type="number" min="0" step="1" value="3" inputmode="numeric">
             </label>
             <label class="signal-toggle">
               <input id="signals-enabled" type="checkbox" checked>买入信号
@@ -444,6 +448,7 @@
           <option value="QQQ">QQQ</option>
           <option value="VGT">VGT</option>
           <option value="SMH">SMH</option>
+          <option value="BRK-B">BRK-B</option>
         </select>
       <span id="floating-charts-title" tabindex="0" aria-label="图表小窗，拖动或使用方向键移动"></span>
       </div>
@@ -454,6 +459,76 @@
     </div>
     <div id="floating-charts-body" class="floating-charts-body"></div>
   </section>
+
+  <dialog id="allocation-dialog" aria-labelledby="allocation-dialog-title">
+    <form id="allocation-form">
+      <h2 id="allocation-dialog-title">总金额与配比自动填入</h2>
+      <p>按每期总定投金额与各标的配比，自动计算并填入对应标的的定投金额（N）。配比为 0% 时，对应标的按 1N = 0.00 填入。</p>
+      <label for="allocation-total" class="allocation-total-label">总定投金额（总 1N）
+        <input id="allocation-total" type="number" min="0.01" step="any" value="2000" inputmode="decimal" aria-describedby="allocation-summary allocation-message">
+      </label>
+      <ul id="allocation-list" aria-label="各标的配比设置"></ul>
+      <p id="allocation-summary" class="allocation-summary"></p>
+      <div id="allocation-estimate" class="allocation-estimate" aria-live="polite">
+        <div class="allocation-estimate-head">
+          <span>月均买入（FNG 起始至今）</span>
+          <strong id="allocation-estimate-average">—</strong>
+        </div>
+        <div class="allocation-estimate-head">
+          <span>单月最大买入（FNG 起始至今）</span>
+          <strong id="allocation-estimate-peak">—</strong>
+        </div>
+        <p id="allocation-estimate-note" class="allocation-estimate-note"></p>
+        <div class="allocation-backtest-wrap" id="allocation-backtest-wrap" hidden>
+          <div class="backtest-toolbar allocation-backtest-toolbar">
+            <p id="allocation-backtest-period">FNG 起始至今组合回测</p>
+            <label>对比口径
+              <select id="allocation-backtest-mode" aria-label="配比组合回测对比口径">
+                <option value="actual">各自按规则投入</option>
+                <option value="equal" selected>同一供资计划（含现金）</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-scroll backtest-table-scroll" tabindex="0" role="region" aria-label="配比组合回测结果，可横向滚动">
+            <table class="backtest-table allocation-backtest-table" aria-label="配比组合回测对比（FNG 起始至今）">
+              <thead>
+                <tr>
+                  <th scope="col">策略</th>
+                  <th scope="col">投入本金</th>
+                  <th scope="col">闲置现金</th>
+                  <th scope="col">期末资产</th>
+                  <th scope="col">股权收益</th>
+                  <th scope="col">现金收益</th>
+                  <th scope="col">累计盈亏</th>
+                  <th scope="col">盈亏／投入</th>
+                  <th scope="col">资金加权年化</th>
+                  <th scope="col">最大净值回撤</th>
+                  <th scope="col">买入 N 数</th>
+                </tr>
+              </thead>
+              <tbody id="allocation-backtest-results"></tbody>
+            </table>
+          </div>
+          <div class="backtest-chart-heading">
+            <div class="backtest-chart-tabs" role="tablist" aria-label="配比组合回测曲线维度">
+              <button type="button" id="allocation-tab-equity" class="backtest-chart-tab" role="tab" aria-selected="true" data-series="equity">累计资产曲线</button>
+              <button type="button" id="allocation-tab-profit" class="backtest-chart-tab" role="tab" aria-selected="false" data-series="profit">累计盈亏曲线</button>
+            </div>
+            <div class="backtest-legend"><span>普通定投</span><span>回撤金字塔</span><span>金字塔＋恐慌加投</span><span id="allocation-principal-legend" class="is-principal">投入本金</span></div>
+          </div>
+          <div class="backtest-plot-wrap">
+            <svg id="allocation-backtest-plot" class="backtest-plot" viewBox="0 0 820 220" role="img" aria-label="配比组合三种策略回测曲线"></svg>
+            <button id="allocation-scale-toggle" class="scale-toggle backtest-scale-toggle" type="button" aria-pressed="false" aria-label="切换组合回测曲线对数坐标" title="切换对数坐标">对数</button>
+          </div>
+        </div>
+      </div>
+      <p id="allocation-message" role="status" aria-live="polite"></p>
+      <div class="symbol-dialog-actions">
+        <button id="allocation-cancel" type="button">关闭</button>
+        <button id="allocation-submit" class="primary" type="submit">按配比填入</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="symbol-dialog" aria-labelledby="symbol-dialog-title">
     <form id="symbol-form">
