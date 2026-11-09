@@ -49,14 +49,16 @@
 #allocation-message { min-height: 24px; }
 #allocation-message { color: #b65342; margin: 6px 0; }
 #allocation-message:empty { display: none; }
-.allocation-total-label { display: block; font-weight: 550; }
-.allocation-settings { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-top: 12px; }
+.allocation-parameters { display: grid; grid-template-columns: minmax(140px, 200px) minmax(0, 1fr); align-items: end; gap: 16px; }
+.allocation-total-label { display: block; font-size: 12px; font-weight: 550; }
+.allocation-settings { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .allocation-settings label { display: grid; gap: 5px; font-size: 12px; font-weight: 550; }
 .allocation-settings input, .allocation-fear-count input { width: 90px; height: 30px; padding: 0 7px; border: 1px solid var(--border); border-radius: 4px; color: inherit; font: inherit; }
 .allocation-bulk-fear { display: flex; align-items: end; gap: 6px; }
 .allocation-bulk-fear button { height: 30px; padding: 0 8px; font-size: 12px; }
 .allocation-summary { font-size: 12px; color: #4a5c68; margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
 #allocation-dialog { width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+#allocation-total { height: 36px; margin-top: 5px; padding: 0 10px; }
 .allocation-estimate { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; font-variant-numeric: tabular-nums; }
 .allocation-estimate-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; color: #35434e; }
 .allocation-estimate-head + .allocation-estimate-head { margin-top: 4px; }
@@ -73,6 +75,7 @@
 #allocation-list li:last-child { border-bottom: 0; }
 .allocation-symbol-label { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .allocation-weight-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #607487; }
+.allocation-weight-wrap::before { content: '配比'; color: #35434e; }
 .allocation-weight-input { width: 68px; height: 30px; padding: 0 7px; border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: 12px; color: #35434e; text-align: right; font-variant-numeric: tabular-nums; }
 .allocation-preview { font-size: 12px; color: #607487; text-align: right; white-space: nowrap; }
 .allocation-fear-count { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #607487; white-space: nowrap; }
@@ -81,33 +84,38 @@
 .allocation-fear-count input:disabled { background: #f1f3f5; color: #7d8994; }
 .allocation-list-heading { margin: 20px 0 0; font-size: 14px; }
 .allocation-fear-note { margin: 4px 0 0; color: #607487; font-size: 11px; }
+#allocation-dialog .allocation-actions { position: sticky; bottom: -24px; z-index: 1; margin: 0 -24px -24px; padding: 10px 24px 16px; border-top: 1px solid var(--border); background: #fff; }
+@media (max-width: 760px) {
+  .allocation-parameters { grid-template-columns: 1fr; gap: 12px; }
+}
 @media (max-width: 600px) {
-  #allocation-dialog { width: calc(100% - 20px); max-width: none; max-height: calc(100dvh - 20px); padding: 16px 14px 0; font-size: 12px; }
-  #allocation-dialog h2 { margin-bottom: 6px; font-size: 16px; }
-  #allocation-dialog .allocation-intro { margin: 0 0 12px; color: #607487; font-size: 11px; line-height: 1.6; }
-  #allocation-total { height: 34px; margin-top: 5px; padding: 0 8px; font-size: 12px; }
-  .allocation-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 10px; margin-top: 10px; }
-  .allocation-settings label { font-size: 11px; }
-  .allocation-settings input { width: 100%; height: 34px; padding: 0 8px; font-size: 12px; }
+  #allocation-dialog { width: calc(100% - 20px); max-width: none; max-height: calc(100dvh - 20px); padding: 18px 14px 0; font-size: 14px; }
+  #allocation-dialog h2 { margin-bottom: 6px; font-size: 18px; }
+  #allocation-dialog .allocation-intro { margin: 0 0 14px; color: #607487; font-size: 13px; line-height: 1.6; }
+  .allocation-total-label, .allocation-settings label { font-size: 13px; }
+  #allocation-total { height: 42px; padding: 0 10px; font-size: 16px; }
+  .allocation-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .allocation-settings input { width: 100%; height: 42px; padding: 0 10px; font-size: 16px; }
   .allocation-bulk-fear { grid-column: 1 / -1; align-items: end; gap: 8px; }
   .allocation-bulk-fear label { flex: 1; min-width: 0; }
-  .allocation-bulk-fear button { height: 34px; padding: 0 8px; font-size: 11px; }
-  .allocation-list-heading { margin-top: 14px; font-size: 12px; }
-  #allocation-list { display: grid; gap: 6px; max-height: none; overflow: visible; margin: 8px 0; border: 0; }
-  #allocation-list li { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'name preview' 'weight count'; gap: 8px; padding: 9px 10px; border: 1px solid #e2e8f0; border-radius: 7px; background: #f8fafc; }
+  .allocation-bulk-fear button { height: 42px; padding: 0 10px; font-size: 12px; }
+  .allocation-list-heading { margin-top: 18px; font-size: 14px; }
+  .allocation-fear-note { font-size: 12px; }
+  #allocation-list { display: grid; gap: 8px; max-height: none; overflow: visible; margin: 10px 0; border: 0; }
+  #allocation-list li { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'name preview' 'weight count'; gap: 10px 6px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 7px; background: #f8fafc; }
   #allocation-list li:last-child { border-bottom: 1px solid #e2e8f0; }
   .allocation-symbol-label { grid-area: name; white-space: normal; overflow-wrap: anywhere; }
   .allocation-preview { grid-area: preview; white-space: normal; overflow-wrap: anywhere; }
-  .allocation-weight-wrap { grid-area: weight; gap: 4px; color: #35434e; font-size: 11px; white-space: nowrap; }
+  .allocation-weight-wrap { grid-area: weight; gap: 4px; color: #35434e; font-size: 12px; white-space: nowrap; }
   .allocation-weight-wrap::before { content: '配比'; font-weight: 550; }
-  .allocation-weight-input { width: 44px; height: 32px; padding: 0 4px; font-size: 12px; background: #fff; }
-  .allocation-fear-count { grid-area: count; justify-self: end; font-size: 11px; }
-  .allocation-fear-count input { width: 40px; height: 32px; padding: 0 4px; font-size: 12px; background: #fff; }
-  .allocation-summary { margin: 8px 0; font-size: 11px; }
+  .allocation-weight-input { width: 56px; height: 40px; padding: 0 5px; font-size: 16px; background: #fff; }
+  .allocation-fear-count { grid-area: count; justify-self: end; font-size: 12px; }
+  .allocation-fear-count input { width: 52px; height: 40px; padding: 0 5px; font-size: 16px; background: #fff; }
+  .allocation-summary { margin: 10px 0; font-size: 12px; }
   .allocation-estimate { padding: 10px; }
   .allocation-estimate-head { flex-wrap: wrap; gap: 2px 10px; }
-  #allocation-dialog .allocation-actions { position: sticky; bottom: 0; z-index: 1; margin: 0 -14px; padding: 8px 14px max(8px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: #fff; }
-  #allocation-dialog .symbol-dialog-actions button { flex: 1; min-height: 36px; font-size: 11px; }
+  #allocation-dialog .allocation-actions { bottom: 0; margin: 0 -14px; padding: 10px 14px max(10px, env(safe-area-inset-bottom)); }
+  #allocation-dialog .symbol-dialog-actions button { flex: 1; min-height: 42px; font-size: 13px; }
 }
 .base-amount-group { display: inline-flex; align-items: center; gap: 6px; }
 .allocation-open { height: 34px; padding: 0 10px; font-size: 12px; white-space: nowrap; }

@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.15.1">
+  <link rel="stylesheet" href="./style.css?v=1.15.2">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.15.1">v1.15.1</span>
+        <span class="version-badge" aria-label="版本 1.15.2">v1.15.2</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -462,17 +462,19 @@
 
   <dialog id="allocation-dialog" aria-labelledby="allocation-dialog-title">
     <form id="allocation-form">
-      <h2 id="allocation-dialog-title">总金额与配比自动填入</h2>
+      <h2 id="allocation-dialog-title" tabindex="-1" autofocus>总金额与配比自动填入</h2>
       <p class="allocation-intro">按每期总金额和标的配比，自动计算各标的的定投金额。配比为 0% 时，该标的的 1N 为 0.00。</p>
-      <label for="allocation-total" class="allocation-total-label">总定投金额（总 1N）
-        <input id="allocation-total" type="number" min="0.01" step="any" value="2000" inputmode="decimal" aria-describedby="allocation-summary allocation-message">
-      </label>
-      <div class="allocation-settings">
-        <label>每月定投日<input id="allocation-buy-day" type="number" min="1" max="31" step="1" inputmode="numeric"></label>
-        <label>恐慌指数加投阈值<input id="allocation-fear-threshold" type="number" min="0" max="95" step="any" inputmode="decimal"></label>
-        <div class="allocation-bulk-fear">
-          <label>统一恐慌加投倍数<input id="allocation-bulk-fear-count" type="text" inputmode="numeric" placeholder="输入倍数"></label>
-          <button id="allocation-apply-fear-count" type="button">应用到所有标的</button>
+      <div class="allocation-parameters">
+        <label for="allocation-total" class="allocation-total-label">总定投金额（总 1N）
+          <input id="allocation-total" type="number" min="0.01" step="any" value="2000" inputmode="decimal" aria-describedby="allocation-summary allocation-message">
+        </label>
+        <div class="allocation-settings">
+          <label>每月定投日<input id="allocation-buy-day" type="number" min="1" max="31" step="1" inputmode="numeric"></label>
+          <label>恐慌指数加投阈值<input id="allocation-fear-threshold" type="number" min="0" max="95" step="any" inputmode="decimal"></label>
+          <div class="allocation-bulk-fear">
+            <label>统一恐慌加投倍数<input id="allocation-bulk-fear-count" type="text" inputmode="numeric" placeholder="输入倍数"></label>
+            <button id="allocation-apply-fear-count" type="button">应用到所有标的</button>
+          </div>
         </div>
       </div>
       <h3 class="allocation-list-heading">标的配比</h3>
