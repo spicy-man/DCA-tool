@@ -2,8 +2,8 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-09T10:04:57.555Z",
-  "lastAttemptAt": "2026-11-09T10:04:57.555Z",
+  "checkedAt": "2026-11-09T12:15:40.298Z",
+  "lastAttemptAt": "2026-11-09T12:15:40.298Z",
   "ok": true,
   "rows": [
     {
@@ -204,8 +204,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-06",
-    "checkedAt": "2026-11-09T10:04:57.555Z",
-    "lastAttemptAt": "2026-11-09T10:04:57.555Z",
+    "checkedAt": "2026-11-09T12:15:40.298Z",
+    "lastAttemptAt": "2026-11-09T12:15:40.298Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
