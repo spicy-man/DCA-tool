@@ -48,9 +48,13 @@ for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口�
   }));
   let sentimentStart = '1980-01-02';
   let market = { symbol: 'SPY', anchorDate: rows.at(-1).date, fetchedAt: '2026-10-20T00:00:00Z', rows };
+  let failSentiment = false;
+  let failRefresh = false;
   const requests = [];
   t.mock.method(globalThis, 'fetch', async url => {
     requests.push(url);
+    if (failSentiment && url.includes('fear-greed.csv')) throw Error('情绪数据读取失败');
+    if (failRefresh && url.includes('/api/refresh')) throw Error('刷新部分失败');
     return {
       ok: true,
       json: async () => url.includes('qqq.json') ? { ...market, symbol: 'QQQ', rows: [{ ...rows[0], date: '1990-01-02' }, ...market.rows] } : url.includes('spy.json') ? market : url.includes('deployment') ? { mode } : null,
@@ -128,6 +132,29 @@ for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口�
   $('symbol').value = 'QQQ';
   await loadMarket();
   assert.equal($('date-range').textContent, '2011-01-03 – 2026-10-21');
+
+  // 行情已更新时，后续情绪数据读取失败仍必须丢弃旧行情缓存。
+  $('symbol').value = 'SPY';
+  market = { ...market, anchorDate: '2026-10-22', rows: [...market.rows, { ...rows.at(-1), date: '2026-10-22', close: 107 }] };
+  failSentiment = true;
+  await $('refresh').listeners.click();
+  assert.match($('price-anchor').textContent, /2026-10-22/);
+  assert.equal($('status').textContent, '情绪数据读取失败');
+  assert.equal($('fear-state').textContent, '暂无指数记录');
+  assert.match($('funding-range').textContent, /暂无指数，未含恐慌加投/);
+  assert.match($('funding-split').textContent, /恐慌加投 暂无指数数据，无法统计/);
+
+  // 刷新请求报错也可能已部分写入行情。
+  failSentiment = false;
+  failRefresh = true;
+  sentimentStart = '2015-01-02';
+  market = { ...market, anchorDate: '2026-10-23', rows: [...market.rows, { ...rows.at(-1), date: '2026-10-23', close: 108 }] };
+  await $('refresh').listeners.click();
+  assert.match($('price-anchor').textContent, /2026-10-23/);
+  assert.equal($('status').textContent, '刷新部分失败');
+  assert.match($('date-range').textContent, /^2015-01-02/);
+  assert.notEqual($('fear-state').textContent, '暂无指数记录');
+  assert.doesNotMatch($('funding-range').textContent, /暂无指数/);
 });
 
 test('概览曲线按联合日期范围定位，指数缺失区间保持留白', t => {

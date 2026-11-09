@@ -231,6 +231,7 @@ test('基础、金字塔超额和恐慌投入独立拆分，避免加投倍数�
     fearThreshold: 10
   });
   assert.equal(portfolio.peak, 3400);
+  assert.equal(portfolio.total, 3400);
   assert.deepEqual(portfolio.peakMonths, ['2026-02']);
   assert.deepEqual(portfolio.peakBreakdown, [
     { symbol: 'SPY', amount: 1800 },
@@ -265,4 +266,47 @@ test('基础、金字塔超额和恐慌投入独立拆分，避免加投倍数�
   assert.equal(actualPortfolio.backtest.results[0].invested, 1000);
   assert.equal(actualPortfolio.backtest.results[1].invested, 1000);
   assert.equal(actualPortfolio.backtest.results[2].invested, 2200);
+});
+
+test('组合资金摘要按成交日统计，包含起点跨界，排除末尾未成交信号', () => {
+  const rows = market(['2026-01-30', '2026-02-02', '2026-02-27', '2026-03-02', '2026-03-03', '2026-03-30']);
+  const funding = summarizePortfolioFunding({
+    items: [{ symbol: 'SPY', rows, baseAmount: 100, fearBuyCount: 0 }],
+    sentiment: [{ date: '2026-02-02', score: 16 }],
+    buyDay: 30,
+    mode: 'actual'
+  });
+  assert.equal(funding.total, 200);
+  assert.equal(funding.count, 2);
+  assert.equal(funding.average, 100);
+  assert.equal(funding.peak, 100);
+  assert.deepEqual(funding.peakMonths, ['2026-02', '2026-03']);
+  assert.deepEqual(funding.peakBreakdown, [{ symbol: 'SPY', amount: 100 }]);
+  assert.equal(funding.backtest.results[2].invested, funding.total);
+
+  const pending = summarizePortfolioFunding({
+    items: [{ symbol: 'SPY', rows: market(['2026-03-30']), baseAmount: 100, fearBuyCount: 0 }],
+    sentiment: [{ date: '2026-03-30', score: 16 }],
+    buyDay: 30
+  });
+  assert.equal(pending.total, 0);
+  assert.equal(pending.count, 0);
+  assert.deepEqual(pending.peakMonths, []);
+  assert.equal(pending.backtest.results[2].invested, 0);
+});
+
+test('组合月度与恐慌订单均按成交月份计入峰值', () => {
+  const rows = market(['2026-01-29', '2026-01-30', '2026-02-02', '2026-02-27', '2026-03-02', '2026-03-03', '2026-03-30']);
+  const funding = summarizePortfolioFunding({
+    items: [{ symbol: 'SPY', rows, baseAmount: 100, fearBuyCount: 1 }],
+    sentiment: [{ date: '2026-01-29', score: 16 }, { date: '2026-01-30', score: 9 }],
+    buyDay: 30,
+    mode: 'actual'
+  });
+  assert.equal(funding.total, 300);
+  assert.equal(funding.count, 3);
+  assert.equal(funding.peak, 200);
+  assert.deepEqual(funding.peakMonths, ['2026-02']);
+  assert.deepEqual(funding.peakBreakdown, [{ symbol: 'SPY', amount: 200 }]);
+  assert.equal(funding.backtest.results[2].invested, funding.total);
 });

@@ -28,6 +28,16 @@ let sentimentRows = [];
 const marketRowsBySymbol = new Map();
 const loadingSymbols = new Set();
 const failedSymbols = new Set();
+let marketCacheEpoch = 0;
+let refreshAllocationPreview = null;
+
+export function invalidatePortfolioMarketCache() {
+  marketCacheEpoch++;
+  marketRowsBySymbol.clear();
+  loadingSymbols.clear();
+  failedSymbols.clear();
+  refreshAllocationPreview?.();
+}
 
 function validBaseAmount(value) {
   return Number.isFinite(value) && (value === 0 || (value >= 0.01 && Number.isFinite(value * 38)));
@@ -118,9 +128,11 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
     $('signal-table').replaceChildren();
     return;
   }
-  if (data.symbol && data.rows?.length) {
+  if (!next.replay && data.symbol && data.rows?.length) {
+    const changed = marketRowsBySymbol.get(data.symbol) !== data.rows;
     marketRowsBySymbol.set(data.symbol, data.rows);
     failedSymbols.delete(data.symbol);
+    if (changed) refreshAllocationPreview?.();
   }
   if (data.symbol && data.symbol !== previousSymbol) {
     syncControlsForSymbol(data.symbol);
@@ -457,6 +469,10 @@ function initAllocationDialog() {
   const cancelBtn = $('allocation-cancel');
   const form = $('allocation-form');
   const totalInput = $('allocation-total');
+  const buyDayInput = $('allocation-buy-day');
+  const thresholdInput = $('allocation-fear-threshold');
+  const bulkFearInput = $('allocation-bulk-fear-count');
+  const bulkFearButton = $('allocation-apply-fear-count');
   const list = $('allocation-list');
   const summary = $('allocation-summary');
   const estimateAverage = $('allocation-estimate-average');
@@ -477,14 +493,19 @@ function initAllocationDialog() {
   let allocLogScale = false;
   let lastBacktest = null;
   let lastTotal = defaults.baseAmount;
+  refreshAllocationPreview = () => {
+    if (dialog.open && inputs.size) updatePreview();
+  };
 
   function ensureMarketRows(symbols) {
     if (typeof fetch !== 'function') return;
     for (const symbol of symbols) {
       if (marketRowsBySymbol.has(symbol) || loadingSymbols.has(symbol) || failedSymbols.has(symbol)) continue;
       loadingSymbols.add(symbol);
+      const epoch = marketCacheEpoch;
       loadMarketSnapshot(symbol)
         .then(snapshot => {
+          if (epoch !== marketCacheEpoch || marketRowsBySymbol.has(symbol)) return;
           if (snapshot?.rows?.length) {
             marketRowsBySymbol.set(symbol, snapshot.rows);
           } else {
@@ -492,9 +513,10 @@ function initAllocationDialog() {
           }
         })
         .catch(() => {
-          failedSymbols.add(symbol);
+          if (epoch === marketCacheEpoch && !marketRowsBySymbol.has(symbol)) failedSymbols.add(symbol);
         })
         .finally(() => {
+          if (epoch !== marketCacheEpoch) return;
           loadingSymbols.delete(symbol);
           if (inputs.size) updatePreview();
         });
@@ -504,12 +526,18 @@ function initAllocationDialog() {
   function updatePreview() {
     const total = Number(totalInput.value);
     const totalValid = validTotalAmount(total);
+    const buyDay = Number(buyDayInput.value);
+    const fearThreshold = Number(thresholdInput.value);
+    const settingsValid = Number.isInteger(buyDay) && buyDay >= 1 && buyDay <= 31 &&
+      Number.isFinite(fearThreshold) && fearThreshold > 0 && fearThreshold <= 95;
     let sumWeight = 0;
     let hasInvalid = false;
     const activeItems = [];
     for (const [symbol, info] of inputs) {
       const raw = info.input.value.trim();
       const weight = raw === '' ? 0 : Number(raw);
+      const fearCount = Number(info.fearCountInput.value);
+      if (!validFearBuyCount(fearCount, 0)) hasInvalid = true;
       if (raw === '' || weight === 0) {
         info.preview.textContent = totalValid ? '1N = 0.00' : '等待总金额';
       } else if (!validWeight(weight)) {
@@ -519,7 +547,6 @@ function initAllocationDialog() {
         sumWeight += weight;
         if (totalValid) {
           const computed = Math.round(total * weight) / 100;
-          const fearCount = symbolParams(symbol).fearBuyCount;
           const fearEnabled = info.fearInput ? info.fearInput.checked : true;
           if (validBaseAmount(computed) && validFearBuyCount(fearCount, computed)) {
             info.preview.textContent = '1N = ' + formatMoney(computed);
@@ -600,8 +627,8 @@ function initAllocationDialog() {
         principalLegend
       });
     };
-    if (!totalValid || hasInvalid) {
-      setEstimate('—', '—', '请输入有效的总定投金额与配比后自动测算');
+    if (!totalValid || !settingsValid || hasInvalid) {
+      setEstimate('—', '—', '请输入有效的定投日、阈值、总金额、配比和加投倍数后自动测算');
       return;
     }
     if (!activeItems.length) {
@@ -621,8 +648,8 @@ function initAllocationDialog() {
     const funding = summarizePortfolioFunding({
       items: activeItems.map(item => ({ ...item, rows: marketRowsBySymbol.get(item.symbol) })),
       sentiment: sentimentRows,
-      buyDay: state.buyDay,
-      fearThreshold: state.fearThreshold,
+      buyDay,
+      fearThreshold,
       mode,
       totalBaseAmount: total
     });
@@ -645,7 +672,7 @@ function initAllocationDialog() {
         funding.backtest
       );
     } else {
-      setEstimate(avgText, peakText, funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + ' 区间内无触发买入信号', funding.backtest);
+      setEstimate(avgText, peakText, funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + ' 区间内无成交买入', funding.backtest);
     }
   }
 
@@ -694,12 +721,33 @@ function initAllocationDialog() {
       fearInput.checked = typeof savedFearEnabled === 'boolean' ? savedFearEnabled : symbolParams(symbol).fearEnabled;
       fearInput.addEventListener('change', () => {
         message.textContent = '';
+        if (!fearInput.checked && !validFearBuyCount(Number(fearCountInput.value), 0)) {
+          fearCountInput.value = String(symbolParams(symbol).fearBuyCount);
+        }
+        fearCountInput.disabled = !fearInput.checked;
         updatePreview();
       });
       fearLabel.append(fearInput, '恐慌加投');
       li.append(fearLabel);
 
-      inputs.set(symbol, { input, preview, fearInput });
+      const fearCountLabel = document.createElement('label');
+      fearCountLabel.className = 'allocation-fear-count';
+      const fearCountInput = document.createElement('input');
+      fearCountInput.type = 'number';
+      fearCountInput.min = '1';
+      fearCountInput.step = '1';
+      fearCountInput.inputMode = 'numeric';
+      fearCountInput.value = String(symbolParams(symbol).fearBuyCount);
+      fearCountInput.disabled = !fearInput.checked;
+      fearCountInput.setAttribute('aria-label', symbol + ' 恐慌加投倍数');
+      fearCountInput.addEventListener('input', () => {
+        message.textContent = '';
+        updatePreview();
+      });
+      fearCountLabel.append(fearCountInput, '倍');
+      li.append(fearCountLabel);
+
+      inputs.set(symbol, { input, preview, fearInput, fearCountInput });
       return li;
     });
     list.replaceChildren(...rows);
@@ -708,6 +756,9 @@ function initAllocationDialog() {
 
   openBtn.addEventListener('click', () => {
     failedSymbols.clear();
+    buyDayInput.value = String(state.buyDay);
+    thresholdInput.value = String(state.fearThreshold);
+    bulkFearInput.value = '';
     totalInput.value = String(
       validTotalAmount(allocation.totalAmount)
         ? allocation.totalAmount
@@ -731,6 +782,26 @@ function initAllocationDialog() {
   });
 
   totalInput.addEventListener('input', () => {
+    message.textContent = '';
+    updatePreview();
+  });
+
+  for (const input of [buyDayInput, thresholdInput]) {
+    input.addEventListener('input', () => {
+      message.textContent = '';
+      updatePreview();
+    });
+  }
+
+  bulkFearButton.addEventListener('click', () => {
+    const count = Number(bulkFearInput.value);
+    if (!validFearBuyCount(count, 0)) {
+      message.textContent = '统一恐慌加投倍数须为不小于 1 的整数';
+      return;
+    }
+    for (const { fearInput, fearCountInput } of inputs.values()) {
+      if (fearInput.checked) fearCountInput.value = String(count);
+    }
     message.textContent = '';
     updatePreview();
   });
@@ -772,6 +843,16 @@ function initAllocationDialog() {
   form.addEventListener('submit', event => {
     event.preventDefault();
     const total = Number(totalInput.value);
+    const buyDay = Number(buyDayInput.value);
+    const fearThreshold = Number(thresholdInput.value);
+    if (!Number.isInteger(buyDay) || buyDay < 1 || buyDay > 31) {
+      message.textContent = '定投日须为 1–31 的整数';
+      return;
+    }
+    if (!Number.isFinite(fearThreshold) || fearThreshold <= 0 || fearThreshold > 95) {
+      message.textContent = 'F&G 阈值请输入大于 0 且不超过 95 的数值';
+      return;
+    }
     if (!validTotalAmount(total)) {
       message.textContent = '总定投金额请输入不小于 0.01 的有效数值';
       return;
@@ -779,7 +860,7 @@ function initAllocationDialog() {
     const nextWeights = { ...allocation.weights };
     const nextFearEnabled = { ...allocation.fearEnabled };
     const updates = [];
-    for (const [symbol, { input, fearInput }] of inputs) {
+    for (const [symbol, { input, fearInput, fearCountInput }] of inputs) {
       const raw = input.value.trim();
       const weight = raw === '' ? 0 : Number(raw);
       if (!validWeight(weight)) {
@@ -787,7 +868,7 @@ function initAllocationDialog() {
         return;
       }
       const computed = weight === 0 ? 0 : Math.round(total * weight) / 100;
-      const fearCount = symbolParams(symbol).fearBuyCount;
+      const fearCount = Number(fearCountInput.value);
       const fearEnabled = fearInput ? fearInput.checked : true;
       if (!validBaseAmount(computed) || !validFearBuyCount(fearCount, computed)) {
         message.textContent = symbol + ' 折算后的定投金额（' + computed.toFixed(2) + '）超出有效计算范围';
@@ -801,6 +882,7 @@ function initAllocationDialog() {
     for (const [symbol, baseAmount, fearBuyCount, fearEnabled] of updates) {
       bySymbol[symbol] = { baseAmount, fearBuyCount, fearEnabled };
     }
+    state = { ...state, buyDay, fearThreshold };
     syncControlsForSymbol(activeSymbol());
     saveStorage();
     appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
@@ -815,9 +897,8 @@ export function initStrategyOverlay() {
   fallback = { baseAmount: defaults.baseAmount, fearBuyCount: defaults.fearBuyCount, fearEnabled: defaults.fearEnabled };
   bySymbol = {};
   allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {} };
-  marketRowsBySymbol.clear();
-  loadingSymbols.clear();
-  failedSymbols.clear();
+  refreshAllocationPreview = null;
+  invalidatePortfolioMarketCache();
   $('price-tooltip').addEventListener('pointerleave', () => { $('price-tooltip').hidden = true; });
   $('signal-table').closest('details').addEventListener('toggle', renderSignalTable);
 

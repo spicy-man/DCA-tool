@@ -1,5 +1,5 @@
 import { calculatePyramidSignals, daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
-import { comparePortfolioStrategies } from './backtest.mjs';
+import { buildPortfolioOrders, comparePortfolioStrategies } from './backtest.mjs';
 import { evaluateFearStrategy } from './fear-strategy.mjs';
 import { isTradingDay } from './trading-calendar.mjs';
 
@@ -100,14 +100,14 @@ export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearTh
       ? evaluateFearStrategy(rows, sentiment, { baseAmount, fearThreshold, fearBuyCount }).signals
       : [];
     backtestItems.push({ symbol, rows, monthlySignals, fearSignals, baseAmount });
-    for (const signal of [...monthlySignals, ...fearSignals]) {
-      if (signal.date < fngStart || signal.date > itemEnd) continue;
-      const month = signal.date.slice(0, 7);
-      monthly.set(month, (monthly.get(month) || 0) + signal.amount);
+    const orders = buildPortfolioOrders({ rows, monthlySignals, fearSignals, start: itemStart, end: itemEnd });
+    for (const order of [...orders.monthly, ...orders.fear]) {
+      const month = order.date.slice(0, 7);
+      monthly.set(month, (monthly.get(month) || 0) + order.amount);
       if (!byMonthSymbol.has(month)) byMonthSymbol.set(month, new Map());
       const symbolMap = byMonthSymbol.get(month);
-      symbolMap.set(symbol, (symbolMap.get(symbol) || 0) + signal.amount);
-      total += signal.amount;
+      symbolMap.set(symbol, (symbolMap.get(symbol) || 0) + order.amount);
+      total += order.amount;
       count++;
     }
   }

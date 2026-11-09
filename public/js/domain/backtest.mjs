@@ -153,6 +153,23 @@ export function compareStrategies({ rows, monthlySignals, fearSignals, range, ba
   };
 }
 
+// Portfolio summaries and backtests must use the same fill dates and range.
+export function buildPortfolioOrders({ rows, monthlySignals = [], fearSignals = [], start, end }) {
+  const index = new Map(rows.map((row, i) => [row.date, i]));
+  const inRange = date => date >= start && date <= end;
+  const monthly = [];
+  for (const signal of monthlySignals) {
+    const i = index.get(signal.date);
+    if (i === undefined) continue;
+    const fill = rows[i + 1];
+    if (fill && inRange(fill.date)) monthly.push({ date: fill.date, amount: signal.amount });
+  }
+  const fear = fearSignals
+    .filter(signal => inRange(signal.date) && index.has(signal.date))
+    .map(signal => ({ date: signal.date, amount: signal.amount }));
+  return { monthly, fear };
+}
+
 export function comparePortfolioStrategies({ items, startDate, mode = 'equal', totalBaseAmount = 0 }) {
   if (!['actual', 'equal'].includes(mode)) throw Error('回测供资口径无效');
   if (!items?.length || !startDate) return null;
@@ -165,18 +182,7 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
     if (!daily.length) continue;
     const start = daily[0].date;
     const end = daily.at(-1).date;
-    const index = new Map(rows.map((row, i) => [row.date, i]));
-    const inRange = date => date >= start && date <= end;
-    const monthly = [];
-    for (const signal of monthlySignals) {
-      const i = index.get(signal.date);
-      if (i === undefined) continue;
-      const fill = rows[i + 1];
-      if (fill && inRange(fill.date)) monthly.push({ date: fill.date, amount: signal.amount });
-    }
-    const fear = fearSignals
-      .filter(signal => inRange(signal.date) && index.has(signal.date))
-      .map(signal => ({ date: signal.date, amount: signal.amount }));
+    const { monthly, fear } = buildPortfolioOrders({ rows, monthlySignals, fearSignals, start, end });
     const regular = monthly.map(order => ({ date: order.date, amount: baseAmount }));
     const combined = [...monthly, ...fear].sort((a, b) => a.date.localeCompare(b.date));
     const rowByDate = new Map(daily.map(row => [row.date, row]));

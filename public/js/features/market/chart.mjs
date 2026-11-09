@@ -2,6 +2,7 @@ import { appEvents, events } from '../../services/events.mjs';
 import { loadMarketSnapshot } from '../../services/data-client.mjs';
 import {
   updateSignals,
+  invalidatePortfolioMarketCache,
   drawSignalMarkers,
   showMarketTooltip
 } from '../strategy/overlay.mjs';
@@ -43,6 +44,7 @@ export async function loadMarket(force = false) {
   try {
     if (force || !store.has(symbol)) {
       const data = await loadMarketSnapshot(symbol);
+      if (id !== requestID) return;
       store.set(symbol, data);
     }
     if (id !== requestID) return;
@@ -67,6 +69,7 @@ export async function loadMarket(force = false) {
 
 export function invalidateMarket() {
   store.clear();
+  invalidatePortfolioMarketCache();
   return loadMarket(true);
 }
 

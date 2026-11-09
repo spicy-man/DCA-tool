@@ -280,9 +280,25 @@ export function initApplication() {
     button.querySelector('span').textContent = '检查中…';
     try {
       $('status').textContent = '正在同步情绪指数与 ETF 行情…';
-      await requestSourceRefresh();
-      await load();
-      await invalidateMarket();
+      let refreshError = null;
+      try {
+        try {
+          await requestSourceRefresh();
+        } catch (error) {
+          refreshError = error;
+        }
+        try {
+          await load();
+        } catch (error) {
+          // Do not combine newly read market data with an unverified old index.
+          setSignalSentiment([]);
+          refreshError ||= error;
+        }
+      } finally {
+        // A failed refresh can still have written some snapshots.
+        await invalidateMarket();
+      }
+      if (refreshError) throw refreshError;
       await loadHealth();
     } catch (error) {
       $('status').textContent = error.message || '检查失败，已保留本地数据。';

@@ -323,6 +323,88 @@ test('QQQ 首次加载及强制刷新均派发最新交易日历', async t => {
   assert.equal(dates.at(-1), '2025-01-07');
 });
 
+test('行情刷新后旧的主图请求不能回写缓存', async t => {
+  const $ = dom(t);
+  $('symbol').value = 'QQQ';
+  renderMarket(null);
+  let resolveOld;
+  let calls = 0;
+  const fresh = { ...data, rows: [...rows, { ...rows[0], date: '2025-02-03' }] };
+  t.mock.method(globalThis, 'fetch', () => {
+    if (++calls === 1) return new Promise(resolve => { resolveOld = resolve; });
+    return Promise.resolve({ ok: true, json: async () => fresh });
+  });
+  let dates;
+  const listener = event => { dates = event.detail; };
+  appEvents.addEventListener(events.marketCalendar, listener);
+  t.after(() => appEvents.removeEventListener(events.marketCalendar, listener));
+  const oldRequest = loadMarket(true);
+  await invalidateMarket();
+  resolveOld({ ok: true, json: async () => ({ ...data, rows: [...rows] }) });
+  await oldRequest;
+  await loadMarket();
+  assert.equal(calls, 2);
+  assert.equal(dates.at(-1), '2025-02-03');
+});
+
+test('组合使用完整复盘前行情，刷新时丢弃旧请求并等待新快照', async t => {
+  const $ = dom(t);
+  const oldStorage = globalThis.localStorage;
+  const oldResize = globalThis.ResizeObserver;
+  globalThis.localStorage = { getItem: () => null, setItem() {} };
+  globalThis.ResizeObserver = class { observe() {} };
+  t.after(() => { globalThis.localStorage = oldStorage; globalThis.ResizeObserver = oldResize; });
+  $('symbol').options = [{ value: 'QQQ', textContent: 'QQQ' }, { value: 'SPY', textContent: 'SPY' }];
+  $('symbol').value = 'QQQ';
+  const freshRows = [...rows, { ...rows[0], date: '2025-02-03' }];
+  let spyRequests = [];
+  t.mock.method(globalThis, 'fetch', url => {
+    if (url.includes('spy.json')) return new Promise((resolve, reject) => spyRequests.push({ resolve, reject }));
+    return Promise.resolve({ ok: true, json: async () => ({ ...data, rows: [...freshRows] }) });
+  });
+  initStrategyOverlay();
+  setSignalSentiment([{ date: '2025-01-02', score: 20 }]);
+  updateSignals(data, settings);
+  updateSignals({ ...data, rows: rows.slice(0, 1) }, { ...settings, end: rows[0].date, replay: true });
+  $('allocation-open').listeners.click();
+  const qqqWeight = $('allocation-list').children[0].children[1].children[0];
+  const spyWeight = $('allocation-list').children[1].children[1].children[0];
+  qqqWeight.value = '50';
+  qqqWeight.listeners.input();
+  assert.match($('allocation-backtest-period').textContent, /2025-01-06/);
+  spyWeight.value = '50';
+  spyWeight.listeners.input();
+  assert.equal(spyRequests.length, 1);
+  assert.equal($('allocation-estimate-average').textContent, '正在测算…');
+
+  renderMarket(null);
+  await invalidateMarket();
+  updateSignals({ ...data, rows: freshRows }, settings);
+  spyWeight.listeners.input();
+  assert.equal(spyRequests.length, 2);
+  spyRequests[0].resolve({ ok: true, json: async () => ({ ...data, symbol: 'SPY', rows: [...rows] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal($('allocation-estimate-average').textContent, '正在测算…');
+  spyRequests[1].resolve({ ok: true, json: async () => ({ ...data, symbol: 'SPY', rows: [...freshRows] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match($('allocation-backtest-period').textContent, /2025-02-03/);
+  assert.match($('allocation-estimate-note').textContent, /2025-01 — 2025-02/);
+
+  // 已缓存的非当前标的也要重新读取；旧失败不能覆盖再次刷新后的在途状态。
+  await invalidateMarket();
+  assert.equal(spyRequests.length, 3);
+  assert.equal($('allocation-estimate-average').textContent, '正在测算…');
+  await invalidateMarket();
+  assert.equal(spyRequests.length, 4);
+  spyRequests[2].reject(Error('old request failed'));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal($('allocation-estimate-average').textContent, '正在测算…');
+  const newerRows = [...freshRows, { ...rows[0], date: '2025-04-03' }];
+  spyRequests[3].resolve({ ok: true, json: async () => ({ ...data, symbol: 'SPY', rows: newerRows }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match($('allocation-backtest-period').textContent, /2025-04-03/);
+});
+
 test('K 线图与回测曲线图右下角对数切换按钮各自生效并记住偏好', t => {
   const $ = dom(t);
   const saved = new Map();
@@ -559,9 +641,22 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   qqqWeightInput.listeners.input();
   assert.match($('allocation-summary').textContent, /80%.*剩余 20% 未分配/);
   assert.equal(smhPreview.textContent, '1N = 0.00');
-  assert.match($('allocation-estimate-average').textContent, /21,000\.00（4\.2N）/);
-  assert.match($('allocation-estimate-peak').textContent, /21,000\.00（4\.2N）/);
-  assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 15,000\.00 ＋ QQQ 6,000\.00）/);
+  // 1 月 6 日月度信号缺少下一根日线，仅恐慌买入已成交。
+  assert.match($('allocation-estimate-average').textContent, /13,000\.00（2\.6N）/);
+  assert.match($('allocation-estimate-peak').textContent, /13,000\.00（2\.6N）/);
+  assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 10,000\.00 ＋ QQQ 3,000\.00）/);
+  const spyFearCount = $('allocation-list').children[0].children[4].children[0];
+  assert.equal(spyFearCount.value, '4');
+  spyFearCount.value = '5';
+  spyFearCount.listeners.input();
+  assert.match($('allocation-estimate-peak').textContent, /15,500\.00（3\.1N）/);
+  $('allocation-fear-threshold').value = '8';
+  $('allocation-fear-threshold').listeners.input();
+  assert.match($('allocation-estimate-peak').textContent, /0\.00（0N）/);
+  assert.equal(signalSettings().fearThreshold, 18);
+  spyFearCount.value = '4';
+  $('allocation-fear-threshold').value = '18';
+  $('allocation-fear-threshold').listeners.input();
   assert.equal($('allocation-backtest-wrap').hidden, false);
   assert.equal($('allocation-backtest-results').children.length, 3);
   assert.equal($('allocation-backtest-results').children[0].children.length, 11);
@@ -570,13 +665,19 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
     3
   );
 
-  // 取消勾选 QQQ 的“恐慌加投”，QQQ 仅保留月度定投（3,000.00），总峰值由 21,000.00 降为 18,000.00
+  // 取消勾选 QQQ 的“恐慌加投”，总峰值由 13,000.00 降为 10,000.00。
   const qqqFearCheckbox = $('allocation-list').children[1].children[3].children[0];
   assert.equal(qqqFearCheckbox.checked, true);
+  const qqqFearCount = $('allocation-list').children[1].children[4].children[0];
+  qqqFearCount.value = '';
+  qqqFearCount.listeners.input();
+  assert.equal($('allocation-estimate-peak').textContent, '—');
   qqqFearCheckbox.checked = false;
   qqqFearCheckbox.listeners.change();
-  assert.match($('allocation-estimate-peak').textContent, /18,000\.00（3\.6N）/);
-  assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 15,000\.00 ＋ QQQ 3,000\.00）/);
+  assert.equal(qqqFearCount.value, '2');
+  assert.equal(qqqFearCount.disabled, true);
+  assert.match($('allocation-estimate-peak').textContent, /10,000\.00（2N）/);
+  assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 10,000\.00）/);
 
   // 切换口径为 actual，并切换累计盈亏与对数坐标
   $('allocation-backtest-mode').value = 'actual';
@@ -590,7 +691,7 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   // 恢复勾选 QQQ 的“恐慌加投”再测试提交
   qqqFearCheckbox.checked = true;
   qqqFearCheckbox.listeners.change();
-  assert.match($('allocation-estimate-peak').textContent, /21,000\.00（4\.2N）/);
+  assert.match($('allocation-estimate-peak').textContent, /13,000\.00（2\.6N）/);
 
   $('allocation-form').listeners.submit({ preventDefault() {} });
   // SPY 当前激活，立即更新为 5000 * 50% = 2500，且 SPY 原有的恐慌倍数 4 保留
@@ -645,4 +746,40 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   updateSignals({ ...data, symbol: 'QQQ' }, settings);
   assert.equal($('fear-state').textContent, '未启用恐慌加投');
   assert.match($('signal-note').textContent, /未启用恐慌加投/);
+
+  // 草稿关闭不写入；统一倍数只影响启用项，确认后同步全局设置和当前标的。
+  $('allocation-open').listeners.click();
+  const savedBeforeDraft = saved.get('seeker.pyramid.v1');
+  $('allocation-buy-day').value = '25';
+  $('allocation-buy-day').listeners.input();
+  $('allocation-fear-threshold').value = '10';
+  $('allocation-fear-threshold').listeners.input();
+  $('allocation-bulk-fear-count').value = '5';
+  $('allocation-apply-fear-count').listeners.click();
+  assert.equal($('allocation-list').children[0].children[4].children[0].value, '5');
+  assert.equal($('allocation-list').children[1].children[4].children[0].value, '2');
+  assert.equal(saved.get('seeker.pyramid.v1'), savedBeforeDraft);
+  $('allocation-cancel').listeners.click();
+  $('allocation-open').listeners.click();
+  assert.equal($('allocation-buy-day').value, '5');
+  assert.equal($('allocation-fear-threshold').value, '18');
+  assert.equal($('allocation-list').children[0].children[4].children[0].value, '4');
+  $('allocation-buy-day').value = '32';
+  $('allocation-form').listeners.submit({ preventDefault() {} });
+  assert.match($('allocation-message').textContent, /定投日/);
+  assert.equal(saved.get('seeker.pyramid.v1'), savedBeforeDraft);
+  $('allocation-buy-day').value = '25';
+  $('allocation-fear-threshold').value = '10';
+  $('allocation-bulk-fear-count').value = '5';
+  $('allocation-apply-fear-count').listeners.click();
+  $('allocation-form').listeners.submit({ preventDefault() {} });
+  assert.equal(Number($('buy-day').value), 25);
+  assert.equal(Number($('fear-threshold').value), 10);
+  assert.equal(signalSettings().fearBuyCount, 2);
+  $('symbol').value = 'SPY';
+  $('symbol').listeners.change();
+  assert.equal(signalSettings().fearBuyCount, 5);
+  const stored = JSON.parse(saved.get('seeker.pyramid.v1'));
+  assert.equal(stored.bySymbol.QQQ.fearBuyCount, 2);
+  assert.equal(stored.bySymbol.QQQ.fearEnabled, false);
 });

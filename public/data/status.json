@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-11-09T06:13:11.352Z",
+  "checkedAt": "2026-11-09T08:56:42.159Z",
   "expectedDate": "2026-11-06",
   "requestedSources": [
     "Fear & Greed",
@@ -15,14 +15,14 @@
   "results": [
     {
       "symbol": "Fear & Greed",
-      "date": "2026-11-06",
-      "count": 3985,
+      "date": "2026-11-09",
+      "count": 3986,
       "source": "CNN",
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-06",
-      "checkedAt": "2026-11-09T06:13:11.352Z",
-      "lastSuccessAt": "2026-11-09T06:13:11.352Z"
+      "checkedAt": "2026-11-09T08:56:42.159Z",
+      "lastSuccessAt": "2026-11-09T08:56:42.159Z"
     },
     {
       "symbol": "SPY",
@@ -32,9 +32,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-06",
-      "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
-      "skipped": true
+      "checkedAt": "2026-11-09T08:56:42.159Z",
+      "lastSuccessAt": "2026-11-09T08:56:42.159Z"
     },
     {
       "symbol": "QQQ",
@@ -44,9 +43,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-06",
-      "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
-      "skipped": true
+      "checkedAt": "2026-11-09T08:56:42.159Z",
+      "lastSuccessAt": "2026-11-09T08:56:42.159Z"
     },
     {
       "symbol": "VGT",
@@ -56,9 +54,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-06",
-      "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
-      "skipped": true
+      "checkedAt": "2026-11-09T08:56:42.159Z",
+      "lastSuccessAt": "2026-11-09T08:56:42.159Z"
     },
     {
       "symbol": "SMH",
@@ -68,9 +65,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-06",
-      "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
-      "skipped": true
+      "checkedAt": "2026-11-09T08:56:42.159Z",
+      "lastSuccessAt": "2026-11-09T08:56:42.159Z"
     },
     {
       "symbol": "BRK-B",
@@ -80,9 +76,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-06",
-      "checkedAt": "2026-11-09T03:21:44.565Z",
-      "lastSuccessAt": "2026-11-09T03:21:44.565Z",
-      "skipped": true
+      "checkedAt": "2026-11-09T08:56:42.159Z",
+      "lastSuccessAt": "2026-11-09T08:56:42.159Z"
     }
   ]
 }
