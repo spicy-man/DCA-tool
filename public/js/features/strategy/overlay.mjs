@@ -4,7 +4,7 @@ import { chartInsets, createTradingScale, createProfitAxis } from '../../charts/
 import { loadMarketSnapshot } from '../../services/data-client.mjs';
 import { evaluateFearStrategy } from '../../domain/fear-strategy.mjs';
 import { renderStrategySummary } from './summary.mjs';
-import { summarizePortfolioFunding } from '../../domain/strategy-summary.mjs';
+import { estimateMonthlyBuy, nextMonthlyPlan, summarizePortfolioFunding } from '../../domain/strategy-summary.mjs';
 import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
 import { downloadCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
@@ -99,6 +99,7 @@ function syncControlsForSymbol(symbol) {
 
 export function setSignalSentiment(rows) {
   sentimentRows = rows;
+  refreshAllocationPreview?.();
   appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
 }
 
@@ -467,6 +468,78 @@ function drawAllocationBacktestChart(svg, result, { seriesMode, logScale, baseAm
   }
 }
 
+function renderAllocationStatus(items, buyDay, fearThreshold, message = '') {
+  const plan = $('allocation-next-plan');
+  if (!plan) return;
+  const detail = $('allocation-next-detail');
+  const recent = $('allocation-recent-signal');
+  const recentDetail = $('allocation-recent-detail');
+  const fearHeading = $('allocation-fear-heading');
+  const fearState = $('allocation-fear-state');
+  const fearDetail = $('allocation-fear-detail');
+  plan.textContent = message;
+  detail.textContent = '';
+  recent.textContent = message;
+  recentDetail.textContent = '';
+  fearHeading.textContent = '恐慌加投状态';
+  fearState.textContent = message;
+  fearDetail.textContent = '';
+  if (!items.length) return;
+
+  const history = [];
+  const plans = items.map(({ symbol, rows, baseAmount }) => {
+    const signals = calculatePyramidSignals(rows, { buyDay, baseAmount });
+    const lastSignal = signals.at(-1);
+    if (lastSignal) {
+      const amount = signals.reduce((sum, signal) => signal.date === lastSignal.date ? sum + signal.amount : sum, 0);
+      history.push({ symbol, date: lastSignal.date, amount });
+    }
+    const { expectedDate } = nextMonthlyPlan(rows, signals, buyDay);
+    const estimate = estimateMonthlyBuy(rows, baseAmount, expectedDate, lastSignal?.date);
+    return { symbol, expectedDate, amount: estimate?.amount, asOf: rows.at(-1).date };
+  });
+  const sameDate = plans.every(item => item.expectedDate === plans[0].expectedDate);
+  const sameAsOf = plans.every(item => item.asOf === plans[0].asOf);
+  const complete = sameDate && sameAsOf && plans.every(item => Number.isFinite(item.amount));
+  plan.textContent = sameDate ? plans[0].expectedDate : '各标的预计日期不同';
+  plan.textContent += complete
+    ? ' · 暂估 ' + formatMoney(plans.reduce((sum, item) => sum + item.amount, 0))
+    : ' · 合计待定';
+  detail.textContent = plans.map(({ symbol, expectedDate, amount, asOf }) => [
+    symbol,
+    sameDate ? '' : expectedDate,
+    Number.isFinite(amount) ? formatMoney(amount) : '金额待定',
+    sameAsOf ? '' : '（行情截至 ' + asOf + '）'
+  ].filter(Boolean).join(' ')).join('\n');
+
+  const enabled = items.filter(item => item.fearBuyCount > 0);
+  const states = sentimentRows.length ? enabled.map(item => ({
+    symbol: item.symbol,
+    ...evaluateFearStrategy(item.rows, sentimentRows, { ...item, fearThreshold })
+  })) : [];
+  const latestDate = history.reduce((date, signal) => signal.date > date ? signal.date : date, '');
+  const recentSignals = history.filter(signal => signal.date === latestDate);
+  recent.textContent = latestDate
+    ? latestDate + ' · 合计 ' + formatMoney(recentSignals.reduce((sum, signal) => sum + signal.amount, 0))
+    : '暂无月度信号';
+  recentDetail.textContent = recentSignals.map(({ symbol, amount }) =>
+    symbol + ' ' + formatMoney(amount)).join('\n');
+
+  if (!states.length) {
+    fearState.textContent = enabled.length ? '等待指数数据' : '未启用恐慌加投';
+    return;
+  }
+  const { latest, armed, rearmThreshold } = states[0];
+  fearHeading.textContent = '恐慌加投状态（' + latest.date + '）';
+  const triggerState = armed ? '等待下穿 ' + fearThreshold + ' 点' : '等待回升至 ' + rearmThreshold + ' 点重置';
+  fearState.textContent = triggerState + ' · 当前 ' + latest.score.toFixed(2);
+  const pendingLines = states.filter(({ pending }) => pending.length).map(({ symbol, pending }) =>
+    symbol + ' ' + formatMoney(pending.reduce((sum, signal) => sum + signal.amount, 0)));
+  fearDetail.textContent = pendingLines.length
+    ? ['已触发加投 · 执行日待确认', ...pendingLines].join('\n')
+    : '暂无待确认加投';
+}
+
 function initAllocationDialog() {
   const dialog = $('allocation-dialog');
   const openBtn = $('allocation-open');
@@ -493,8 +566,8 @@ function initAllocationDialog() {
   const scaleToggle = $('allocation-scale-toggle');
   const message = $('allocation-message');
   let inputs = new Map();
-  let allocSeriesMode = 'equity';
-  let allocLogScale = false;
+  let allocSeriesMode = 'profit';
+  let allocLogScale = true;
   let lastBacktest = null;
   let lastTotal = defaults.baseAmount;
   refreshAllocationPreview = () => {
@@ -632,25 +705,31 @@ function initAllocationDialog() {
       });
     };
     if (!totalValid || !settingsValid || hasInvalid) {
+      renderAllocationStatus([], buyDay, fearThreshold, '请检查组合参数');
       setEstimate('—', '—', '请输入有效的定投日、阈值、总金额、配比和加投倍数后自动测算');
       return;
     }
     if (!activeItems.length) {
+      renderAllocationStatus([], buyDay, fearThreshold, '暂无投入标的');
       setEstimate('0.00（0N）', '0.00（0N）', '当前配比下各标的均为 0.00，无买入资金需求');
       return;
     }
     ensureMarketRows(activeItems.map(item => item.symbol));
     if (activeItems.some(item => !marketRowsBySymbol.has(item.symbol) && loadingSymbols.has(item.symbol))) {
+      renderAllocationStatus([], buyDay, fearThreshold, '正在读取行情');
       setEstimate('正在测算…', '正在测算…', '正在读取各标的历史行情数据…');
       return;
     }
-    if (!sentimentRows.length || activeItems.some(item => !marketRowsBySymbol.has(item.symbol))) {
+    const items = activeItems.map(item => ({ ...item, rows: marketRowsBySymbol.get(item.symbol) }));
+    const missingMarket = items.some(item => !item.rows?.length);
+    renderAllocationStatus(missingMarket ? [] : items, buyDay, fearThreshold, '等待各标的行情');
+    if (!sentimentRows.length || missingMarket) {
       setEstimate('暂无数据', '暂无数据', '等待恐慌指数与各标的历史行情就绪后自动测算');
       return;
     }
     const mode = backtestMode?.value === 'actual' ? 'actual' : 'equal';
     const funding = summarizePortfolioFunding({
-      items: activeItems.map(item => ({ ...item, rows: marketRowsBySymbol.get(item.symbol) })),
+      items,
       sentiment: sentimentRows,
       buyDay,
       fearThreshold,

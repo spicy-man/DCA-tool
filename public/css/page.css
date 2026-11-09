@@ -69,6 +69,7 @@
 .allocation-backtest-wrap .table-scroll { margin: 8px 0 12px; }
 .allocation-backtest-table { min-width: 780px; font-size: 11px; }
 .allocation-backtest-table th, .allocation-backtest-table td { padding: 5px 6px; background: transparent; position: static; }
+.allocation-backtest-wrap .backtest-plot-wrap { isolation: isolate; }
 .allocation-backtest-wrap .backtest-plot { height: 220px; background: #fff; border: 1px solid #e2e8f0; border-radius: 5px; }
 #allocation-list { list-style: none; padding: 0; margin: 12px 0; max-height: 240px; overflow-y: auto; border-top: 1px solid #edf1f4; border-bottom: 1px solid #edf1f4; }
 #allocation-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(88px, auto) auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3f6f8; font-variant-numeric: tabular-nums; }

@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.15.2">
+  <link rel="stylesheet" href="./style.css?v=1.16.0">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.15.2">v1.15.2</span>
+        <span class="version-badge" aria-label="版本 1.16.0">v1.16.0</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -73,7 +73,7 @@
                   </svg>
                 </button>
               </span>
-              <button type="button" id="allocation-open" class="allocation-open" aria-haspopup="dialog" aria-controls="allocation-dialog" title="按总金额与配比自动填入各标的定投金额（N）">配比</button>
+              <button type="button" id="allocation-open" class="allocation-open" aria-haspopup="dialog" aria-controls="allocation-dialog" title="配置组合定投并查看策略预览与回测">组合定投</button>
             </div>
             <p id="price-asof">正在读取 ETF 行情…</p>
           </div>
@@ -462,7 +462,7 @@
 
   <dialog id="allocation-dialog" aria-labelledby="allocation-dialog-title">
     <form id="allocation-form">
-      <h2 id="allocation-dialog-title" tabindex="-1" autofocus>总金额与配比自动填入</h2>
+      <h2 id="allocation-dialog-title" tabindex="-1" autofocus>组合定投与回测</h2>
       <p class="allocation-intro">按每期总金额和标的配比，自动计算各标的的定投金额。配比为 0% 时，该标的的 1N 为 0.00。</p>
       <div class="allocation-parameters">
         <label for="allocation-total" class="allocation-total-label">总定投金额（总 1N）
@@ -481,6 +481,17 @@
       <p class="allocation-fear-note">恐慌加投倍数填 0 即停用。</p>
       <ul id="allocation-list" aria-label="各标的配比设置"></ul>
       <p id="allocation-summary" class="allocation-summary"></p>
+      <section class="strategy-overview" aria-labelledby="allocation-status-heading" aria-live="polite">
+        <div class="summary-heading">
+          <h3 id="allocation-status-heading">组合策略状态</h3>
+          <p>按当前编辑参数预览</p>
+        </div>
+        <div class="summary-grid">
+          <div><h4>最近一次月度信号</h4><strong id="allocation-recent-signal">—</strong><p id="allocation-recent-detail"></p></div>
+          <div><h4>下一笔月度计划（预计）</h4><strong id="allocation-next-plan">—</strong><p id="allocation-next-detail"></p></div>
+          <div><h4 id="allocation-fear-heading">恐慌加投状态</h4><strong id="allocation-fear-state">—</strong><p id="allocation-fear-detail"></p></div>
+        </div>
+      </section>
       <div id="allocation-estimate" class="allocation-estimate" aria-live="polite">
         <div class="allocation-estimate-head">
           <span>月均买入（FNG 起始至今）</span>
@@ -523,14 +534,14 @@
           </div>
           <div class="backtest-chart-heading">
             <div class="backtest-chart-tabs" role="tablist" aria-label="配比组合回测曲线维度">
-              <button type="button" id="allocation-tab-equity" class="backtest-chart-tab" role="tab" aria-selected="true" data-series="equity">累计资产曲线</button>
-              <button type="button" id="allocation-tab-profit" class="backtest-chart-tab" role="tab" aria-selected="false" data-series="profit">累计盈亏曲线</button>
+              <button type="button" id="allocation-tab-equity" class="backtest-chart-tab" role="tab" aria-selected="false" data-series="equity">累计资产曲线</button>
+              <button type="button" id="allocation-tab-profit" class="backtest-chart-tab" role="tab" aria-selected="true" data-series="profit">累计盈亏曲线</button>
             </div>
-            <div class="backtest-legend"><span>普通定投</span><span>回撤金字塔</span><span>金字塔＋恐慌加投</span><span id="allocation-principal-legend" class="is-principal">投入本金</span></div>
+            <div class="backtest-legend"><span>普通定投</span><span>回撤金字塔</span><span>金字塔＋恐慌加投</span><span id="allocation-principal-legend" hidden class="is-principal">投入本金</span></div>
           </div>
           <div class="backtest-plot-wrap">
             <svg id="allocation-backtest-plot" class="backtest-plot" viewBox="0 0 820 220" role="img" aria-label="配比组合三种策略回测曲线"></svg>
-            <button id="allocation-scale-toggle" class="scale-toggle backtest-scale-toggle" type="button" aria-pressed="false" aria-label="切换组合回测曲线对数坐标" title="切换对数坐标">对数</button>
+            <button id="allocation-scale-toggle" class="scale-toggle backtest-scale-toggle" type="button" aria-pressed="true" aria-label="切换组合回测曲线对数坐标" title="切换对数坐标">对数</button>
           </div>
         </div>
       </div>

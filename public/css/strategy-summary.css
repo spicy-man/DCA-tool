@@ -29,3 +29,5 @@
 }
 
 #funding-split { white-space: pre-line; line-height: 1.9; }
+
+#allocation-recent-detail, #allocation-next-detail, #allocation-fear-detail { white-space: pre-line; }

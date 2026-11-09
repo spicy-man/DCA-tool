@@ -625,7 +625,9 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   assert.equal(signalSettings().fearBuyCount, 4);
 
   // 3. 配比自动填入：打开配比弹窗，总金额 5000，SPY 60%（3000 -> 3000）、QQQ 30%（1500），SMH 留空保持不变
-  setSignalSentiment([{ date: '2025-01-02', score: 20 }, { date: '2025-01-03', score: 8 }]);
+  setSignalSentiment([]);
+  $('allocation-dialog').showModal = () => { $('allocation-dialog').open = true; };
+  $('allocation-dialog').close = () => { $('allocation-dialog').open = false; };
   updateSignals({ ...data, symbol: 'QQQ' }, settings);
   updateSignals({ ...data, symbol: 'SPY' }, settings);
   $('allocation-open').listeners.click();
@@ -639,11 +641,19 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   spyWeightInput.listeners.input();
   qqqWeightInput.value = '30';
   qqqWeightInput.listeners.input();
+  assert.equal($('allocation-fear-state').textContent, '等待指数数据');
+  setSignalSentiment([{ date: '2025-01-02', score: 20 }, { date: '2025-01-03', score: 8 }]);
+  assert.match($('allocation-fear-state').textContent, /当前 8\.00/);
   assert.match($('allocation-summary').textContent, /80%.*剩余 20% 未分配/);
   assert.equal(smhPreview.textContent, '1N = 0.00');
   // 1 月 6 日月度信号缺少下一根日线，仅恐慌买入已成交。
   assert.match($('allocation-estimate-average').textContent, /13,000\.00（2\.6N）/);
   assert.match($('allocation-estimate-peak').textContent, /13,000\.00（2\.6N）/);
+  assert.match($('allocation-next-detail').textContent, /^SPY .+\nQQQ .+$/);
+  assert.doesNotMatch($('allocation-next-detail').textContent, /2025-|行情截至/);
+  assert.match($('allocation-fear-state').textContent, /等待回升至 23/);
+  assert.equal($('allocation-recent-signal').textContent, '2025-01-06 · 合计 8,000.00');
+  assert.match($('allocation-recent-detail').textContent, /^SPY 5,000\.00\nQQQ 3,000\.00$/);
   assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 10,000\.00 ＋ QQQ 3,000\.00）/);
   const allocationFearCount = index => $('allocation-list').children[index].children.find(child => child.className === 'allocation-fear-count').children[0];
   const spyFearCount = allocationFearCount(0);
@@ -671,6 +681,9 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   qqqFearCount.value = '';
   qqqFearCount.listeners.input();
   assert.equal($('allocation-estimate-peak').textContent, '—');
+  assert.equal($('allocation-next-plan').textContent, '请检查组合参数');
+  assert.equal($('allocation-next-detail').textContent, '');
+  assert.equal($('allocation-recent-detail').textContent, '');
   $('allocation-form').listeners.submit({ preventDefault() {} });
   assert.match($('allocation-message').textContent, /恐慌加投倍数/);
   qqqFearCount.value = '0';
@@ -678,19 +691,27 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   assert.match($('allocation-estimate-peak').textContent, /10,000\.00（2N）/);
   assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 10,000\.00）/);
 
-  // 切换口径为 actual，并切换累计盈亏与对数坐标
+  assert.equal($('allocation-backtest-plot').dataset.series, 'profit');
+  assert.equal($('allocation-backtest-plot').dataset.scale, 'log');
+
+  // 切换为累计资产、线性坐标及各自按规则投入
   $('allocation-backtest-mode').value = 'actual';
   $('allocation-backtest-mode').listeners.change();
   assert.equal($('allocation-principal-legend').hidden, true);
-  $('allocation-tab-profit').listeners.click();
-  assert.equal($('allocation-backtest-plot').dataset.series, 'profit');
+  $('allocation-tab-equity').listeners.click();
+  assert.equal($('allocation-backtest-plot').dataset.series, 'equity');
   $('allocation-scale-toggle').listeners.click();
-  assert.equal($('allocation-backtest-plot').dataset.scale, 'log');
+  assert.equal($('allocation-backtest-plot').dataset.scale, 'linear');
 
   // 输入正倍数重新启用
   qqqFearCount.value = '2';
   qqqFearCount.listeners.input();
   assert.match($('allocation-estimate-peak').textContent, /13,000\.00（2\.6N）/);
+  assert.match($('allocation-next-detail').textContent, /^SPY .+\nQQQ .+$/);
+  assert.doesNotMatch($('allocation-next-detail').textContent, /2025-|行情截至/);
+  assert.match($('allocation-fear-state').textContent, /等待回升至 23/);
+  assert.equal($('allocation-recent-signal').textContent, '2025-01-06 · 合计 8,000.00');
+  assert.match($('allocation-recent-detail').textContent, /^SPY 5,000\.00\nQQQ 3,000\.00$/);
 
   $('allocation-form').listeners.submit({ preventDefault() {} });
   // SPY 当前激活，立即更新为 5000 * 50% = 2500，且 SPY 原有的恐慌倍数 4 保留
@@ -790,4 +811,15 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   const stored = JSON.parse(saved.get('seeker.pyramid.v1'));
   assert.equal(stored.bySymbol.QQQ.fearBuyCount, 5);
   assert.equal(stored.bySymbol.QQQ.fearEnabled, true);
+
+  // 1 月计划顺延，与 2 月计划落在同一天，按标的汇总两笔。
+  const sparseRows = ['2025-01-30', '2025-02-28'].map(date => ({
+    date, open: 100, high: 100, low: 100, close: 100
+  }));
+  updateSignals({ ...data, symbol: 'SPY', rows: sparseRows }, settings);
+  $('allocation-open').listeners.click();
+  $('allocation-buy-day').value = '31';
+  $('allocation-buy-day').listeners.input();
+  assert.equal($('allocation-recent-signal').textContent, '2025-02-28 · 合计 5,000.00');
+  assert.equal($('allocation-recent-detail').textContent, 'SPY 5,000.00');
 });
