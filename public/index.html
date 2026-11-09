@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.15.0">
+  <link rel="stylesheet" href="./style.css?v=1.15.1">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.15.0">v1.15.0</span>
+        <span class="version-badge" aria-label="版本 1.15.1">v1.15.1</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -73,6 +73,7 @@
                   </svg>
                 </button>
               </span>
+              <button type="button" id="allocation-open" class="allocation-open" aria-haspopup="dialog" aria-controls="allocation-dialog" title="按总金额与配比自动填入各标的定投金额（N）">配比</button>
             </div>
             <p id="price-asof">正在读取 ETF 行情…</p>
           </div>
@@ -123,7 +124,6 @@
               <label>定投金额（N）
                 <input id="base-amount" aria-label="定投金额（N）" title="1N = 一次基础定投金额（按当前标的独立保存）" type="number" min="0" step="any" value="2000" inputmode="decimal">
               </label>
-              <button type="button" id="allocation-open" class="allocation-open" aria-haspopup="dialog" aria-controls="allocation-dialog" title="按总金额与配比自动填入各标的定投金额（N）">配比</button>
             </div>
             <label>恐慌指数加投阈值
               <input id="fear-threshold" title="跌破此值按所设倍数加投；回升至阈值 +5 后重置" aria-label="恐慌指数加投阈值" type="number" min="0.01" max="95" step="any" value="10" inputmode="decimal">
@@ -463,7 +463,7 @@
   <dialog id="allocation-dialog" aria-labelledby="allocation-dialog-title">
     <form id="allocation-form">
       <h2 id="allocation-dialog-title">总金额与配比自动填入</h2>
-      <p>按每期总定投金额与各标的配比，自动计算并填入对应标的的定投金额（N）。配比为 0% 时，对应标的按 1N = 0.00 填入。</p>
+      <p class="allocation-intro">按每期总金额和标的配比，自动计算各标的的定投金额。配比为 0% 时，该标的的 1N 为 0.00。</p>
       <label for="allocation-total" class="allocation-total-label">总定投金额（总 1N）
         <input id="allocation-total" type="number" min="0.01" step="any" value="2000" inputmode="decimal" aria-describedby="allocation-summary allocation-message">
       </label>
@@ -472,9 +472,11 @@
         <label>恐慌指数加投阈值<input id="allocation-fear-threshold" type="number" min="0" max="95" step="any" inputmode="decimal"></label>
         <div class="allocation-bulk-fear">
           <label>统一恐慌加投倍数<input id="allocation-bulk-fear-count" type="text" inputmode="numeric" placeholder="输入倍数"></label>
-          <button id="allocation-apply-fear-count" type="button">应用到已启用标的</button>
+          <button id="allocation-apply-fear-count" type="button">应用到所有标的</button>
         </div>
       </div>
+      <h3 class="allocation-list-heading">标的配比</h3>
+      <p class="allocation-fear-note">恐慌加投倍数填 0 即停用。</p>
       <ul id="allocation-list" aria-label="各标的配比设置"></ul>
       <p id="allocation-summary" class="allocation-summary"></p>
       <div id="allocation-estimate" class="allocation-estimate" aria-live="polite">
@@ -530,10 +532,12 @@
           </div>
         </div>
       </div>
-      <p id="allocation-message" role="status" aria-live="polite"></p>
-      <div class="symbol-dialog-actions">
-        <button id="allocation-cancel" type="button">关闭</button>
-        <button id="allocation-submit" class="primary" type="submit">确认并应用</button>
+      <div class="allocation-actions">
+        <p id="allocation-message" role="status" aria-live="polite"></p>
+        <div class="symbol-dialog-actions">
+          <button id="allocation-cancel" type="button">关闭</button>
+          <button id="allocation-submit" class="primary" type="submit">确认并应用</button>
+        </div>
       </div>
     </form>
   </dialog>

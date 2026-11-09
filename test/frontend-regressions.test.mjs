@@ -645,7 +645,8 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   assert.match($('allocation-estimate-average').textContent, /13,000\.00（2\.6N）/);
   assert.match($('allocation-estimate-peak').textContent, /13,000\.00（2\.6N）/);
   assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 10,000\.00 ＋ QQQ 3,000\.00）/);
-  const spyFearCount = $('allocation-list').children[0].children[4].children[0];
+  const allocationFearCount = index => $('allocation-list').children[index].children.find(child => child.className === 'allocation-fear-count').children[0];
+  const spyFearCount = allocationFearCount(0);
   assert.equal(spyFearCount.value, '4');
   spyFearCount.value = '5';
   spyFearCount.listeners.input();
@@ -665,17 +666,15 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
     3
   );
 
-  // 取消勾选 QQQ 的“恐慌加投”，总峰值由 13,000.00 降为 10,000.00。
-  const qqqFearCheckbox = $('allocation-list').children[1].children[3].children[0];
-  assert.equal(qqqFearCheckbox.checked, true);
-  const qqqFearCount = $('allocation-list').children[1].children[4].children[0];
+  // QQQ 的恐慌倍数填 0，峰值由 13,000.00 降为 10,000.00；空值不能当作 0。
+  const qqqFearCount = allocationFearCount(1);
   qqqFearCount.value = '';
   qqqFearCount.listeners.input();
   assert.equal($('allocation-estimate-peak').textContent, '—');
-  qqqFearCheckbox.checked = false;
-  qqqFearCheckbox.listeners.change();
-  assert.equal(qqqFearCount.value, '2');
-  assert.equal(qqqFearCount.disabled, true);
+  $('allocation-form').listeners.submit({ preventDefault() {} });
+  assert.match($('allocation-message').textContent, /恐慌加投倍数/);
+  qqqFearCount.value = '0';
+  qqqFearCount.listeners.input();
   assert.match($('allocation-estimate-peak').textContent, /10,000\.00（2N）/);
   assert.match($('allocation-estimate-note').textContent, /峰值月份 2025-01（SPY 10,000\.00）/);
 
@@ -688,9 +687,9 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   $('allocation-scale-toggle').listeners.click();
   assert.equal($('allocation-backtest-plot').dataset.scale, 'log');
 
-  // 恢复勾选 QQQ 的“恐慌加投”再测试提交
-  qqqFearCheckbox.checked = true;
-  qqqFearCheckbox.listeners.change();
+  // 输入正倍数重新启用
+  qqqFearCount.value = '2';
+  qqqFearCount.listeners.input();
   assert.match($('allocation-estimate-peak').textContent, /13,000\.00（2\.6N）/);
 
   $('allocation-form').listeners.submit({ preventDefault() {} });
@@ -734,9 +733,9 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
 
   // 5. 在配比界面关闭 QQQ 的恐慌加投并提交，主界面 QQQ 的恐慌加投显示为未启用（0），但原倍数 2 仍保留可恢复
   $('allocation-open').listeners.click();
-  const qqqCheckAfterReload = $('allocation-list').children[1].children[3].children[0];
-  qqqCheckAfterReload.checked = false;
-  qqqCheckAfterReload.listeners.change();
+  const qqqCountAfterReload = allocationFearCount(1);
+  qqqCountAfterReload.value = '0';
+  qqqCountAfterReload.listeners.input();
   $('allocation-form').listeners.submit({ preventDefault() {} });
   $('symbol').value = 'QQQ';
   $('symbol').listeners.change();
@@ -747,23 +746,32 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   assert.equal($('fear-state').textContent, '未启用恐慌加投');
   assert.match($('signal-note').textContent, /未启用恐慌加投/);
 
-  // 草稿关闭不写入；统一倍数只影响启用项，确认后同步全局设置和当前标的。
+  // 已停用的旧设置显示为 0；批量应用支持 0 和正数，取消草稿不写入。
   $('allocation-open').listeners.click();
+  assert.equal(allocationFearCount(1).value, '0');
   const savedBeforeDraft = saved.get('seeker.pyramid.v1');
   $('allocation-buy-day').value = '25';
   $('allocation-buy-day').listeners.input();
   $('allocation-fear-threshold').value = '10';
   $('allocation-fear-threshold').listeners.input();
+  $('allocation-bulk-fear-count').value = '';
+  $('allocation-apply-fear-count').listeners.click();
+  assert.match($('allocation-message').textContent, /不小于 0/);
+  $('allocation-bulk-fear-count').value = '0';
+  $('allocation-apply-fear-count').listeners.click();
+  assert.equal(allocationFearCount(0).value, '0');
+  assert.equal(allocationFearCount(1).value, '0');
   $('allocation-bulk-fear-count').value = '5';
   $('allocation-apply-fear-count').listeners.click();
-  assert.equal($('allocation-list').children[0].children[4].children[0].value, '5');
-  assert.equal($('allocation-list').children[1].children[4].children[0].value, '2');
+  assert.equal(allocationFearCount(0).value, '5');
+  assert.equal(allocationFearCount(1).value, '5');
   assert.equal(saved.get('seeker.pyramid.v1'), savedBeforeDraft);
   $('allocation-cancel').listeners.click();
   $('allocation-open').listeners.click();
   assert.equal($('allocation-buy-day').value, '5');
   assert.equal($('allocation-fear-threshold').value, '18');
-  assert.equal($('allocation-list').children[0].children[4].children[0].value, '4');
+  assert.equal(allocationFearCount(0).value, '4');
+  assert.equal(allocationFearCount(1).value, '0');
   $('allocation-buy-day').value = '32';
   $('allocation-form').listeners.submit({ preventDefault() {} });
   assert.match($('allocation-message').textContent, /定投日/);
@@ -775,11 +783,11 @@ test('定投金额与恐慌倍数按标的独立保存在浏览器缓存，定�
   $('allocation-form').listeners.submit({ preventDefault() {} });
   assert.equal(Number($('buy-day').value), 25);
   assert.equal(Number($('fear-threshold').value), 10);
-  assert.equal(signalSettings().fearBuyCount, 2);
+  assert.equal(signalSettings().fearBuyCount, 5);
   $('symbol').value = 'SPY';
   $('symbol').listeners.change();
   assert.equal(signalSettings().fearBuyCount, 5);
   const stored = JSON.parse(saved.get('seeker.pyramid.v1'));
-  assert.equal(stored.bySymbol.QQQ.fearBuyCount, 2);
-  assert.equal(stored.bySymbol.QQQ.fearEnabled, false);
+  assert.equal(stored.bySymbol.QQQ.fearBuyCount, 5);
+  assert.equal(stored.bySymbol.QQQ.fearEnabled, true);
 });

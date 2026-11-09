@@ -51,6 +51,10 @@ function validFearBuyCount(count, baseAmount) {
   return Number.isSafeInteger(count) && count >= 1 && Number.isFinite(baseAmount * count);
 }
 
+function validAllocationFearCount(raw, baseAmount) {
+  return raw.trim() !== '' && (Number(raw) === 0 || validFearBuyCount(Number(raw), baseAmount));
+}
+
 function validWeight(value) {
   return Number.isFinite(value) && value >= 0 && value <= 10000;
 }
@@ -536,8 +540,9 @@ function initAllocationDialog() {
     for (const [symbol, info] of inputs) {
       const raw = info.input.value.trim();
       const weight = raw === '' ? 0 : Number(raw);
-      const fearCount = Number(info.fearCountInput.value);
-      if (!validFearBuyCount(fearCount, 0)) hasInvalid = true;
+      const fearRaw = info.fearCountInput.value;
+      const fearCount = Number(fearRaw);
+      if (!validAllocationFearCount(fearRaw, 0)) hasInvalid = true;
       if (raw === '' || weight === 0) {
         info.preview.textContent = totalValid ? '1N = 0.00' : '等待总金额';
       } else if (!validWeight(weight)) {
@@ -547,11 +552,10 @@ function initAllocationDialog() {
         sumWeight += weight;
         if (totalValid) {
           const computed = Math.round(total * weight) / 100;
-          const fearEnabled = info.fearInput ? info.fearInput.checked : true;
-          if (validBaseAmount(computed) && validFearBuyCount(fearCount, computed)) {
+          if (validBaseAmount(computed) && validAllocationFearCount(fearRaw, computed)) {
             info.preview.textContent = '1N = ' + formatMoney(computed);
             if (computed >= 0.01) {
-              activeItems.push({ symbol, baseAmount: computed, fearBuyCount: fearEnabled ? fearCount : 0 });
+              activeItems.push({ symbol, baseAmount: computed, fearBuyCount: fearCount });
             }
           } else {
             info.preview.textContent = '金额无效';
@@ -711,34 +715,17 @@ function initAllocationDialog() {
       preview.className = 'allocation-preview';
       li.append(preview);
 
-      const fearLabel = document.createElement('label');
-      fearLabel.className = 'allocation-fear-toggle';
-      const fearInput = document.createElement('input');
-      fearInput.type = 'checkbox';
-      fearInput.className = 'allocation-fear-checkbox';
-      fearInput.setAttribute('aria-label', symbol + ' 启用恐慌加投');
-      const savedFearEnabled = allocation.fearEnabled?.[symbol];
-      fearInput.checked = typeof savedFearEnabled === 'boolean' ? savedFearEnabled : symbolParams(symbol).fearEnabled;
-      fearInput.addEventListener('change', () => {
-        message.textContent = '';
-        if (!fearInput.checked && !validFearBuyCount(Number(fearCountInput.value), 0)) {
-          fearCountInput.value = String(symbolParams(symbol).fearBuyCount);
-        }
-        fearCountInput.disabled = !fearInput.checked;
-        updatePreview();
-      });
-      fearLabel.append(fearInput, '恐慌加投');
-      li.append(fearLabel);
-
       const fearCountLabel = document.createElement('label');
       fearCountLabel.className = 'allocation-fear-count';
       const fearCountInput = document.createElement('input');
       fearCountInput.type = 'number';
-      fearCountInput.min = '1';
+      fearCountInput.min = '0';
       fearCountInput.step = '1';
       fearCountInput.inputMode = 'numeric';
-      fearCountInput.value = String(symbolParams(symbol).fearBuyCount);
-      fearCountInput.disabled = !fearInput.checked;
+      const params = symbolParams(symbol);
+      const savedFearEnabled = allocation.fearEnabled?.[symbol];
+      const fearEnabled = typeof savedFearEnabled === 'boolean' ? savedFearEnabled : params.fearEnabled;
+      fearCountInput.value = String(fearEnabled ? params.fearBuyCount : 0);
       fearCountInput.setAttribute('aria-label', symbol + ' 恐慌加投倍数');
       fearCountInput.addEventListener('input', () => {
         message.textContent = '';
@@ -747,7 +734,7 @@ function initAllocationDialog() {
       fearCountLabel.append(fearCountInput, '倍');
       li.append(fearCountLabel);
 
-      inputs.set(symbol, { input, preview, fearInput, fearCountInput });
+      inputs.set(symbol, { input, preview, fearCountInput });
       return li;
     });
     list.replaceChildren(...rows);
@@ -794,14 +781,13 @@ function initAllocationDialog() {
   }
 
   bulkFearButton.addEventListener('click', () => {
-    const count = Number(bulkFearInput.value);
-    if (!validFearBuyCount(count, 0)) {
-      message.textContent = '统一恐慌加投倍数须为不小于 1 的整数';
+    const raw = bulkFearInput.value;
+    const count = Number(raw);
+    if (!validAllocationFearCount(raw, 0)) {
+      message.textContent = '统一恐慌加投倍数须为不小于 0 的整数';
       return;
     }
-    for (const { fearInput, fearCountInput } of inputs.values()) {
-      if (fearInput.checked) fearCountInput.value = String(count);
-    }
+    for (const { fearCountInput } of inputs.values()) fearCountInput.value = String(count);
     message.textContent = '';
     updatePreview();
   });
@@ -860,7 +846,7 @@ function initAllocationDialog() {
     const nextWeights = { ...allocation.weights };
     const nextFearEnabled = { ...allocation.fearEnabled };
     const updates = [];
-    for (const [symbol, { input, fearInput, fearCountInput }] of inputs) {
+    for (const [symbol, { input, fearCountInput }] of inputs) {
       const raw = input.value.trim();
       const weight = raw === '' ? 0 : Number(raw);
       if (!validWeight(weight)) {
@@ -868,15 +854,20 @@ function initAllocationDialog() {
         return;
       }
       const computed = weight === 0 ? 0 : Math.round(total * weight) / 100;
-      const fearCount = Number(fearCountInput.value);
-      const fearEnabled = fearInput ? fearInput.checked : true;
-      if (!validBaseAmount(computed) || !validFearBuyCount(fearCount, computed)) {
+      const fearRaw = fearCountInput.value;
+      const fearCount = Number(fearRaw);
+      if (!validAllocationFearCount(fearRaw, computed)) {
+        message.textContent = symbol + ' 恐慌加投倍数须为不小于 0 的整数，且不能超出有效计算范围';
+        return;
+      }
+      const fearEnabled = fearCount > 0;
+      if (!validBaseAmount(computed)) {
         message.textContent = symbol + ' 折算后的定投金额（' + computed.toFixed(2) + '）超出有效计算范围';
         return;
       }
       nextWeights[symbol] = weight;
       nextFearEnabled[symbol] = fearEnabled;
-      updates.push([symbol, computed, fearCount, fearEnabled]);
+      updates.push([symbol, computed, fearEnabled ? fearCount : symbolParams(symbol).fearBuyCount, fearEnabled]);
     }
     allocation = { totalAmount: total, weights: nextWeights, fearEnabled: nextFearEnabled };
     for (const [symbol, baseAmount, fearBuyCount, fearEnabled] of updates) {
