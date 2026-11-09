@@ -1,8 +1,13 @@
 {
   "version": 1,
-  "checkedAt": "2026-11-09T03:21:44.565Z",
+  "checkedAt": "2026-11-09T06:13:11.352Z",
   "expectedDate": "2026-11-06",
   "requestedSources": [
+    "Fear & Greed",
+    "SPY",
+    "QQQ",
+    "VGT",
+    "SMH",
     "BRK-B"
   ],
   "requestedComplete": true,
@@ -16,8 +21,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-06",
-      "checkedAt": "2026-11-09T00:28:59.852Z",
-      "lastSuccessAt": "2026-11-09T00:28:59.852Z"
+      "checkedAt": "2026-11-09T06:13:11.352Z",
+      "lastSuccessAt": "2026-11-09T06:13:11.352Z"
     },
     {
       "symbol": "SPY",
@@ -28,7 +33,8 @@
       "fresh": true,
       "expectedDate": "2026-11-06",
       "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z"
+      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
+      "skipped": true
     },
     {
       "symbol": "QQQ",
@@ -39,7 +45,8 @@
       "fresh": true,
       "expectedDate": "2026-11-06",
       "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z"
+      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
+      "skipped": true
     },
     {
       "symbol": "VGT",
@@ -50,7 +57,8 @@
       "fresh": true,
       "expectedDate": "2026-11-06",
       "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z"
+      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
+      "skipped": true
     },
     {
       "symbol": "SMH",
@@ -61,7 +69,8 @@
       "fresh": true,
       "expectedDate": "2026-11-06",
       "checkedAt": "2026-11-07T01:43:55.323Z",
-      "lastSuccessAt": "2026-11-07T01:43:55.323Z"
+      "lastSuccessAt": "2026-11-07T01:43:55.323Z",
+      "skipped": true
     },
     {
       "symbol": "BRK-B",
@@ -72,7 +81,8 @@
       "fresh": true,
       "expectedDate": "2026-11-06",
       "checkedAt": "2026-11-09T03:21:44.565Z",
-      "lastSuccessAt": "2026-11-09T03:21:44.565Z"
+      "lastSuccessAt": "2026-11-09T03:21:44.565Z",
+      "skipped": true
     }
   ]
 }
