@@ -2,8 +2,8 @@
   "version": 1,
   "source": "腾讯财经 / 天天基金",
   "quoteSource": "腾讯财经",
-  "checkedAt": "2026-11-09T22:52:21.996Z",
-  "lastAttemptAt": "2026-11-09T22:52:21.996Z",
+  "checkedAt": "2026-11-10T01:02:39.059Z",
+  "lastAttemptAt": "2026-11-10T01:02:39.059Z",
   "ok": true,
   "rows": [
     {
@@ -20,7 +20,7 @@
       "netAssets": 35053000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "159501",
@@ -36,7 +36,7 @@
       "netAssets": 13368000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "159696",
@@ -52,7 +52,7 @@
       "netAssets": 5705000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "159659",
@@ -68,7 +68,7 @@
       "netAssets": 10274000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "159660",
@@ -84,7 +84,7 @@
       "netAssets": 5774000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "159632",
@@ -100,7 +100,7 @@
       "netAssets": 11808000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "159513",
@@ -116,7 +116,7 @@
       "netAssets": 8247000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "513100",
@@ -132,7 +132,7 @@
       "netAssets": 19766000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "513300",
@@ -148,7 +148,7 @@
       "netAssets": 13913999999.999998,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "513390",
@@ -164,7 +164,7 @@
       "netAssets": 5048000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "513870",
@@ -180,7 +180,7 @@
       "netAssets": 2890000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     },
     {
       "code": "513110",
@@ -196,7 +196,7 @@
       "netAssets": 5206000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-11-09T22:52:21.996Z"
+      "profileCheckedAt": "2026-11-10T01:02:39.059Z"
     }
   ],
   "performance": {
@@ -204,15 +204,15 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-06",
-    "checkedAt": "2026-11-09T22:52:21.996Z",
-    "lastAttemptAt": "2026-11-09T22:52:21.996Z",
+    "checkedAt": "2026-11-10T01:02:39.059Z",
+    "lastAttemptAt": "2026-11-10T01:02:39.059Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
       "code": "QQQ",
       "currency": "USD",
-      "price": 656.0999755859375,
-      "quoteDate": "2026-11-06",
+      "price": 679.35,
+      "quoteDate": "2026-11-09",
       "periods": {
         "1": {
           "status": "ok",
@@ -226,14 +226,14 @@
           "years": 3,
           "startDate": "2023-11-06",
           "endDate": "2026-11-06",
-          "return": 80.73335641774923
+          "return": 80.73337161120999
         },
         "5": {
           "status": "ok",
           "years": 5,
           "startDate": "2021-11-05",
           "endDate": "2026-11-06",
-          "return": 69.59499226968866
+          "return": 69.59503240507519
         }
       }
     },
