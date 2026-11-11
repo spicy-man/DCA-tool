@@ -2,73 +2,73 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-10T23:50:05.976Z",
-  "lastAttemptAt": "2026-11-10T23:50:05.976Z",
+  "checkedAt": "2026-11-11T07:23:18.102Z",
+  "lastAttemptAt": "2026-11-11T07:23:18.102Z",
   "ok": true,
   "rows": [
     {
       "code": "513500",
       "manager": "博时",
-      "price": 2.652,
-      "change": 1.84,
-      "iopv": 2.3984,
-      "premium": 10.573715810540364,
-      "amount": 240631065,
+      "price": 2.662,
+      "change": 0.38,
+      "iopv": 2.3888,
+      "premium": 11.436704621567317,
+      "amount": 233703056,
       "shares": 10684638720,
-      "quoteDate": "2026-11-10",
-      "quoteTime": "2026-11-10T08:12:02.000Z",
+      "quoteDate": "2026-11-11",
+      "quoteTime": "2026-11-11T07:23:15.000Z",
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-10T23:50:05.976Z"
+      "profileCheckedAt": "2026-11-11T07:23:18.102Z"
     },
     {
       "code": "513650",
       "manager": "南方",
-      "price": 1.985,
-      "change": 2.11,
-      "iopv": 1.8272,
-      "premium": 8.636164623467613,
-      "amount": 676845627,
-      "shares": 5241733888,
-      "quoteDate": "2026-11-10",
-      "quoteTime": "2026-11-10T08:11:34.000Z",
+      "price": 1.992,
+      "change": 0.35,
+      "iopv": 1.8197,
+      "premium": 9.468593724240248,
+      "amount": 518782003,
+      "shares": 5231734016,
+      "quoteDate": "2026-11-11",
+      "quoteTime": "2026-11-11T07:23:15.000Z",
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-10T23:50:05.976Z"
+      "profileCheckedAt": "2026-11-11T07:23:18.102Z"
     },
     {
       "code": "159612",
       "manager": "国泰",
-      "price": 2.052,
-      "change": 1.89,
-      "iopv": 1.8809,
-      "premium": 9.096709022276572,
-      "amount": 31685061.222,
+      "price": 2.061,
+      "change": 0.44,
+      "iopv": 1.874,
+      "premium": 9.978655282817495,
+      "amount": 25761418.029,
       "shares": 510898656,
-      "quoteDate": "2026-11-10",
-      "quoteTime": "2026-11-10T07:34:57.000Z",
+      "quoteDate": "2026-11-11",
+      "quoteTime": "2026-11-11T07:22:45.000Z",
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-10T23:50:05.976Z"
+      "profileCheckedAt": "2026-11-11T07:23:18.102Z"
     },
     {
       "code": "159655",
       "manager": "华夏",
-      "price": 1.995,
-      "change": 2.36,
-      "iopv": 1.8353,
-      "premium": 8.701574674440149,
-      "amount": 253808980.408,
-      "shares": 2291143040,
-      "quoteDate": "2026-11-10",
-      "quoteTime": "2026-11-10T07:34:54.000Z",
+      "price": 2.001,
+      "change": 0.3,
+      "iopv": 1.8267,
+      "premium": 9.54179668254229,
+      "amount": 129665094.7,
+      "shares": 2290143040,
+      "quoteDate": "2026-11-11",
+      "quoteTime": "2026-11-11T07:22:30.000Z",
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-10T20:13:07.691Z"
+      "profileCheckedAt": "2026-11-11T07:23:18.102Z"
     }
   ],
   "performance": {
@@ -76,36 +76,36 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-09",
-    "checkedAt": "2026-11-10T23:50:05.976Z",
-    "lastAttemptAt": "2026-11-10T23:50:05.976Z",
+    "checkedAt": "2026-11-11T07:23:18.102Z",
+    "lastAttemptAt": "2026-11-11T07:23:18.102Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
       "code": "SPY",
       "currency": "USD",
-      "price": 752.6900024414062,
-      "quoteDate": "2026-11-09",
+      "price": 749.9199829101562,
+      "quoteDate": "2026-11-10",
       "periods": {
         "1": {
           "status": "ok",
           "years": 1,
           "startDate": "2025-11-07",
           "endDate": "2026-11-09",
-          "return": 13.389645321091148
+          "return": 13.389655746923722
         },
         "3": {
           "status": "ok",
           "years": 3,
           "startDate": "2023-11-09",
           "endDate": "2026-11-09",
-          "return": 79.89884469797536
+          "return": 79.89888406313493
         },
         "5": {
           "status": "ok",
           "years": 5,
           "startDate": "2021-11-09",
           "endDate": "2026-11-09",
-          "return": 72.18445800124516
+          "return": 72.18447002172607
         }
       }
     },
