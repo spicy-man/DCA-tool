@@ -1,9 +1,12 @@
 import { updateBacktest, initBacktest } from './backtest.mjs';
+import { calculateKDSignals, calculateKDSeries, kdMultiple } from '../../domain/kd-strategy.mjs';
+import { getKDOptions, readKDTierFactor, setKDTierFactor } from './kd.mjs';
+import { SIGNAL_STRATEGIES, normalizeStatusStrategy, selectSignalHistory, signalName, formatMultiple } from '../../domain/signal-view.mjs';
 import { appEvents, events } from '../../services/events.mjs';
 import { chartInsets, createTradingScale, createProfitAxis } from '../../charts/geometry.mjs';
 import { loadMarketSnapshot } from '../../services/data-client.mjs';
 import { evaluateFearStrategy } from '../../domain/fear-strategy.mjs';
-import { renderStrategySummary } from './summary.mjs';
+import { formatFearStatus, renderStrategySummary } from './summary.mjs';
 import { estimateMonthlyBuy, nextMonthlyPlan, summarizePortfolioFunding } from '../../domain/strategy-summary.mjs';
 import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
 import { downloadCSV } from '../../ui/download.mjs';
@@ -12,13 +15,15 @@ import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 const $ = id => document.getElementById(id);
 const storageKey = 'seeker.pyramid.v1';
 const symbolStorageKey = 'seeker.symbol.v1';
+const strategyViewKey='seeker.strategyView.v1';
+let viewStrategy='combined';
 const cache = new WeakMap();
 const defaults = { buyDay: 1, baseAmount: 2000, enabled: true, fearThreshold: 10, fearBuyCount: 3, fearEnabled: true };
 
 let state = { ...defaults };
 let fallback = { baseAmount: defaults.baseAmount, fearBuyCount: defaults.fearBuyCount, fearEnabled: defaults.fearEnabled };
 let bySymbol = {};
-let allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {} };
+let allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {}, plan: 'pyramidFear' };
 let current = [];
 let allCurrent = [];
 let market = null;
@@ -40,11 +45,11 @@ export function invalidatePortfolioMarketCache() {
 }
 
 function validBaseAmount(value) {
-  return Number.isFinite(value) && (value === 0 || (value >= 0.01 && Number.isFinite(value * 38)));
+  return Number.isFinite(value) && (value === 0 || (value >= 0.01 && Number.isFinite(value * 3**9)));
 }
 
 function validTotalAmount(value) {
-  return Number.isFinite(value) && value >= 0.01 && Number.isFinite(value * 38);
+  return Number.isFinite(value) && value >= 0.01 && Number.isFinite(value * 3**9);
 }
 
 function validFearBuyCount(count, baseAmount) {
@@ -110,6 +115,7 @@ export function signalSettings() {
 export function getVisibleSignals() {
   return current;
 }
+export const getSignalStrategy=()=>viewStrategy;
 
 export function signalForDate(date) {
   return current.filter(signal => signal.date === date);
@@ -120,7 +126,7 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
   market = data;
   settings = next;
   if (!data || !next) {
-    renderStrategySummary(null, null, state);
+    renderStrategySummary(null, null, state,[],null,{strategy:viewStrategy,kdOptions:getKDOptions()});
     updateBacktest(null);
     current = [];
     allCurrent = [];
@@ -161,13 +167,21 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
   const fear = state.baseAmount === 0 || !state.fearEnabled
     ? { ...rawFear, signals: [], pending: [], disabled: !state.fearEnabled }
     : rawFear;
-  const history = [
-    ...computed.get(key).map(s => ({ ...s, type: 'monthly' })),
-    ...fear.signals
-  ]
-    .sort((a, b) => a.date.localeCompare(b.date));
-  renderStrategySummary(data, next, state, history, fear);
-  if (syncBacktest) updateBacktest({ rows: data.rows, monthlySignals: computed.get(key), fearSignals: fear.signals, range: next, baseAmount: state.baseAmount, symbol: data.symbol, sentiment: sentimentRows });
+  const kdOptions = getKDOptions();
+  const monthlySignals = computed.get(key);
+  const kdSignals = syncBacktest || viewStrategy === 'kdFear'
+    ? calculateKDSignals(data.rows, monthlySignals, { ...kdOptions, baseAmount: state.baseAmount })
+    : [];
+  const history = selectSignalHistory(viewStrategy, {
+    monthlySignals, fearSignals: fear.signals, kdSignals, baseAmount: state.baseAmount
+  });
+  renderStrategySummary(data, next, state, history, fear, { strategy: viewStrategy, kdOptions });
+  if (syncBacktest) {
+    updateBacktest({
+      rows: data.rows, monthlySignals, kdSignals, fearSignals: fear.signals,
+      range: next, baseAmount: state.baseAmount, symbol: data.symbol, sentiment: sentimentRows
+    });
+  }
   allCurrent = history.filter(r => r.date >= next.start && r.date <= next.end);
 
   current = state.enabled && next.frequency === 'daily' ? allCurrent : [];
@@ -179,9 +193,13 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
         ? '买入信号已隐藏'
         : state.baseAmount === 0
           ? '当前标的 1N = 0.00，不生成买入信号'
-          : !state.fearEnabled
-            ? `当前区间 ${allCurrent.length} 笔 · 每月 ${state.buyDay} 日（未启用恐慌加投）`
-            : `当前区间 ${allCurrent.length} 笔 · 每月 ${state.buyDay} 日 + F&G 跌破 ${state.fearThreshold}`;
+          : `当前区间 ${allCurrent.length} 笔 · ${SIGNAL_STRATEGIES[viewStrategy]} · 每月 ${state.buyDay} 日`+(['combined','kdFear'].includes(viewStrategy)?(state.fearEnabled?` + F&G 跌破 ${state.fearThreshold}`:'（未启用恐慌加投）'):'');
+  const usesKD = viewStrategy === 'kdFear';
+  $('strategy-heading').textContent = SIGNAL_STRATEGIES[viewStrategy] + '买入信号';
+  $('signal-pyramid-explanation').hidden = usesKD;
+  $('signal-strategy-rule').textContent = usesKD
+    ? 'KD按已收盘周线加权K分档，恐慌信号独立加投。月度信号收盘确认后，在下一可用交易日开盘成交。'
+    : '月度金字塔与恐慌加投独立累加。月度按信号日展示，在下一可用交易日开盘成交。';
   renderSignalTable();
 }
 
@@ -202,6 +220,8 @@ export function signalTooltipRows(signal) {
       ['投入金额', amountFormatted]
     ];
   }
+  if(signal.strategy==='regular')return[['信号类型','普通定投'],['定投所属月份',signal.scheduledMonth],['计划定投日',signal.scheduledDate],['买入（N）','1N'],['投入金额',amountFormatted],['成交口径','信号收盘后，下一交易日开盘']];
+  if(signal.strategy==='kd')return[['信号类型','KD定投'],['定投所属月份',signal.scheduledMonth],['计划定投日',signal.scheduledDate],['使用的周收盘',signal.signalWeek??'无已完成周线'],['月K',signal.monthK?.toFixed(2)??'—'],['季度K',signal.quarterK?.toFixed(2)??'—'],['加权K',signal.weightedK?.toFixed(2)??'—'],['买入（N）',formatMultiple(signal.multiple)+'N'],['投入金额',amountFormatted],['成交口径','信号收盘后，下一交易日开盘']];
   return [
     ['信号类型', '月度定投'],
     ['定投所属月份', signal.scheduledMonth],
@@ -270,13 +290,13 @@ export function drawSignalMarkers(frame) {
     marker.type = 'button';
     marker.className =
       'buy-marker' + (p.signal.type === 'fear' ? ' is-fear' : '') + (dense ? ' is-compact' : '');
-    marker.textContent = 'buy ' + p.signal.multiple + 'N';
+    marker.textContent = 'buy ' + p.signal.multiple.toLocaleString('en-US',{maximumFractionDigits:4}) + 'N';
     marker.dataset.date = p.signal.date;
     marker.dataset.type = p.signal.type;
     marker.dataset.multiple = p.signal.multiple;
     marker.setAttribute(
       'aria-label',
-      `${p.signal.date} ${p.signal.type === 'fear' ? '恐慌加投' : '月度定投'} 买入 ${p.signal.multiple}N，${p.signal.amount.toFixed(2)}`
+      `${p.signal.date} ${signalName(p.signal)} 买入 ${formatMultiple(p.signal.multiple)}N，${p.signal.amount.toFixed(2)}`
     );
     marker.style.left = p.x + 'px';
     marker.style.top = (floating
@@ -318,9 +338,9 @@ function renderSignalTable() {
           signal.date,
           signal.type === 'fear'
             ? '恐慌加投 · F&G ' + signal.score.toFixed(2)
-            : '月度定投 · ' + signal.scheduledMonth,
-          signal.type === 'fear' ? '—' : (signal.drawdown * 100).toFixed(2) + '%',
-          signal.multiple + 'N',
+            : signalName(signal)+' · ' + signal.scheduledMonth,
+          signal.type === 'fear' ? '—' : signal.strategy==='kd'?'加权K '+(signal.weightedK?.toFixed(2)??'无周线，按1N'):signal.strategy==='regular'?'固定1N':(signal.drawdown * 100).toFixed(2) + '%',
+          formatMultiple(signal.multiple) + 'N',
           signal.amount.toLocaleString('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -398,7 +418,9 @@ function formatPercent(value) {
   return value === null ? '—' : (Math.abs(value) < 0.00005 ? 0 : value * 100).toFixed(2) + '%';
 }
 
-const strategyColors = ['#607487', '#0d9488', '#2563eb'];
+const formatRatio = value => value === null || !Number.isFinite(value) ? '—' : value.toFixed(2);
+
+const strategyColors = ['#607487', '#0d9488', '#2563eb', '#c26e2b', '#a64b77'];
 
 function drawAllocationBacktestChart(svg, result, { seriesMode, logScale, baseAmount, principalLegend }) {
   if (!svg) return;
@@ -436,8 +458,8 @@ function drawAllocationBacktestChart(svg, result, { seriesMode, logScale, baseAm
   const axis = createProfitAxis(all, top, bottom, logScale, baseAmount);
   const y = axis.y;
   add('title', {}, showEquity
-    ? (showPrincipal ? '配比组合三种策略的累计资产与投入本金' : '配比组合三种策略的累计资产')
-    : '配比组合三种策略的累计盈亏，已扣除累计投入本金');
+    ? (showPrincipal ? '配比组合五种策略的累计资产与投入本金' : '配比组合五种策略的累计资产')
+    : '配比组合五种策略的累计盈亏，已扣除累计投入本金');
   for (const value of axis.ticks) {
     const py = y(value);
     add('line', { x1: left, x2: width - right, y1: py, y2: py, stroke: '#e5eaf0', 'stroke-dasharray': '3 4' });
@@ -468,7 +490,7 @@ function drawAllocationBacktestChart(svg, result, { seriesMode, logScale, baseAm
   }
 }
 
-function renderAllocationStatus(items, buyDay, fearThreshold, message = '') {
+function renderAllocationStatus(items, buyDay, fearThreshold, message, selectedPlan, kdOptions) {
   const plan = $('allocation-next-plan');
   if (!plan) return;
   const detail = $('allocation-next-detail');
@@ -486,16 +508,21 @@ function renderAllocationStatus(items, buyDay, fearThreshold, message = '') {
   fearDetail.textContent = '';
   if (!items.length) return;
 
+  const useKD = selectedPlan === 'kdFear';
   const history = [];
   const plans = items.map(({ symbol, rows, baseAmount }) => {
-    const signals = calculatePyramidSignals(rows, { buyDay, baseAmount });
+    const monthlySignals = calculatePyramidSignals(rows, { buyDay, baseAmount });
+    const signals = useKD ? calculateKDSignals(rows, monthlySignals, { ...kdOptions, baseAmount }) : monthlySignals;
     const lastSignal = signals.at(-1);
     if (lastSignal) {
       const amount = signals.reduce((sum, signal) => signal.date === lastSignal.date ? sum + signal.amount : sum, 0);
       history.push({ symbol, date: lastSignal.date, amount });
     }
-    const { expectedDate } = nextMonthlyPlan(rows, signals, buyDay);
-    const estimate = estimateMonthlyBuy(rows, baseAmount, expectedDate, lastSignal?.date);
+    const { expectedDate } = nextMonthlyPlan(rows, monthlySignals, buyDay);
+    const kdState = useKD ? calculateKDSeries(rows, kdOptions).get(rows.at(-1).date) : null;
+    const estimate = useKD
+      ? { amount: baseAmount * (kdState ? kdMultiple(kdState.weightedK, kdOptions.tierFactor) : 1) }
+      : estimateMonthlyBuy(rows, baseAmount, expectedDate, lastSignal?.date);
     return { symbol, expectedDate, amount: estimate?.amount, asOf: rows.at(-1).date };
   });
   const sameDate = plans.every(item => item.expectedDate === plans[0].expectedDate);
@@ -529,15 +556,10 @@ function renderAllocationStatus(items, buyDay, fearThreshold, message = '') {
     fearState.textContent = enabled.length ? '等待指数数据' : '未启用恐慌加投';
     return;
   }
-  const { latest, armed, rearmThreshold } = states[0];
-  fearHeading.textContent = '恐慌加投状态（' + latest.date + '）';
-  const triggerState = armed ? '等待下穿 ' + fearThreshold + ' 点' : '等待回升至 ' + rearmThreshold + ' 点重置';
-  fearState.textContent = triggerState + ' · 当前 ' + latest.score.toFixed(2);
-  const pendingLines = states.filter(({ pending }) => pending.length).map(({ symbol, pending }) =>
-    symbol + ' ' + formatMoney(pending.reduce((sum, signal) => sum + signal.amount, 0)));
-  fearDetail.textContent = pendingLines.length
-    ? ['已触发加投 · 执行日待确认', ...pendingLines].join('\n')
-    : '暂无待确认加投';
+  const fearStatus = formatFearStatus(states, fearThreshold);
+  fearHeading.textContent = fearStatus.heading;
+  fearState.textContent = fearStatus.status;
+  fearDetail.textContent = fearStatus.detail;
 }
 
 function initAllocationDialog() {
@@ -545,15 +567,22 @@ function initAllocationDialog() {
   const openBtn = $('allocation-open');
   const cancelBtn = $('allocation-cancel');
   const form = $('allocation-form');
+  const planButtons = {
+    pyramidFear: $('allocation-plan-pyramidFear'),
+    kdFear: $('allocation-plan-kdFear')
+  };
   const totalInput = $('allocation-total');
   const buyDayInput = $('allocation-buy-day');
   const thresholdInput = $('allocation-fear-threshold');
+  const tierFactorInput = $('allocation-kd-tier-factor');
+  const tierFactorError = $('allocation-kd-factor-error');
   const bulkFearInput = $('allocation-bulk-fear-count');
   const bulkFearButton = $('allocation-apply-fear-count');
   const list = $('allocation-list');
   const summary = $('allocation-summary');
   const estimateAverage = $('allocation-estimate-average');
   const estimatePeak = $('allocation-estimate-peak');
+  const estimateAnnualPeak = $('allocation-estimate-annual-peak');
   const estimateNote = $('allocation-estimate-note');
   const backtestWrap = $('allocation-backtest-wrap');
   const backtestPeriod = $('allocation-backtest-period');
@@ -570,9 +599,23 @@ function initAllocationDialog() {
   let allocLogScale = true;
   let lastBacktest = null;
   let lastTotal = defaults.baseAmount;
+  let previewTierFactor = getKDOptions().tierFactor;
   refreshAllocationPreview = () => {
     if (dialog.open && inputs.size) updatePreview();
   };
+
+  function validateTierFactor() {
+    try {
+      const value = readKDTierFactor(tierFactorInput.value);
+      tierFactorInput.setAttribute('aria-invalid', 'false');
+      tierFactorError.textContent = '';
+      return value;
+    } catch (error) {
+      tierFactorInput.setAttribute('aria-invalid', 'true');
+      tierFactorError.textContent = error.message + '。仍显示上一次有效系数的预览。';
+      return null;
+    }
+  }
 
   function ensureMarketRows(symbols) {
     if (typeof fetch !== 'function') return;
@@ -600,7 +643,18 @@ function initAllocationDialog() {
     }
   }
 
+  let selectedPlan = allocation.plan;
+  function selectPlan(plan) {
+    selectedPlan = plan;
+    for (const [value, button] of Object.entries(planButtons)) {
+      button.setAttribute('aria-pressed', String(value === selectedPlan));
+    }
+  }
+
   function updatePreview() {
+    const kdOptions = { ...getKDOptions(), tierFactor: previewTierFactor };
+    $('allocation-status-heading').textContent='组合策略状态 · '+(selectedPlan==='kdFear'?'KD＋恐慌':'跌幅＋恐慌');
+    if($('allocation-kd-funding'))$('allocation-kd-funding').textContent='另一方案资金需求待有效组合参数与行情就绪后显示。';
     const total = Number(totalInput.value);
     const totalValid = validTotalAmount(total);
     const buyDay = Number(buyDayInput.value);
@@ -651,9 +705,10 @@ function initAllocationDialog() {
     }
 
     if (!estimatePeak || !estimateNote) return;
-    const setEstimate = (avgText, peakText, noteText, backtest = null) => {
+    const setEstimate = (avgText, peakText, annualPeakText, noteText, backtest = null) => {
       if (estimateAverage) estimateAverage.textContent = avgText;
       estimatePeak.textContent = peakText;
+      if (estimateAnnualPeak) estimateAnnualPeak.textContent = annualPeakText;
       estimateNote.textContent = noteText;
       if (!backtestWrap || !backtestResults) return;
       lastBacktest = backtest;
@@ -683,6 +738,9 @@ function initAllocationDialog() {
             formatPercent(strategy.capitalReturn),
             formatPercent(strategy.xirr),
             formatPercent(strategy.maxDrawdown),
+            formatRatio(strategy.sharpe),
+            formatRatio(strategy.sortino),
+            formatRatio(strategy.mar),
             strategy.trades
           ];
           for (const [index, value] of cells.entries()) {
@@ -705,26 +763,26 @@ function initAllocationDialog() {
       });
     };
     if (!totalValid || !settingsValid || hasInvalid) {
-      renderAllocationStatus([], buyDay, fearThreshold, '请检查组合参数');
-      setEstimate('—', '—', '请输入有效的定投日、阈值、总金额、配比和加投倍数后自动测算');
+      renderAllocationStatus([], buyDay, fearThreshold, '请检查组合参数',selectedPlan);
+      setEstimate('—', '—', '—', '请输入有效的定投日、阈值、总金额、配比和加投倍数后自动测算');
       return;
     }
     if (!activeItems.length) {
-      renderAllocationStatus([], buyDay, fearThreshold, '暂无投入标的');
-      setEstimate('0.00（0N）', '0.00（0N）', '当前配比下各标的均为 0.00，无买入资金需求');
+      renderAllocationStatus([], buyDay, fearThreshold, '暂无投入标的',selectedPlan);
+      setEstimate('0.00（0N）', '0.00（0N）', '0.00（0N）', '当前配比下各标的均为 0.00，无买入资金需求');
       return;
     }
     ensureMarketRows(activeItems.map(item => item.symbol));
     if (activeItems.some(item => !marketRowsBySymbol.has(item.symbol) && loadingSymbols.has(item.symbol))) {
-      renderAllocationStatus([], buyDay, fearThreshold, '正在读取行情');
-      setEstimate('正在测算…', '正在测算…', '正在读取各标的历史行情数据…');
+      renderAllocationStatus([], buyDay, fearThreshold, '正在读取行情',selectedPlan);
+      setEstimate('正在测算…', '正在测算…', '正在测算…', '正在读取各标的历史行情数据…');
       return;
     }
     const items = activeItems.map(item => ({ ...item, rows: marketRowsBySymbol.get(item.symbol) }));
     const missingMarket = items.some(item => !item.rows?.length);
-    renderAllocationStatus(missingMarket ? [] : items, buyDay, fearThreshold, '等待各标的行情');
+    renderAllocationStatus(missingMarket ? [] : items, buyDay, fearThreshold, '等待各标的行情', selectedPlan, kdOptions);
     if (!sentimentRows.length || missingMarket) {
-      setEstimate('暂无数据', '暂无数据', '等待恐慌指数与各标的历史行情就绪后自动测算');
+      setEstimate('暂无数据', '暂无数据', '暂无数据', '等待恐慌指数与各标的历史行情就绪后自动测算');
       return;
     }
     const mode = backtestMode?.value === 'actual' ? 'actual' : 'equal';
@@ -734,28 +792,43 @@ function initAllocationDialog() {
       buyDay,
       fearThreshold,
       mode,
-      totalBaseAmount: total
+      totalBaseAmount: total,
+      kdOptions,
+      plan: selectedPlan
     });
     if (!funding) {
-      setEstimate('暂无数据', '暂无数据', '当前行情区间无法测算');
+      setEstimate('暂无数据', '暂无数据', '暂无数据', '当前行情区间无法测算');
       return;
     }
-    const avgN = (funding.average / total).toLocaleString('en-US', { maximumFractionDigits: 2 });
-    const peakN = (funding.peak / total).toLocaleString('en-US', { maximumFractionDigits: 2 });
-    const avgText = formatMoney(funding.average) + '（' + avgN + 'N）';
-    const peakText = formatMoney(funding.peak) + '（' + peakN + 'N）';
+    const comparePyramid = selectedPlan === 'kdFear';
+    const otherId = comparePyramid ? 'combined' : 'kdFear';
+    const otherName = comparePyramid ? '跌幅＋恐慌' : 'KD＋恐慌';
+    const other = funding.backtest?.results.find(strategy => strategy.id === otherId);
+    if (other) {
+      const shared = mode === 'equal'
+        ? '五策略共同供资的历史最大单月外部入金为 ' + formatMoney(funding.backtest.fundingPeak) + '。'
+        : '';
+      $('allocation-kd-funding').textContent = '另一方案（' + otherName + '）：累计买入 ' +
+        formatMoney(other.monthlyBought) + '，月均 ' + formatMoney(other.monthlyBought / funding.months) +
+        '，单月最高买入 ' + formatMoney(other.maxMonthly) + '。' + shared;
+    }
+    const formatFunding = value => formatMoney(value) + '（' + (value / total).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'N）';
+    const avgText = formatFunding(funding.average);
+    const peakText = formatFunding(funding.peak);
+    const annualPeakText = formatFunding(funding.annualPeak);
     if (funding.peak > 0) {
       const monthLabel = funding.peakMonths[0] + (funding.peakMonths.length > 1 ? ' 等 ' + funding.peakMonths.length + ' 个月' : '');
       const breakdown = funding.peakBreakdown.map(entry => entry.symbol + ' ' + formatMoney(entry.amount)).join(' ＋ ');
       setEstimate(
         avgText,
         peakText,
+        annualPeakText,
         '峰值月份 ' + monthLabel + '（' + breakdown + '）\n' +
-        '测算区间 ' + funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + '（' + funding.months + ' 个月）· 累计买入 ' + formatMoney(funding.total),
+        '测算方案 '+(selectedPlan==='kdFear'?'KD＋恐慌':'跌幅＋恐慌')+' · 区间 ' + funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + '（' + funding.months + ' 个月）· 累计买入 ' + formatMoney(funding.total),
         funding.backtest
       );
     } else {
-      setEstimate(avgText, peakText, funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + ' 区间内无成交买入', funding.backtest);
+      setEstimate(avgText, peakText, annualPeakText, funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + ' 区间内无成交买入', funding.backtest);
     }
   }
 
@@ -822,8 +895,13 @@ function initAllocationDialog() {
 
   openBtn.addEventListener('click', () => {
     failedSymbols.clear();
+    selectPlan(allocation.plan);
     buyDayInput.value = String(state.buyDay);
     thresholdInput.value = String(state.fearThreshold);
+    previewTierFactor = getKDOptions().tierFactor;
+    tierFactorInput.value = String(previewTierFactor);
+    tierFactorInput.setAttribute('aria-invalid', 'false');
+    tierFactorError.textContent = '';
     bulkFearInput.value = '';
     totalInput.value = String(
       validTotalAmount(allocation.totalAmount)
@@ -852,12 +930,28 @@ function initAllocationDialog() {
     updatePreview();
   });
 
+  for (const [plan, button] of Object.entries(planButtons)) {
+    button.addEventListener('click', () => {
+      if (plan === selectedPlan) return;
+      selectPlan(plan);
+      message.textContent = '';
+      updatePreview();
+    });
+  }
+
   for (const input of [buyDayInput, thresholdInput]) {
     input.addEventListener('input', () => {
       message.textContent = '';
       updatePreview();
     });
   }
+
+  tierFactorInput.addEventListener('input', () => {
+    const value = validateTierFactor();
+    if (value === null || value === previewTierFactor) return;
+    previewTierFactor = value;
+    updatePreview();
+  });
 
   bulkFearButton.addEventListener('click', () => {
     const raw = bulkFearInput.value;
@@ -907,6 +1001,8 @@ function initAllocationDialog() {
 
   form.addEventListener('submit', event => {
     event.preventDefault();
+    const tierFactor = validateTierFactor();
+    if (tierFactor === null) return;
     const total = Number(totalInput.value);
     const buyDay = Number(buyDayInput.value);
     const fearThreshold = Number(thresholdInput.value);
@@ -948,15 +1044,15 @@ function initAllocationDialog() {
       nextFearEnabled[symbol] = fearEnabled;
       updates.push([symbol, computed, fearEnabled ? fearCount : symbolParams(symbol).fearBuyCount, fearEnabled]);
     }
-    allocation = { totalAmount: total, weights: nextWeights, fearEnabled: nextFearEnabled };
+    allocation = { totalAmount: total, weights: nextWeights, fearEnabled: nextFearEnabled, plan: selectedPlan };
     for (const [symbol, baseAmount, fearBuyCount, fearEnabled] of updates) {
       bySymbol[symbol] = { baseAmount, fearBuyCount, fearEnabled };
     }
     state = { ...state, buyDay, fearThreshold };
     syncControlsForSymbol(activeSymbol());
     saveStorage();
-    appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
     dialog.close?.();
+    setKDTierFactor(tierFactor);
   });
 }
 
@@ -966,8 +1062,24 @@ export function initStrategyOverlay() {
   state = { ...defaults };
   fallback = { baseAmount: defaults.baseAmount, fearBuyCount: defaults.fearBuyCount, fearEnabled: defaults.fearEnabled };
   bySymbol = {};
-  allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {} };
+  allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {}, plan:'pyramidFear' };
   refreshAllocationPreview = null;
+  viewStrategy='combined';try{viewStrategy=normalizeStatusStrategy(localStorage.getItem(strategyViewKey));}catch{}
+  const syncStatusSwitch=()=>{
+    const kd=viewStrategy==='kdFear';
+    $('status-strategy-combined').setAttribute('aria-pressed',String(!kd));
+    $('status-strategy-kdFear').setAttribute('aria-pressed',String(kd));
+  };
+  syncStatusSwitch();
+  for(const [id,strategy] of [['status-strategy-combined','combined'],['status-strategy-kdFear','kdFear']]){
+    $(id).addEventListener('click',()=>{
+      if(viewStrategy===strategy)return;
+      viewStrategy=strategy;syncStatusSwitch();
+      try{localStorage.setItem(strategyViewKey,viewStrategy);}catch{}
+      updateSignals(market,settings,{syncBacktest:false});
+      appEvents.dispatchEvent(new CustomEvent(events.strategyView));
+    });
+  }
   invalidatePortfolioMarketCache();
   $('price-tooltip').addEventListener('pointerleave', () => { $('price-tooltip').hidden = true; });
   $('signal-table').closest('details').addEventListener('toggle', renderSignalTable);
@@ -1034,12 +1146,13 @@ export function initStrategyOverlay() {
             if (typeof enabled === 'boolean') fearEnabled[symbol] = enabled;
           }
         }
-        allocation = { totalAmount, weights, fearEnabled };
+        allocation = { totalAmount, weights, fearEnabled, plan:saved.allocation.plan==='kdFear'?'kdFear':'pyramidFear' };
       } else {
         allocation = {
           totalAmount: validTotalAmount(fallback.baseAmount) ? fallback.baseAmount : defaults.baseAmount,
           weights: {},
-          fearEnabled: {}
+          fearEnabled: {},
+          plan:'pyramidFear'
         };
       }
     }
@@ -1068,7 +1181,7 @@ export function initStrategyOverlay() {
   $('signal-download').addEventListener('click', () => {
     if (!market || !allCurrent.length) return;
     const header =
-      'Symbol,Date,BuyDay,BaseAmountUSD,MonthCutoff,MonthHigh,Drawdown,Multiple,AmountUSD,SignalType,SignalDate,FearScore,FearThreshold,RearmThreshold,ScheduledMonth,ScheduledDate\n';
+      'Symbol,Date,BuyDay,BaseAmountUSD,MonthCutoff,MonthHigh,Drawdown,Multiple,AmountUSD,SignalType,SignalDate,FearScore,FearThreshold,RearmThreshold,ScheduledMonth,ScheduledDate,Strategy,MonthK,QuarterK,WeightedK,SignalWeek\n';
     const body = allCurrent
       .map(s =>
         [
@@ -1076,9 +1189,9 @@ export function initStrategyOverlay() {
           s.date,
           s.buyDay,
           s.baseAmount,
-          s.cutoff,
-          s.monthHigh,
-          s.drawdown,
+          s.strategy==='regular'?'':s.cutoff,
+          s.strategy==='regular'?'':s.monthHigh,
+          s.strategy==='regular'?'':s.drawdown,
           s.multiple,
           s.amount,
           s.type,
@@ -1087,10 +1200,11 @@ export function initStrategyOverlay() {
           s.fearThreshold ?? '',
           s.rearmThreshold ?? '',
           s.scheduledMonth ?? '',
-          s.scheduledDate ?? ''
+          s.scheduledDate ?? '',
+          viewStrategy,s.monthK??'',s.quarterK??'',s.weightedK??'',s.signalWeek??''
         ].join(',')
       )
       .join('\n');
-    downloadCSV(market.symbol + '-dca-signals.csv', header + body);
+    downloadCSV(market.symbol + '-'+viewStrategy+'-dca-signals.csv', header + body);
   });
 }

@@ -29,8 +29,7 @@
 #allocation-dialog h2 { margin-top: 0; font-size: 20px; }
 #symbol-dialog p,
 #allocation-dialog p { line-height: 1.7; }
-#custom-symbol,
-#allocation-total {
+#custom-symbol {
   display: block;
   width: 100%;
   margin-top: 8px;
@@ -42,23 +41,25 @@
   text-transform: uppercase;
 }
 #allocation-total {
-  text-transform: none;
   font-variant-numeric: tabular-nums;
 }
 #symbol-message,
 #allocation-message { min-height: 24px; }
 #allocation-message { color: #b65342; margin: 6px 0; }
 #allocation-message:empty { display: none; }
-.allocation-parameters { display: grid; grid-template-columns: minmax(140px, 200px) minmax(0, 1fr); align-items: end; gap: 16px; }
-.allocation-total-label { display: block; font-size: 12px; font-weight: 550; }
-.allocation-settings { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
-.allocation-settings label { display: grid; gap: 5px; font-size: 12px; font-weight: 550; }
-.allocation-settings input, .allocation-fear-count input { width: 90px; height: 30px; padding: 0 7px; border: 1px solid var(--border); border-radius: 4px; color: inherit; font: inherit; }
-.allocation-bulk-fear { display: flex; align-items: end; gap: 6px; }
-.allocation-bulk-fear button { height: 30px; padding: 0 8px; font-size: 12px; }
+.allocation-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; }
+#allocation-dialog .allocation-heading h2 { margin: 0; }
+.allocation-parameters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; }
+.allocation-parameters label { display: grid; gap: 5px; min-width: 0; font-size: 12px; font-weight: 550; }
+.allocation-parameters input, .allocation-fear-count input { border: 1px solid var(--border); border-radius: 4px; color: inherit; font: inherit; }
+.allocation-parameters input { width: 100%; min-width: 0; height: 36px; padding: 0 8px; }
+.allocation-bulk-fear { grid-column: span 2; display: flex; align-items: end; gap: 8px; }
+.allocation-bulk-fear label { flex: 0 1 calc((100% - 12px) / 2); }
+.allocation-bulk-fear button { height: 36px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
 .allocation-summary { font-size: 12px; color: #4a5c68; margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
-#allocation-dialog { width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
-#allocation-total { height: 36px; margin-top: 5px; padding: 0 10px; }
+#allocation-dialog { width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; }
+#allocation-dialog[open] { display: flex; flex-direction: column; }
+#allocation-form { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px; }
 .allocation-estimate { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; font-variant-numeric: tabular-nums; }
 .allocation-estimate-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; color: #35434e; }
 .allocation-estimate-head + .allocation-estimate-head { margin-top: 4px; }
@@ -81,25 +82,26 @@
 .allocation-preview { font-size: 12px; color: #607487; text-align: right; white-space: nowrap; }
 .allocation-fear-count { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #607487; white-space: nowrap; }
 .allocation-fear-count::before { content: '恐慌加投'; color: #35434e; }
-.allocation-fear-count input { width: 58px; text-align: right; }
+.allocation-fear-count input { width: 58px; height: 30px; padding: 0 7px; text-align: right; }
 .allocation-fear-count input:disabled { background: #f1f3f5; color: #7d8994; }
 .allocation-list-heading { margin: 20px 0 0; font-size: 14px; }
 .allocation-fear-note { margin: 4px 0 0; color: #607487; font-size: 11px; }
-#allocation-dialog .allocation-actions { position: sticky; bottom: -24px; z-index: 1; margin: 0 -24px -24px; padding: 10px 24px 16px; border-top: 1px solid var(--border); background: #fff; }
+#allocation-dialog .allocation-actions { flex: none; padding: 10px 24px 16px; border-top: 1px solid var(--border); background: #fff; }
 @media (max-width: 760px) {
-  .allocation-parameters { grid-template-columns: 1fr; gap: 12px; }
+  .allocation-parameters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .allocation-bulk-fear { grid-column: 1 / -1; }
 }
 @media (max-width: 600px) {
-  #allocation-dialog { width: calc(100% - 20px); max-width: none; max-height: calc(100dvh - 20px); padding: 18px 14px 0; font-size: 14px; }
-  #allocation-dialog h2 { margin-bottom: 6px; font-size: 18px; }
+  #allocation-dialog { width: calc(100% - 20px); max-width: none; max-height: calc(100dvh - 20px); font-size: 14px; }
+  #allocation-form { padding: 18px 14px; }
+  .allocation-heading { flex-direction: column; align-items: flex-start; margin-bottom: 8px; }
+  #allocation-dialog h2 { font-size: 18px; }
   #allocation-dialog .allocation-intro { margin: 0 0 14px; color: #607487; font-size: 13px; line-height: 1.6; }
-  .allocation-total-label, .allocation-settings label { font-size: 13px; }
-  #allocation-total { height: 42px; padding: 0 10px; font-size: 16px; }
-  .allocation-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .allocation-settings input { width: 100%; height: 42px; padding: 0 10px; font-size: 16px; }
-  .allocation-bulk-fear { grid-column: 1 / -1; align-items: end; gap: 8px; }
-  .allocation-bulk-fear label { flex: 1; min-width: 0; }
-  .allocation-bulk-fear button { height: 42px; padding: 0 10px; font-size: 12px; }
+  .allocation-parameters label { font-size: 13px; }
+  .allocation-parameters input { height: 42px; padding: 0 10px; font-size: 16px; }
+  .allocation-heading .strategy-status-switch button { height: 42px; padding-inline: 6px; }
+  .allocation-bulk-fear label { flex: 1; }
+  .allocation-bulk-fear button { height: 42px; }
   .allocation-list-heading { margin-top: 18px; font-size: 14px; }
   .allocation-fear-note { font-size: 12px; }
   #allocation-list { display: grid; gap: 8px; max-height: none; overflow: visible; margin: 10px 0; border: 0; }
@@ -115,7 +117,7 @@
   .allocation-summary { margin: 10px 0; font-size: 12px; }
   .allocation-estimate { padding: 10px; }
   .allocation-estimate-head { flex-wrap: wrap; gap: 2px 10px; }
-  #allocation-dialog .allocation-actions { bottom: 0; margin: 0 -14px; padding: 10px 14px max(10px, env(safe-area-inset-bottom)); }
+  #allocation-dialog .allocation-actions { padding: 10px 14px max(10px, env(safe-area-inset-bottom)); }
   #allocation-dialog .symbol-dialog-actions button { flex: 1; min-height: 42px; font-size: 13px; }
 }
 .base-amount-group { display: inline-flex; align-items: center; gap: 6px; }
@@ -1677,16 +1679,15 @@ footer {
   color: #607487;
 }
 
-/* Keep strategy labels and fields together on one desktop row. */
+/* Keep each strategy label and field together when the row wraps. */
 @media(min-width:801px) {
   .chart-controls>.strategy-row {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
     width: 100%;
-    overflow-x: auto;
   }
 
   .chart-controls .strategy-row>label,
@@ -1711,7 +1712,8 @@ footer {
   }
 
   .chart-controls .strategy-row #fear-threshold,
-  .chart-controls .strategy-row #fear-buy-count {
+  .chart-controls .strategy-row #fear-buy-count,
+  .chart-controls .strategy-row #main-kd-tier-factor {
     width: 54px;
   }
 }

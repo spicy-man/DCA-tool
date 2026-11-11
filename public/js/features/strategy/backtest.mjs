@@ -1,3 +1,4 @@
+import { renderKDReview } from './kd.mjs';
 import { compareStrategies, findLatestPeakRecovery } from '../../domain/backtest.mjs';
 import { appEvents, events } from '../../services/events.mjs';
 import { chartInsets, createTradingScale, createProfitAxis } from '../../charts/geometry.mjs';
@@ -12,9 +13,10 @@ let replay = null;
 let replayTimer = null;
 let replayFrame = null;
 let previewIndex = null;
-const colors = ['#607487', '#0d9488', '#2563eb'];
+const colors = ['#607487', '#0d9488', '#2563eb', '#c26e2b', '#a64b77'];
 const amount = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const percent = value => value === null ? '—' : (Math.abs(value) < 0.00005 ? 0 : value * 100).toFixed(2) + '%';
+const ratio = value => value === null || !Number.isFinite(value) ? '—' : value.toFixed(2);
 const $ = id => document.getElementById(id);
 
 function drawProfitChart(result) {
@@ -54,8 +56,8 @@ function drawProfitChart(result) {
   const axis = createProfitAxis(all, top, bottom, logScale, context?.baseAmount);
   const y = axis.y;
   add('title', {}, showEquity
-    ? (showPrincipal ? '三种策略的累计资产与投入本金' : '三种策略的累计资产')
-    : '三种策略的累计盈亏，已扣除累计投入本金');
+    ? (showPrincipal ? '五种策略的累计资产与投入本金' : '五种策略的累计资产')
+    : '五种策略的累计盈亏，已扣除累计投入本金');
   for (const value of axis.ticks) {
     const py = y(value);
     add('line', { x1: left, x2: width - right, y1: py, y2: py, stroke: '#e5eaf0', 'stroke-dasharray': '3 4' });
@@ -124,6 +126,7 @@ function render() {
   $('backtest-results').replaceChildren();
   $('backtest-plot').replaceChildren();
   if (!context) {
+    renderKDReview(null,null);
     $('backtest-period').textContent = '暂无可用行情，请先读取数据';
     $('backtest-note').textContent = '';
     return;
@@ -133,14 +136,16 @@ function render() {
     const range = replay ? { ...context.range, start: replay.start, end: replay.dates[replay.index] } : context.range;
     const result = compareStrategies({ ...context, range, mode });
     if (!result) {
+      renderKDReview(null,null);
       $('backtest-period').textContent = '当前区间无行情，无法回测';
       $('backtest-note').textContent = '';
       return;
     }
+    renderKDReview({...context,range},result);
     $('backtest-period').textContent = context.symbol + ' · ' + result.start + ' — ' + result.end + ' · ' + ((Date.parse(result.end) - Date.parse(result.start)) / (365.25 * 86400000)).toFixed(1) + '年 · 区间开始时持仓为零';
     for (const [i, strategy] of result.results.entries()) {
       const tr = document.createElement('tr');
-      const values = [strategy.name, amount(strategy.invested), amount(strategy.cash - strategy.cashInterest), amount(strategy.equity), amount(strategy.profit - strategy.cashInterest), amount(strategy.cashInterest), amount(strategy.profit), percent(strategy.capitalReturn), percent(strategy.xirr), percent(strategy.maxDrawdown), strategy.trades];
+      const values = [strategy.name, amount(strategy.invested), amount(strategy.cash - strategy.cashInterest), amount(strategy.equity), amount(strategy.profit - strategy.cashInterest), amount(strategy.cashInterest), amount(strategy.profit), percent(strategy.capitalReturn), percent(strategy.xirr), percent(strategy.maxDrawdown), ratio(strategy.sharpe), ratio(strategy.sortino), ratio(strategy.mar), strategy.trades];
       for (const [j, value] of values.entries()) {
         const cell = document.createElement(j === 0 ? 'th' : 'td');
         if (j === 0) { cell.scope = 'row'; cell.style.setProperty('--strategy-color', colors[i]); }
@@ -152,9 +157,9 @@ function render() {
     const sentiment = context.sentiment;
     const coverage = sentiment.length ? '指数记录覆盖 ' + sentiment[0].date + ' — ' + sentiment.at(-1).date + '，缺失日期不补造；指数覆盖前的区间不触发恐慌加投。' : '暂无指数数据，恐慌加投未参与。';
     const funding = mode === 'equal'
-      ? '三组在组合策略每次买入时获得相同资金；未使用资金按 3% 年化、实际天数／365 复利计息（含周末休市），利息计入资产与收益。'
+      ? '五组按每日各策略所需金额的最大值获得相同资金；未使用资金按 3% 年化、实际天数／365 复利计息（含周末休市），利息计入资产与收益。'
       : '各策略投入金额不同，期末资产更高不代表收益率更高。';
-    $('backtest-note').textContent = funding + ' 买入 N 数＝累计买入金额 ÷ 定投金额 N，包含月度金字塔和恐慌加投。' + ' ' + (result.deferredMonthly ? result.deferredMonthly + ' 笔区间内月度信号尚未在本区间成交。' : '') + ' ' + coverage;
+    $('backtest-note').textContent = funding + ' 买入 N 数＝累计买入金额 ÷ 定投金额 N，包含该策略实际买入；KD 定投不叠加恐慌，KD 定投＋恐慌加投则在KD月度买入之外独立叠加恐慌买入。' + ' ' + (result.deferredMonthly ? result.deferredMonthly + ' 笔区间内月度信号尚未在本区间成交。' : '') + ' ' + coverage;
     shownResult = result;
     drawProfitChart(result);
     if (replay) {
@@ -164,6 +169,7 @@ function render() {
       appEvents.dispatchEvent(new CustomEvent(events.replayRange, { detail: { start: replay.dates[first], end: replay.dates[replay.index], calendar, frequency: 'daily', replay: true } }));
     }
   } catch (error) {
+    renderKDReview(null,null);
     $('backtest-results').replaceChildren();
     $('backtest-plot').replaceChildren();
     $('backtest-period').textContent = '无法计算回测';

@@ -1,3 +1,4 @@
+import {initKDControls} from './features/strategy/kd.mjs';
 import {initFloatingCharts} from './ui/floating-charts.mjs';
 import {initApplication} from './application.mjs';
 import {initMarketChart} from './features/market/chart.mjs';
@@ -12,6 +13,7 @@ import {initPlanEstimateHelp} from './ui/plan-estimate-help.mjs';
 // Composition root: initialize feature controls before starting data loading.
 await initSymbolDialog();
 initPlanEstimateHelp();
+initKDControls();
 initStrategyOverlay();
 initMarketChart();
 initChartVisibility();

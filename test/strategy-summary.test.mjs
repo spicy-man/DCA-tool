@@ -74,11 +74,28 @@ test('覆盖范围裁剪、空行情、零信号和并列最高月份', () => {
   assert.equal(zero.total, 0);
   assert.equal(zero.average, 0);
   assert.deepEqual(zero.peakMonths, []);
+  assert.equal(zero.annualPeak, 0);
+  assert.deepEqual(zero.peakYears, []);
   const result = summarizeFunding([
     { date: '2026-01-05', type: 'monthly', amount: 100 },
     { date: '2026-02-05', type: 'fear', amount: 100 }
   ], rows, { start: '2026-01-01', end: '2026-02-28' });
   assert.deepEqual(result.peakMonths, ['2026-01', '2026-02']);
+});
+
+test('历史资金需求在选区内按信号的自然年加总，保留并列年份', () => {
+  const rows = market(['2024-01-02', '2026-03-31']);
+  const signals = [
+    { date: '2024-01-02', type: 'monthly', amount: 900 },
+    { date: '2024-12-31', type: 'monthly', amount: 200 },
+    { date: '2025-01-02', type: 'monthly', amount: 100 },
+    { date: '2025-02-03', type: 'fear', amount: 200 },
+    { date: '2026-01-02', type: 'monthly', amount: 300 },
+    { date: '2026-03-31', type: 'monthly', amount: 900 }
+  ];
+  const result = summarizeFunding(signals, rows, { start: '2024-12-01', end: '2026-02-28' });
+  assert.equal(result.annualPeak, 300);
+  assert.deepEqual(result.peakYears, ['2025', '2026']);
 });
 
 test('下一月度计划覆盖28至31日、平闰年二月和跨年', () => {
@@ -159,15 +176,19 @@ test('摘要使用完整历史状态和选区统计，数据失效时清除旧�
   const fear = evaluateFearStrategy(rows, [{ date: '2026-02-02', score: 9 }]);
   const data = { symbol: 'SPY', rows };
   renderStrategySummary(data, { start: '2026-01-01', end: '2026-02-28' }, settings, signals, fear);
-  assert.equal(text('strategy-asof'), '行情截至 2026-02-02');
   assert.equal(text('funding-total'), '2,000.00（2N）');
+  assert.equal(text('funding-annual-peak'), '2,000.00（2N）');
+  assert.equal(text('funding-annual-peak-note'), '2026 年');
   assert.equal(text('recent-signal'), '2026-02-02');
   assert.equal(text('next-plan-estimate'), '金额待定，等待下期窗口内的新完整日线');
   renderStrategySummary(data, { start: '2026-01-01', end: '2026-01-31' }, settings, signals, fear);
   assert.equal(text('funding-total'), '1,000.00（1N）');
+  assert.equal(text('funding-annual-peak'), '1,000.00（1N）');
   assert.equal(text('recent-signal'), '2026-02-02');
   renderStrategySummary(data, { start: '2025-01-01', end: '2025-12-31' }, settings, signals, fear);
   assert.equal(text('funding-total'), '—');
+  assert.equal(text('funding-annual-peak'), '—');
+  assert.equal(text('funding-annual-peak-note'), '');
   assert.equal(text('funding-split'), '');
   const october = [
     { date: '2026-10-06', high: 762.86, close: 760 },
@@ -292,7 +313,24 @@ test('组合资金摘要按成交日统计，包含起点跨界，排除末尾�
   assert.equal(pending.total, 0);
   assert.equal(pending.count, 0);
   assert.deepEqual(pending.peakMonths, []);
+  assert.equal(pending.annualPeak, 0);
+  assert.deepEqual(pending.peakYears, []);
   assert.equal(pending.backtest.results[2].invested, 0);
+});
+
+test('组合年度峰值合计各标的成交金额，跨年成交归入次年', () => {
+  const rows = market(['2025-12-30', '2025-12-31', '2026-01-02', '2026-01-30', '2026-02-02', '2026-02-27', '2026-03-02', '2026-03-31']);
+  const funding = summarizePortfolioFunding({
+    items: [
+      { symbol: 'SPY', rows, baseAmount: 100, fearBuyCount: 0 },
+      { symbol: 'QQQ', rows, baseAmount: 50, fearBuyCount: 0 }
+    ],
+    sentiment: [{ date: '2025-12-30', score: 50 }],
+    buyDay: 31
+  });
+  assert.equal(funding.peak, 150);
+  assert.equal(funding.annualPeak, 450);
+  assert.deepEqual(funding.peakYears, ['2026']);
 });
 
 test('组合月度与恐慌订单均按成交月份计入峰值', () => {
@@ -309,4 +347,20 @@ test('组合月度与恐慌订单均按成交月份计入峰值', () => {
   assert.deepEqual(funding.peakMonths, ['2026-02']);
   assert.deepEqual(funding.peakBreakdown, [{ symbol: 'SPY', amount: 200 }]);
   assert.equal(funding.backtest.results[2].invested, funding.total);
+});
+
+test('组合方案切换使预算和峰值跟随跌幅＋恐慌或KD＋恐慌，回测仍保留全部策略', () => {
+  const rows=['2024-01-02','2024-01-03','2024-01-04','2024-02-01','2024-02-02','2024-02-05'].map(date=>({date,open:100,high:110,low:90,close:100}));
+  const base={items:[{symbol:'SPY',rows,baseAmount:1000,fearBuyCount:2}],sentiment:[{date:'2024-01-02',score:20},{date:'2024-01-03',score:8}],buyDay:1,fearThreshold:10,mode:'actual',totalBaseAmount:1000,kdOptions:{monthWeight:80,quarterWeight:20,period:9,signal:3,tierFactor:1.5}};
+  const pyramid=summarizePortfolioFunding({...base,plan:'pyramidFear'}),kd=summarizePortfolioFunding({...base,plan:'kdFear'});
+  assert.equal(pyramid.backtest.results.length,5);
+  assert.equal(kd.backtest.results.length,5);
+  assert.equal(pyramid.total,pyramid.backtest.results.find(result=>result.id==='combined').monthlyBought);
+  assert.equal(kd.total,kd.backtest.results.find(result=>result.id==='kdFear').monthlyBought);
+  assert.ok(kd.total>pyramid.total);
+  assert.equal(pyramid.annualPeak, pyramid.total);
+  assert.equal(kd.annualPeak, kd.total);
+  assert.ok(kd.peak>=pyramid.peak);
+  assert.equal(kd.peakBreakdown[0].symbol,'SPY');
+  assert.throws(()=>summarizePortfolioFunding({...base,plan:'invalid'}),/方案无效/);
 });

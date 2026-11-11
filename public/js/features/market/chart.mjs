@@ -392,6 +392,7 @@ export function initMarketChart() {
   appEvents.addEventListener(events.strategySettings, () => {
     if (browsingSettings) renderMarket(browsingSettings);
   });
+  appEvents.addEventListener(events.strategyView,()=>{hide();drawPrice();});
 
   new ResizeObserver(() => {
     document.getElementById('price-tooltip').hidden = true;

@@ -4,3 +4,4 @@ node_modules/
 dist/
 public/data/.refresh.lock
 public/data/custom-symbols.json
+/Liang-DCA/

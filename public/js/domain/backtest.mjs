@@ -1,5 +1,8 @@
 const DAY_MS = 86400000;
 const CASH_ANNUAL_RATE = 0.03;
+// Unit NAV ratios can carry small errors from share and unit arithmetic.
+const NAV_ROUNDING_TOLERANCE = 1e-12;
+const withoutNAVRoundoff = value => Math.abs(value) <= NAV_ROUNDING_TOLERANCE ? 0 : value;
 const yearsBetween = (start, end) => (Date.parse(end) - Date.parse(start)) / DAY_MS / 365;
 
 // Latest high-water-mark drawdown: keep the last completed episode until a new
@@ -46,6 +49,32 @@ export function moneyWeightedReturn(deposits, end, finalValue) {
   }
   const result = Math.expm1((low + high) / 2);
   return Number.isFinite(result) && result > -1 ? result : null;
+}
+
+// Time-weighted daily unit NAV removes the effect of external deposits.
+// Use a 0% hurdle for Sharpe/Sortino and 252 trading observations per year.
+export function riskAdjustedMetrics(curve, maxDrawdown) {
+  const first = curve.findIndex(point => point.invested > 0);
+  if (first < 0) return { sharpe: null, sortino: null, mar: null };
+  const active = curve.slice(first);
+  const returns = active.map((point, i) => withoutNAVRoundoff(point.nav / (i ? active[i - 1].nav : 1) - 1));
+  const valid = returns.every(Number.isFinite) && active.every(point => point.nav > 0);
+  let sharpe = null;
+  let sortino = null;
+  if (valid && returns.length >= 2) {
+    const mean = returns.reduce((sum, value) => sum + value, 0) / returns.length;
+    const variance = returns.reduce((sum, value) => sum + (value - mean) ** 2, 0) / returns.length;
+    const downside = returns.reduce((sum, value) => sum + Math.min(value, 0) ** 2, 0) / returns.length;
+    const volatility = Math.sqrt(variance);
+    if (volatility > NAV_ROUNDING_TOLERANCE * Math.max(1, Math.abs(mean))) {
+      sharpe = mean / volatility * Math.sqrt(252);
+    }
+    if (downside > 0) sortino = mean / Math.sqrt(downside) * Math.sqrt(252);
+  }
+  const years = yearsBetween(active[0].date, active.at(-1).date);
+  const cagr = valid && years > 0 ? Math.expm1(Math.log(active.at(-1).nav) / years) : null;
+  const mar = Number.isFinite(cagr) && maxDrawdown > NAV_ROUNDING_TOLERANCE ? cagr / maxDrawdown : null;
+  return { sharpe, sortino, mar };
 }
 
 function simulate(rows, orders, commonDeposits, baseAmount) {
@@ -101,14 +130,40 @@ function simulate(rows, orders, commonDeposits, baseAmount) {
     invested, equity, profit: equity - invested, cash, cashInterest,
     capitalReturn: invested ? (equity - invested) / invested : null,
     xirr: moneyWeightedReturn(deposits, rows.at(-1).date, equity),
-    maxDrawdown: invested ? maxDrawdown : null,
+    maxDrawdown: invested ? withoutNAVRoundoff(maxDrawdown) : null,
+    ...riskAdjustedMetrics(curve, maxDrawdown),
     trades: baseAmount > 0 ? orders.reduce((sum, order) => sum + order.amount, 0) / baseAmount : 0, curve
   };
 }
 
+// Each strategy receives the same external inflow on a funding date. Use the
+// greatest same-day total across the participating strategies, not their sum.
+function sharedFunding(orderLists) {
+  const funding = new Map();
+  for (const orders of orderLists) {
+    const daily = new Map();
+    for (const { date, amount } of orders) daily.set(date, (daily.get(date) || 0) + amount);
+    for (const [date, amount] of daily) funding.set(date, Math.max(funding.get(date) || 0, amount));
+  }
+  return funding;
+}
+
+function monthlyPeak(orders) {
+  const months = new Map();
+  for (const { date, amount } of orders) {
+    const month = date.slice(0, 7);
+    months.set(month, (months.get(month) || 0) + amount);
+  }
+  return Math.max(0, ...months.values());
+}
+
+function fundingPeak(deposits) {
+  return deposits ? monthlyPeak([...deposits].map(([date, amount]) => ({ date, amount }))) : null;
+}
+
 // Signals are computed on full history; only fills inside the selected window enter
 // this fresh account. Monthly close-based decisions fill at the following open.
-export function compareStrategies({ rows, monthlySignals, fearSignals, range, baseAmount, mode = 'actual' }) {
+export function compareStrategies({ rows, monthlySignals, fearSignals, kdSignals = null, range, baseAmount, mode = 'actual' }) {
   if (!['actual', 'equal'].includes(mode)) throw Error('回测供资口径无效');
   if (!Number.isFinite(baseAmount) || (baseAmount !== 0 && baseAmount < 0.01)) throw Error('回测定投金额无效');
   for (let i = 0; i < rows.length; i++) {
@@ -134,22 +189,40 @@ export function compareStrategies({ rows, monthlySignals, fearSignals, range, ba
     else if (inRange(signal.date)) deferredMonthly++;
   }
   const fear = fearSignals.filter(signal => inRange(signal.date)).map(signal => ({ date: signal.date, amount: signal.amount }));
-  for (const order of [...monthly, ...fear]) {
+  const kd = [];
+  let deferredKD = 0;
+  for (const signal of kdSignals ?? []) {
+    const i = index.get(signal.date);
+    if (i === undefined) throw Error('KD信号缺少对应行情');
+    const fill = rows[i + 1];
+    if (fill && inRange(fill.date)) kd.push({ ...signal, signalDate: signal.date, date: fill.date });
+    else if (inRange(signal.date)) deferredKD++;
+  }
+  for (const order of [...monthly, ...fear, ...kd]) {
     if (!index.has(order.date) || !Number.isFinite(order.amount) || order.amount <= 0) throw Error('回测买入信号无效');
   }
   const combined = [...monthly, ...fear].sort((a, b) => a.date.localeCompare(b.date));
-  const commonDeposits = mode === 'equal' ? new Map() : null;
-  if (commonDeposits) {
-    for (const order of combined) commonDeposits.set(order.date, (commonDeposits.get(order.date) || 0) + order.amount);
-  }
   const strategies = [
     { id: 'regular', name: '普通定投', orders: monthly.map(order => ({ ...order, amount: baseAmount })) },
     { id: 'pyramid', name: '回撤金字塔', orders: monthly },
     { id: 'combined', name: '金字塔＋恐慌加投', orders: combined }
   ];
+  if (kdSignals !== null) {
+    strategies.push(
+      { id: 'kd', name: 'KD 定投', orders: kd },
+      { id: 'kdFear', name: 'KD 定投＋恐慌加投', orders: [...kd, ...fear] }
+    );
+  }
+  const commonDeposits = mode === 'equal' ? sharedFunding(strategies.map(strategy => strategy.orders)) : null;
   return {
-    start, end, mode, deferredMonthly,
-    results: strategies.map(strategy => ({ id: strategy.id, name: strategy.name, ...simulate(daily, strategy.orders, commonDeposits, baseAmount) }))
+    start, end, mode, deferredMonthly, deferredKD, kdOrders: kd,
+    fundingPeak: fundingPeak(commonDeposits),
+    results: strategies.map(({ id, name, orders }) => ({
+      id, name,
+      monthlyBought: orders.reduce((sum, order) => sum + order.amount, 0),
+      maxMonthly: monthlyPeak(orders),
+      ...simulate(daily, orders, commonDeposits, baseAmount)
+    }))
   };
 }
 
@@ -176,7 +249,7 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
   const active = [];
   const dateSet = new Set();
   for (const item of items) {
-    const { symbol, rows, monthlySignals = [], fearSignals = [], baseAmount } = item;
+    const { symbol, rows, monthlySignals = [], fearSignals = [], kdSignals = null, baseAmount } = item;
     if (!rows?.length || !Number.isFinite(baseAmount) || baseAmount < 0.01) continue;
     const daily = rows.filter(row => row.date >= startDate);
     if (!daily.length) continue;
@@ -185,6 +258,9 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
     const { monthly, fear } = buildPortfolioOrders({ rows, monthlySignals, fearSignals, start, end });
     const regular = monthly.map(order => ({ date: order.date, amount: baseAmount }));
     const combined = [...monthly, ...fear].sort((a, b) => a.date.localeCompare(b.date));
+    const kd = kdSignals === null
+      ? null
+      : buildPortfolioOrders({ rows, monthlySignals: kdSignals, start, end }).monthly;
     const rowByDate = new Map(daily.map(row => [row.date, row]));
     for (const row of daily) dateSet.add(row.date);
     active.push({
@@ -194,7 +270,9 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
       ordersByStrategy: {
         regular,
         pyramid: monthly,
-        combined
+        combined,
+        kd,
+        kdFear: kd === null ? null : [...kd, ...fear]
       }
     });
   }
@@ -204,22 +282,18 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
   const end = dates.at(-1);
   const baseDenom = totalBaseAmount > 0 ? totalBaseAmount : active.reduce((sum, item) => sum + item.baseAmount, 0);
 
-  const commonDeposits = mode === 'equal' ? new Map() : null;
-  if (commonDeposits) {
-    for (const item of active) {
-      for (const order of item.ordersByStrategy.combined) {
-        commonDeposits.set(order.date, (commonDeposits.get(order.date) || 0) + order.amount);
-      }
-    }
-  }
-
   const strategies = [
     { id: 'regular', name: '普通定投' },
     { id: 'pyramid', name: '回撤金字塔' },
     { id: 'combined', name: '金字塔＋恐慌加投' }
   ];
+  if (active.every(item => item.ordersByStrategy.kd !== null)) {
+    strategies.push({ id: 'kd', name: 'KD 定投' }, { id: 'kdFear', name: 'KD 定投＋恐慌加投' });
+  }
+  const orderLists = strategies.map(({ id }) => active.flatMap(item => item.ordersByStrategy[id]));
+  const commonDeposits = mode === 'equal' ? sharedFunding(orderLists) : null;
 
-  const results = strategies.map(({ id, name }) => {
+  const results = strategies.map(({ id, name }, strategyIndex) => {
     const buysBySymbol = active.map(item => {
       const map = new Map();
       for (const order of item.ordersByStrategy[id]) {
@@ -228,7 +302,7 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
       return map;
     });
     const totalOrderAmount = active.reduce(
-      (sum, item) => sum + item.ordersByStrategy[id].reduce((s, order) => s + order.amount, 0),
+      (sum, item) => sum + (item.ordersByStrategy[id]).reduce((s, order) => s + order.amount, 0),
       0
     );
     const shares = active.map(() => 0);
@@ -298,6 +372,8 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
     return {
       id,
       name,
+      monthlyBought: totalOrderAmount,
+      maxMonthly: monthlyPeak(orderLists[strategyIndex]),
       invested,
       equity,
       profit,
@@ -305,11 +381,12 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
       cashInterest,
       capitalReturn: invested > 0 ? profit / invested : null,
       xirr: moneyWeightedReturn(deposits, end, equity),
-      maxDrawdown: invested > 0 ? maxDrawdown : null,
+      maxDrawdown: invested > 0 ? withoutNAVRoundoff(maxDrawdown) : null,
+      ...riskAdjustedMetrics(curve, maxDrawdown),
       trades: baseDenom > 0 ? Number((totalOrderAmount / baseDenom).toFixed(2)) : 0,
       curve
     };
   });
 
-  return { start, end, mode, results };
+  return { start, end, mode, results, fundingPeak: fundingPeak(commonDeposits) };
 }

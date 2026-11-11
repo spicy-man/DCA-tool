@@ -1,6 +1,7 @@
 import { calculatePyramidSignals, daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
 import { buildPortfolioOrders, comparePortfolioStrategies } from './backtest.mjs';
 import { evaluateFearStrategy } from './fear-strategy.mjs';
+import { calculateKDSignals } from './kd-strategy.mjs';
 import { isTradingDay } from './trading-calendar.mjs';
 
 // Use the next execution's window and only its known daily bars; future prices can change the estimate.
@@ -39,7 +40,20 @@ export function nextMonthlyPlan(rows, monthlySignals, buyDay) {
   };
 }
 
-// Group by execution month, including zero-signal months in the covered range.
+function summarizeAnnualPeak(monthly) {
+  const annual = new Map();
+  for (const [month, amount] of monthly) {
+    const year = month.slice(0, 4);
+    annual.set(year, (annual.get(year) || 0) + amount);
+  }
+  const annualPeak = Math.max(0, ...annual.values());
+  const peakYears = annualPeak > 0
+    ? [...annual].filter(([, amount]) => Math.abs(amount - annualPeak) < 1e-9).map(([year]) => year).sort()
+    : [];
+  return { annualPeak, peakYears };
+}
+
+// Group by signal date, including zero-signal months in the covered range.
 export function summarizeFunding(signals, rows, { start, end }) {
   if (!rows.length) return null;
   start = start > rows[0].date ? start : rows[0].date;
@@ -75,11 +89,13 @@ export function summarizeFunding(signals, rows, { start, end }) {
   const total = monthlyAmount + fearAmount;
   const peak = Math.max(0, ...monthly.values());
   const peakMonths = [...monthly].filter(([, amount]) => amount === peak).map(([month]) => month).sort();
-  return { start, end, months, count, total, monthlyAmount, regularAmount, pyramidExtraAmount, monthlyCount, pyramidCount, fearAmount, fearCount, average: total / months, peak, peakMonths };
+  return { start, end, months, count, total, monthlyAmount, regularAmount, pyramidExtraAmount, monthlyCount, pyramidCount, fearAmount, fearCount, average: total / months, peak, peakMonths, ...summarizeAnnualPeak(monthly) };
 }
 
-export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearThreshold = 10, mode = 'equal', totalBaseAmount = 0 }) {
+export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearThreshold = 10, mode = 'equal', totalBaseAmount = 0, kdOptions = null, plan = 'pyramidFear' }) {
   if (!sentiment?.length || !items?.length) return null;
+  if (!['pyramidFear', 'kdFear'].includes(plan)) throw Error('组合定投方案无效');
+  if (plan === 'kdFear' && kdOptions === null) throw Error('KD组合缺少有效参数');
   const fngStart = sentiment[0].date;
   let start = null;
   let end = null;
@@ -99,8 +115,12 @@ export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearTh
     const fearSignals = fearBuyCount > 0
       ? evaluateFearStrategy(rows, sentiment, { baseAmount, fearThreshold, fearBuyCount }).signals
       : [];
-    backtestItems.push({ symbol, rows, monthlySignals, fearSignals, baseAmount });
-    const orders = buildPortfolioOrders({ rows, monthlySignals, fearSignals, start: itemStart, end: itemEnd });
+    const kdSignals = kdOptions === null
+      ? null
+      : calculateKDSignals(rows, monthlySignals, { ...kdOptions, baseAmount });
+    backtestItems.push({ symbol, rows, monthlySignals, fearSignals, baseAmount, kdSignals });
+    const selectedSignals = plan === 'kdFear' ? kdSignals : monthlySignals;
+    const orders = buildPortfolioOrders({ rows, monthlySignals: selectedSignals, fearSignals, start: itemStart, end: itemEnd });
     for (const order of [...orders.monthly, ...orders.fear]) {
       const month = order.date.slice(0, 7);
       monthly.set(month, (monthly.get(month) || 0) + order.amount);
@@ -125,5 +145,5 @@ export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearTh
         .filter(entry => entry.amount > 0)
     : [];
   const backtest = comparePortfolioStrategies({ items: backtestItems, startDate: fngStart, mode, totalBaseAmount });
-  return { start, end, months, count, total, average: total / months, peak, peakMonths, peakBreakdown, backtest };
+  return { plan, start, end, months, count, total, average: total / months, peak, peakMonths, peakBreakdown, ...summarizeAnnualPeak(monthly), backtest };
 }

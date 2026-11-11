@@ -3,12 +3,20 @@
 .funding-overview { margin-top: 12px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .summary-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; }
 .summary-heading h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.strategy-status-heading { align-items: center; }
+.strategy-status-heading > .strategy-status-switch { margin-left: auto; }
+.strategy-status-switch { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 7px; background: #f3f6f8; }
+.strategy-status-switch button { height: 32px; padding: 0 12px; border: 0; border-radius: 5px; background: transparent; color: #526474; font-size: 12px; white-space: nowrap; }
+.strategy-status-switch button:hover { color: var(--navy); background: #fff; }
+.strategy-status-switch button[aria-pressed="true"] { background: #19374a; color: #fff; box-shadow: 0 1px 3px #19374a2b; }
+.strategy-status-switch button:focus-visible { outline: 2px solid #3b8499; outline-offset: 2px; }
 .summary-heading p, .summary-grid p, .summary-footnote { margin: 0; font-size: 11px; line-height: 1.7; color: #607487; }
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 12px; }
 .summary-grid > div { min-width: 0; }
 .summary-grid > div + div { border-left: 1px solid var(--border); padding-left: 24px; }
 .summary-grid h4 { margin: 0 0 5px; font-size: 11px; color: #607487; font-weight: 500; }
 .summary-grid strong { display: block; color: var(--navy); font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.funding-grid { grid-template-columns: repeat(4, 1fr); }
 .funding-grid strong { font-size: 22px; }
 .summary-grid p { margin-top: 4px; }
 .plan-estimate-row { display: flex; align-items: baseline; gap: 6px; }
@@ -30,4 +38,4 @@
 
 #funding-split { white-space: pre-line; line-height: 1.9; }
 
-#allocation-recent-detail, #allocation-next-detail, #allocation-fear-detail { white-space: pre-line; }
+#fear-state-note, #allocation-recent-detail, #allocation-next-detail, #allocation-fear-detail { white-space: pre-line; }

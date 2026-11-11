@@ -1,0 +1,33 @@
+.kd-panel { border-top: 1px solid var(--border); }
+.kd-panel > summary { padding: 9px 0; color: var(--navy); font-size: 12px; cursor: pointer; }
+.kd-content { min-width: 0; padding-bottom: 14px; }
+.kd-controls { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; margin: 18px 0 8px; }
+.kd-controls label { display: grid; gap: 6px; font-size: 12px; color: #607487; }
+.kd-controls input { width: 120px; padding: 8px 10px; border: 1px solid #dfe5eb; border-radius: 5px; background: #fff; font: inherit; color: #20333f; }
+.kd-controls input[readonly] { background: #f4f6f9; color: #607487; }
+.kd-controls button, .kd-export button { padding: 8px 12px; border: 1px solid #dfe5eb; border-radius: 5px; background: #fff; color: #20333f; cursor: pointer; }
+.kd-controls input[aria-invalid="true"] { border-color: #b75442; }
+.kd-error { color: #a94731; font-size: 12px; min-height: 1em; }
+.kd-inline-error:empty { display: none; }
+.kd-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 20px 0; }
+.kd-metrics strong { font-size: 22px; overflow-wrap: anywhere; }
+.kd-metrics p { font-size: 11px; line-height: 1.7; }
+.kd-warning { padding: 12px 14px; background: #fff4e7; border-left: 3px solid #c26e2b; color: #8d5529; line-height: 1.8; font-size: 12px; }
+.kd-export { margin-top: 18px; }
+.kd-orders-table { min-width: 950px; }
+.backtest-legend span.is-kd::before { background: #c26e2b; }
+.kd-legend span:nth-child(1)::before { background: #0d9488; }
+.kd-legend span:nth-child(2)::before { background: #2563eb; }
+.kd-panel .backtest-method li { line-height: 1.8; }
+.kd-panel #kd-plot { height: auto; min-height: 190px; }
+@media (max-width: 800px) {
+  .kd-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kd-controls label { flex: 1 1 38%; }
+  .kd-controls input { width: 100%; box-sizing: border-box; }
+}
+@media (max-width: 480px) {
+  .kd-metrics { grid-template-columns: 1fr; }
+  .kd-controls { gap: 10px; }
+  .kd-controls label { flex-basis: 40%; }
+}
+.backtest-legend span.is-kd-fear::before { background: #a64b77; }

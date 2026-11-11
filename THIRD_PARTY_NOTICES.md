@@ -31,6 +31,7 @@ Yahoo Finance Chart API 与 CNN 历史接口是外部数据服务。数据快照
 ## 用户提供的策略与逻辑图
 
 - `public/js/domain/pyramid-strategy.mjs`：根据 **labmem004** 编写、用户提供的 Pine v6 脚本移植；作者署名由用户确认，原始发布链接及授权记录尚未补齐。
+- `public/js/domain/kd-strategy.mjs`：根据用户提供的 Liang-DCA 中 Liang KDJ V6.2 周线映射规则及 KD 回测实现移植。
 - `public/diagrams/monthly_dca_logic.svg`：由用户提供，按原文件复制。图中包含独立的回测设定，页面已注明与本站信号口径的差异。
 
 上述材料的原始权利与再许可范围尚待确认，不应仅因被加入仓库就认定为 MIT、Apache-2.0 或其他开源许可。
