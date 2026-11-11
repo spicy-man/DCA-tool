@@ -1,12 +1,17 @@
 {
   "version": 1,
-  "checkedAt": "2026-11-10T21:14:49.698Z",
+  "checkedAt": "2026-11-11T00:59:20.885Z",
   "expectedDate": "2026-11-10",
   "requestedSources": [
-    "Fear & Greed"
+    "Fear & Greed",
+    "SPY",
+    "QQQ",
+    "VGT",
+    "SMH",
+    "BRK-B"
   ],
   "requestedComplete": true,
-  "complete": false,
+  "complete": true,
   "results": [
     {
       "symbol": "Fear & Greed",
@@ -16,63 +21,63 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-10",
-      "checkedAt": "2026-11-10T21:14:49.698Z",
-      "lastSuccessAt": "2026-11-10T21:14:49.698Z"
+      "checkedAt": "2026-11-11T00:59:20.885Z",
+      "lastSuccessAt": "2026-11-11T00:59:20.885Z"
     },
     {
       "symbol": "SPY",
-      "date": "2026-11-09",
-      "count": 8503,
+      "date": "2026-11-10",
+      "count": 8504,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-11-09",
-      "checkedAt": "2026-11-10T03:59:54.852Z",
-      "lastSuccessAt": "2026-11-10T03:59:54.852Z"
+      "expectedDate": "2026-11-10",
+      "checkedAt": "2026-11-11T00:59:20.885Z",
+      "lastSuccessAt": "2026-11-11T00:59:20.885Z"
     },
     {
       "symbol": "QQQ",
-      "date": "2026-11-09",
-      "count": 6961,
+      "date": "2026-11-10",
+      "count": 6962,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-11-09",
-      "checkedAt": "2026-11-10T03:59:54.852Z",
-      "lastSuccessAt": "2026-11-10T03:59:54.852Z"
+      "expectedDate": "2026-11-10",
+      "checkedAt": "2026-11-11T00:59:20.885Z",
+      "lastSuccessAt": "2026-11-11T00:59:20.885Z"
     },
     {
       "symbol": "VGT",
-      "date": "2026-11-09",
-      "count": 5731,
+      "date": "2026-11-10",
+      "count": 5732,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-11-09",
-      "checkedAt": "2026-11-10T03:59:54.852Z",
-      "lastSuccessAt": "2026-11-10T03:59:54.852Z"
+      "expectedDate": "2026-11-10",
+      "checkedAt": "2026-11-11T00:59:20.885Z",
+      "lastSuccessAt": "2026-11-11T00:59:20.885Z"
     },
     {
       "symbol": "SMH",
-      "date": "2026-11-09",
-      "count": 3743,
+      "date": "2026-11-10",
+      "count": 3744,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-11-09",
-      "checkedAt": "2026-11-10T03:59:54.852Z",
-      "lastSuccessAt": "2026-11-10T03:59:54.852Z"
+      "expectedDate": "2026-11-10",
+      "checkedAt": "2026-11-11T00:59:20.885Z",
+      "lastSuccessAt": "2026-11-11T00:59:20.885Z"
     },
     {
       "symbol": "BRK-B",
-      "date": "2026-11-09",
-      "count": 7675,
+      "date": "2026-11-10",
+      "count": 7676,
       "source": "Yahoo Finance",
       "ok": true,
       "fresh": true,
-      "expectedDate": "2026-11-09",
-      "checkedAt": "2026-11-10T03:59:54.852Z",
-      "lastSuccessAt": "2026-11-10T03:59:54.852Z"
+      "expectedDate": "2026-11-10",
+      "checkedAt": "2026-11-11T00:59:20.885Z",
+      "lastSuccessAt": "2026-11-11T00:59:20.885Z"
     }
   ]
 }
