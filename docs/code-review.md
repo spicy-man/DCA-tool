@@ -206,3 +206,40 @@ node --test test/build-site.test.mjs test/backend.test.mjs test/custom-symbols.t
 | P3 | [KD 说明](../public/index.html)：公开站点没有文案所称的「旧版研究」入口。 | 移除该句，或在有公开入口后再提供链接。 | 待处理 |
 
 修复验证：3 个新增回归用例在原实现上均复现失败。最终实现通过 62 项定向测试及 `git diff --check HEAD`；测试覆盖 KD 实际成交金额、恒价入金、恒定收益、小幅真实波动和既有前端联动。
+
+---
+
+## 九、v1.17.0 全量双人审查、Workflow 与文档核查记录（2026-11-13）
+
+两位独立只读审查者分别对全项目源码、`.github/workflows/pages.yml` 及全部 8 份文档进行了交叉审查，主 Agent 逐条核实代码与文档依据。**环境限制**：当前审查环境 `PATH` 无 `node` / `npm`，未实际运行 `node --test`，以下均基于静态源码与配置核查。
+
+### 1. 未解决的 Bug（已核实）
+
+| 优先级 | 位置与问题 | 触发条件与实际影响 | 核实依据 |
+| --- | --- | --- | --- |
+| High | [基金历史收益](../server/fund-performance.mjs#L42-L48)：全失败时 `.every()` 空数组恒真覆盖有效快照 | 生产中通过 `loadBenchmarkSnapshot` 从本地读取 `qqq.json`/`spy.json`，若所有国内 ETF 历史下载均失败，`availableDates` 为 `[]`，`availableDates.every(...)` 恒真导致 `endDate` 取 `cutoff` 而不抛错，未进入保留 `previous` 的 `catch` 分支，返回 `ok: true, complete: false` 且全行 `ok: false`，覆盖此前有效 1/3/5 年收益快照。 | `server/fund-performance.mjs:42-48` 缺少 `availableDates.length > 0` 校验；`test/fund-performance.test.mjs:87-92` 未覆盖带 `loadBenchmarkSnapshot` 的全失败路径。 |
+| Medium | [策略与配比](../public/js/features/strategy/overlay.mjs#L363-L394)：清空 `#base-amount` / `#fear-buy-count` 立即保存为 `0`/关闭 | 用户编辑时退格清空输入框，触发 `input` 事件且 `Number('') === 0`，立即覆盖 `state`、`bySymbol`、`allocation.fearEnabled` 与 `localStorage`（承接第七节第 3 项，仍未修复）。 | `overlay.mjs:365-383` 未拦截 `.value.trim() === ''`（对比 `kd.mjs:99` 已拦截空值）。 |
+| Medium | [策略与配比](../public/js/features/strategy/overlay.mjs#L681)：组合配比独立舍入可能超出 `totalAmount` | 各标的独立执行 `Math.round(total * weight) / 100`，如 `100.01` 按 `50% / 50%` 分配得 `50.01 + 50.01 = 100.02`（承接第七节第 4 项，仍未修复）。 | `overlay.mjs:681, 1031` 各自独立四舍五入。 |
+| Low | [主图行情](../public/js/features/market/chart.mjs#L84)：回测复盘每帧新建 `rows` 数组 | `replay` 播放时每帧 `data.rows.filter(...)` 创建新数组引用，导致 Pyramid 与 KD 的 `WeakMap` 缓存每次 miss（承接第八节 P2 待处理项）。 | `chart.mjs:84`、`overlay.mjs:152-160`、`kd-strategy.mjs:120-124`。 |
+| Low | [KD 策略](../public/js/domain/kd-strategy.mjs#L186-L191)：KD 信号未保留 `buyDay` | 导出主图 CSV 时 KD 月度信号的 `BuyDay` 列为空（承接第八节 P3 待处理项）。 | `kd-strategy.mjs:186-191`。 |
+| Low | [组合回测](../public/js/domain/backtest.mjs#L321-L369) & [单标的回测](../public/js/domain/backtest.mjs#L135)：数值溢出与浮点尾数 | `comparePortfolioStrategies` 缺少 `simulate`（`backtest.mjs:126`）的 `Number.isFinite` 溢出保护；单标的 `simulate` 的 `trades` 未做 `.toFixed(2)` 取整，小数定投额下可能显示 `7.000000000000001`。 | `backtest.mjs:126, 135, 321-369, 386`。 |
+| Low | [自定义标的弹窗](../public/js/ui/symbol-dialog.mjs#L59-L60)：先解析 JSON 再判状态码 | `/api/symbols` 返回非 JSON 错误体时，`await response.json()` 先抛出 `SyntaxError`，导致 `response.status === 405` 的升级提示不可达。 | `symbol-dialog.mjs:59-60, 102`。 |
+| Low | [本地 HTTP 服务](../server/http-server.mjs#L144-L172)：非法 URI 或目录路径返回 500 | 请求 `/%E0%A4%A`（`URIError`）或 `/js`（`EISDIR`）时落入兜底分支返回 500，而非 400/404。 | `http-server.mjs:144, 158, 170-172`。 |
+| Low | [Pages 工作流](../.github/workflows/pages.yml#L103-L106)：`update` 写状态前崩溃仍发布旧 `status.json` | 若 `update-data.mjs` 在写入新 `status.json` 前抛错退出，因 `continue-on-error: true`，后续仍会构建并部署上一轮旧 `status.json`（Actions 任务本身会由 `report-data-status.mjs` 标红失败）。 | `pages.yml:106, 154`、`report-data-status.mjs:19`。 |
+
+### 2. 疑似问题与已排查排除项（含依据）
+
+1. **回测未来函数与跨月顺延吞单（已排除）**：月度与 KD 信号均在收盘确认后取 `rows[i + 1]` 开盘成交；`kd-strategy.mjs:65-67` 通过 `isTradingDay` 仅确认已收盘周线；`calculatePyramidSignals` 独立推进 `dueYear/dueMonth`，跨月顺延不会吞掉次月计划。
+2. **安全边界：路径穿越 / XSS / 命令注入 / `Origin: null`（已排除）**：`http-server.mjs:153` 校验 `file.startsWith(base + path.sep)` 与点文件拒绝；`sameOrigin` 对 `new URL` 做 `try/catch` 统一返回 403；`server/network.mjs` 使用 `execFile` 参数数组且无 shell；前端 DOM 均采用 `textContent` / `createElement` / `replaceChildren`，无 `innerHTML`。
+3. **Workflow DST 切换、冬令时双触发与并发覆盖（已排除）**：`server/refresh-schedule.mjs` 基于 `17:00:00Z` 动态计算纽约偏移，避开凌晨 02:00 切换窗口；冬令时 `19:01 UTC` 同时触发美东 `14:01` 与北京 `03:01` 时 `github.event.schedule` 字符串不同且受 `queue: max` 串行排队；推送与部署前两次调用 `scripts/check-deploy-head.mjs` 防覆盖。
+4. **静态构建隔离自定义标的（已排除）**：`scripts/build-site.mjs` 通过白名单过滤 `public/data/` 并剥离 `dist/data/status.json` 中的个人标的。
+
+### 3. 技术债与待同步事项
+
+- **代码层技术债**：
+  - [nasdaq-funds.html](../public/nasdaq-funds.html#L11) 与 [sp500-funds.html](../public/sp500-funds.html#L11) 引用 `./style.css` 未带 `?v=<version>` 缓存参数，且 [scripts/version.mjs](../scripts/version.mjs#L12-L27) 未覆盖这两页。
+  - [public/index.html](../public/index.html#L281) 仍残留指向不存在的「旧版研究」文案（承接第八节 P3 待处理项）。
+  - 组合回测与单标的回测各自维护现金、估值与净值循环（承接第七节备注）。
+- **文档层技术债**：
+  - `docs/architecture.md`、`docs/deployment.md`、`README.md` 已于本次（2026-11-13）统一对齐当前实现并精简用户向说明。
+  - [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md#L3) 仍引用已不存在的 `README` MIT 建议方案，且 [L21](../THIRD_PARTY_NOTICES.md#L21)、[L53](../THIRD_PARTY_NOTICES.md#L53) 仍将标普 500 对比基准写为 `VOO`（Vanguard）而非实际已切换的 `SPY`（State Street），待后续统一修订。

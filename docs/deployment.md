@@ -13,7 +13,7 @@
 - 本地：运行 node server.mjs，页面“更新数据”通过同源 POST /api/refresh 调用 server/updater.mjs。
 - 命令：node scripts/update-data.mjs；数据不齐或来源失败退出码为 1。所有来源独立校验、独立原子替换，失败源保留原文件。
 - 可选补抓：node scripts/update-data.mjs --scheduled；只有前一轮已成功、实际快照日期满足目标交易日的 ETF 来源才跳过网络，指数始终重新请求。所有自动定时轮次均强制重新请求，包括收盘后两轮联动及每六小时的独立指数更新，以接收上游修订。跳过网络时保留上次实际检查时间。手动运行默认强制重新检查所有来源。
-- REFRESH_SOURCES 可用逗号指定来源（Fear & Greed、SPY、QQQ、VGT、SMH）；未指定时更新全部。未选来源的快照及检查状态保持原样，requestedSources 记录本轮所选来源，requestedComplete 表示本轮来源成功且到齐，complete 按当前目标日期判断全部来源；未选来源仍缺数据时 complete=false，命令仍退出 1，避免 ETF 成功掩盖指数缺失。
+- REFRESH_SOURCES 可用逗号指定来源（Fear & Greed、SPY、QQQ、VGT、SMH、BRK-B）；未指定时更新全部。未选来源的快照及检查状态保持原样，requestedSources 记录本轮所选来源，requestedComplete 表示本轮来源成功且到齐，complete 按当前目标日期判断全部来源；未选来源仍缺数据时 complete=false，命令仍退出 1，避免 ETF 成功掩盖指数缺失。
 - FEAR_GREED_SOURCE=auto（默认）优先直接请求 CNN graphdata/2021-02-01 历史接口，使用上游 fetch_cnn.py 的完整 User-Agent、Accept、Origin、Referer 配置及 30 秒请求超时；与上游相同支持 CNN_FETCH_USER_AGENT 环境变量，Actions 从同名仓库变量传入，未设置时使用上游默认值；直连 fetch 与代理 curl 使用同一组请求头。仅网络请求失败（含 HTTP 错误）时尝试第三方存档；请求成功但响应解析或历史校验失败时保留本地数据并报告具体原因，不自动切源；有效数据日期滞后时继续使用 CNN 并提示缺失日期。cnn 只用 CNN，archive 只用存档；首次缺少 2021 年以前历史时需显式使用 archive 初始化。可用 GitHub 仓库变量 FEAR_GREED_SOURCE 配置。
 - 指数按上游 fetch_cnn.py + build_combined.py 处理 fear_and_greed_historical.data：所有时间戳取 UTC 日期，包含实时尾点，同日保留响应中最后一条及其评级，不按美股收盘时间过滤。历史接口请求 2021-02-01 起的数据；如果响应范围缩短，更早的本地历史仍保留，响应范围内接收官方修订，若缺少范围内已有日期则拒绝覆盖。CNN 与备用存档均在最新日期超过 7 天时拒绝写入。2021-02-01 前的第三方存档及独立历史补缺保持原有保护。
 - ETF 每个目标交易日首轮重新下载全历史和 Adj Close，重算整段前复权。已有日期丢失（即使总条数不变）、无效 OHLC、重复日期等均拒绝替换。暂时失败最多重试一次；明确返回拒绝访问或限流时不重试、不绕过。
@@ -37,7 +37,7 @@ public/data/status.json 记录各来源的数据日期、来源、最近检查�
 3. 确保允许工作流写入仓库内容；若 main 保护规则禁止机器人直推，数据持久化步骤会失败，需按仓库规则授权或另行采用数据分支。
 4. 在 Actions 中运行 Update data and deploy Pages，检查更新、保存与部署步骤。定时任务可能延迟，不能承诺准点；GitHub 还可能在公开仓库长期无活动后停用定时任务。需要关注失败通知和页面日期。
 
-工作流先运行测试，再更新数据、保存有效快照与状态、打包并发布。来源失败时仍发布保留的数据和失败状态，随后将任务标记失败；快照保存或推送失败则停止构建和部署，避免发布未入库的数据。部署本身失败时网站仍是上一版本，可从 Actions 查看。Git 推送失败不会强制覆盖远端。自动数据提交不会再次触发本工作流，避免循环。
+代码推送到 main 时工作流先运行全部应用测试，再更新数据、保存有效快照与状态、打包并发布；定时（schedule）与手动（workflow_dispatch）触发时跳过应用测试，直接执行数据更新与发布。来源失败时仍发布保留的数据和失败状态，随后将任务标记失败；快照保存或推送失败则停止构建和部署，避免发布未入库的数据。部署本身失败时网站仍是上一版本，可从 Actions 查看。Git 推送失败不会强制覆盖远端。自动数据提交不会再次触发本工作流，避免循环。
 
 ### 分支、并发与恢复
 
