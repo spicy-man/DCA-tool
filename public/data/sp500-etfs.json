@@ -2,8 +2,8 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-12T20:38:49.347Z",
-  "lastAttemptAt": "2026-11-12T20:38:49.347Z",
+  "checkedAt": "2026-11-12T23:56:04.113Z",
+  "lastAttemptAt": "2026-11-12T23:56:04.113Z",
   "ok": true,
   "rows": [
     {
@@ -20,7 +20,7 @@
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-12T20:38:49.347Z"
+      "profileCheckedAt": "2026-11-12T23:56:04.113Z"
     },
     {
       "code": "513650",
@@ -30,13 +30,13 @@
       "iopv": 1.8441,
       "premium": 7.911718453446115,
       "amount": 525849758,
-      "shares": 5241733888,
+      "shares": 5251734016,
       "quoteDate": "2026-11-12",
       "quoteTime": "2026-11-12T08:12:00.000Z",
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-12T20:38:49.347Z"
+      "profileCheckedAt": "2026-11-12T23:56:04.113Z"
     },
     {
       "code": "159612",
@@ -52,7 +52,7 @@
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-12T20:38:49.347Z"
+      "profileCheckedAt": "2026-11-12T23:56:04.113Z"
     },
     {
       "code": "159655",
@@ -62,13 +62,13 @@
       "iopv": 1.8508,
       "premium": 8.007348173762697,
       "amount": 219791894.006,
-      "shares": 2291143040,
+      "shares": 2293143040,
       "quoteDate": "2026-11-12",
       "quoteTime": "2026-11-12T07:34:33.000Z",
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-12T20:38:49.347Z"
+      "profileCheckedAt": "2026-11-12T23:56:04.113Z"
     }
   ],
   "performance": {
@@ -76,8 +76,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-11",
-    "checkedAt": "2026-11-12T20:38:49.347Z",
-    "lastAttemptAt": "2026-11-12T20:38:49.347Z",
+    "checkedAt": "2026-11-12T23:56:04.113Z",
+    "lastAttemptAt": "2026-11-12T23:56:04.113Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
