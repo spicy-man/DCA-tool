@@ -1,28 +1,23 @@
 {
   "version": 1,
-  "checkedAt": "2026-11-12T02:45:52.472Z",
+  "checkedAt": "2026-11-12T10:44:28.687Z",
   "expectedDate": "2026-11-11",
   "requestedSources": [
-    "Fear & Greed",
-    "SPY",
-    "QQQ",
-    "VGT",
-    "SMH",
-    "BRK-B"
+    "Fear & Greed"
   ],
   "requestedComplete": true,
   "complete": true,
   "results": [
     {
       "symbol": "Fear & Greed",
-      "date": "2026-11-11",
-      "count": 3988,
+      "date": "2026-11-12",
+      "count": 3989,
       "source": "CNN",
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-11",
-      "checkedAt": "2026-11-12T02:45:52.472Z",
-      "lastSuccessAt": "2026-11-12T02:45:52.472Z"
+      "checkedAt": "2026-11-12T10:44:28.687Z",
+      "lastSuccessAt": "2026-11-12T10:44:28.687Z"
     },
     {
       "symbol": "SPY",
