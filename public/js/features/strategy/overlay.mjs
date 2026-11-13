@@ -399,8 +399,8 @@ function renderSignalTable() {
 }
 
 function apply() {
-  const rawBaseAmount = $('base-amount').value.trim();
-  const rawFearInput = $('fear-buy-count').value.trim();
+  const rawBaseAmount = String($('base-amount').value ?? '').trim();
+  const rawFearInput = String($('fear-buy-count').value ?? '').trim();
   const buyDay = Number($('buy-day').value);
   const baseAmount = Number(rawBaseAmount);
   const fearThreshold = Number($('fear-threshold').value);
