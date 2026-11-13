@@ -423,7 +423,7 @@ for(const sentimentSource of ['cnn','archive']) {
  });
 }
 
-test('本地 HTTP：非法 URI 编码返回 400，目录路径返回 404', async t => {
+test('本地 HTTP：非法 URI 编码返回 400，目录路径返回 404，PWA 资源类型正确', async t => {
   const server = createServer();
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -431,4 +431,10 @@ test('本地 HTTP：非法 URI 编码返回 400，目录路径返回 404', async
   const base = 'http://127.0.0.1:' + server.address().port;
   assert.equal((await fetch(base + '/%E0%A4%A')).status, 400);
   assert.equal((await fetch(base + '/js')).status, 404);
+  const manifestRes = await fetch(base + '/manifest.webmanifest');
+  assert.equal(manifestRes.status, 200);
+  assert.match(manifestRes.headers.get('content-type'), /application\/manifest\+json/);
+  const iconRes = await fetch(base + '/icons/apple-touch-icon.png');
+  assert.equal(iconRes.status, 200);
+  assert.equal(iconRes.headers.get('content-type'), 'image/png');
 });

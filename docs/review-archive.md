@@ -4,6 +4,17 @@
 
 ---
 
+## PWA 适配与切回前台刷新工作区改动审查闭环（2026-11-13）
+
+- **范围与轮次**：工作区 14 个已修改文件、5 个未跟踪 PWA 文件（`manifest.webmanifest`、`icons/*`）及相关调用链路，共 2 轮双人独立审查闭环；最终代码运行 `npm test` **197 / 197 通过**，两方均无未解决的有效发现。
+- **已修复项**：
+  1. `[High]` [application-calendar.test.mjs](../test/application-calendar.test.mjs#L196-L430)：补齐 `initMarketChart()` 与多监听器数组分派、修正等待循环括号优先级并断言 `SMH` 标题切换，同时通过 `trackAppEvents` 消除 `appEvents` 跨用例泄漏。
+  2. `[Medium]` [application.mjs](../public/js/application.mjs#L383-L432)：`visibilitychange` 改为先记录 `expectedID`、仅在 `onCommit` 提交阶段推进 `sentimentRequestID`，避免未变更/失败的切回检查取消并发 `#refresh` `load()`。
+  3. `[Low]` [application.mjs](../public/js/application.mjs#L392-L426) / [chart.mjs](../public/js/features/market/chart.mjs#L70-L100) / [overlay.mjs](../public/js/features/strategy/overlay.mjs#L144-L148) / [page.css](../public/css/page.css#L121)：新增 `hasLoadedMarket()` 使首屏或切标失败的行情在 `status.json` 未变时也能恢复重试；通过 `onCommit` 与 `setSignalSentiment(..., { notify: false })` 合并为单次渲染；移除 `#allocation-dialog .allocation-actions` 重复的 `env(safe-area-inset-bottom)` 留白。
+- **剩余限制**：CLI 环境仅运行 Node 单元测试与模拟 DOM 集成测试，真机 iOS/Android Standalone PWA 安全区视觉效果需在设备上确认。
+
+---
+
 ## v1.17.0 全量双人审查记录（2026-11-13）
 
 - **范围**：全仓库代码、`.github/workflows/pages.yml` 与全部 8 份文档（环境无 `node` / `npm`，静态核查）。

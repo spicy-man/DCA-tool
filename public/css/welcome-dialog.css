@@ -21,15 +21,15 @@
   max-height: calc(100dvh - 48px);
   padding: 0;
   overflow: hidden;
-  border: 1px solid #e3e2dc;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #fdfcf9;
-  color: #34434a;
+  background: #fff;
+  color: #20333f;
   box-shadow: 0 24px 90px #19374a30;
 }
 
 .welcome-dialog[open] { display: flex; }
-.welcome-dialog::backdrop { background: #19374a75; }
+.welcome-dialog::backdrop { background: #19374a66; }
 
 .welcome-heading {
   display: flex;
@@ -39,26 +39,27 @@
   padding: 18px 28px 0;
 }
 
-.welcome-eyebrow { font-size: 11px; letter-spacing: 3px; color: #7c817a; }
-.welcome-close { width: 30px; height: 30px; padding: 0; border: 0; background: transparent; font-size: 23px; color: #7c817a; }
+.welcome-eyebrow { font-size: 11px; letter-spacing: 3px; color: #607487; }
+.welcome-close { width: 30px; height: 30px; padding: 0; border: 0; background: transparent; font-size: 23px; color: #607487; }
+.welcome-close:hover { color: var(--navy); }
 .welcome-body { min-height: 0; padding: 6px 36px 14px; overflow-y: auto; overscroll-behavior: contain; }
 .welcome-body h2 { margin: 0 0 10px; color: var(--navy); font-family: "Songti SC", "Noto Serif CJK SC", SimSun, serif; font-size: 30px; font-weight: 600; letter-spacing: 3px; }
 .welcome-body h2:focus { outline: none; }
 .welcome-body p { margin: 12px 0; font-size: 13px; line-height: 1.95; }
-.welcome-body .welcome-lead { margin-top: 0; color: #778078; }
-.welcome-quote { margin: 20px 0; padding: 17px 20px; border-left: 3px solid #82988a; background: #f0f2ec; }
-.welcome-quote blockquote { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", SimSun, serif; font-size: 18px; line-height: 1.8; color: #344e43; }
-.welcome-quote figcaption { margin-top: 9px; color: #737e73; font-size: 10px; line-height: 1.8; }
+.welcome-body .welcome-lead { margin-top: 0; color: #607487; }
+.welcome-quote { margin: 20px 0; padding: 17px 20px; border-left: 3px solid #a7b8b7; background: #f3f6f8; }
+.welcome-quote blockquote { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", SimSun, serif; font-size: 18px; line-height: 1.8; color: #20333f; }
+.welcome-quote figcaption { margin-top: 9px; color: #607487; font-size: 10px; line-height: 1.8; }
 .welcome-quote a { margin-left: 5px; color: inherit; text-underline-offset: 3px; }
 .welcome-quote .welcome-quote-en { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 13px; font-style: italic; line-height: 1.75; }
-.welcome-quote .welcome-quote-zh { margin: 12px 0 0; color: #59675b; font-size: 14px; line-height: 1.9; }
-.welcome-quote strong { font-weight: 600; }
-.welcome-rules { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e6df; }
-.welcome-rules h3 { margin: 0; color: #435b50; font-size: 13px; font-weight: 600; }
-.welcome-body .welcome-ending { color: #737e73; }
-.welcome-footer { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 12px; padding: 16px 28px; border-top: 1px solid #e5e6df; background: #f8f8f3; }
-.welcome-preference { display: flex; align-items: center; gap: 6px; color: #737e73; font-size: 11px; line-height: 1.6; }
-.welcome-preference input { margin: 0; accent-color: #587f6d; }
+.welcome-quote .welcome-quote-zh { margin: 12px 0 0; color: #4a5c64; font-size: 14px; line-height: 1.9; }
+.welcome-quote strong { font-weight: 600; color: #20333f; }
+.welcome-rules { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.welcome-rules h3 { margin: 0; color: var(--navy); font-size: 13px; font-weight: 600; }
+.welcome-body .welcome-ending { color: #607487; }
+.welcome-footer { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 12px; padding: 16px 28px; border-top: 1px solid var(--border); background: #f5f6fa; }
+.welcome-preference { display: flex; align-items: center; gap: 6px; color: #607487; font-size: 11px; line-height: 1.6; }
+.welcome-preference input { margin: 0; accent-color: var(--navy); }
 .welcome-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .welcome-actions button { height: 34px; padding: 0 14px; font-size: 12px; }
 

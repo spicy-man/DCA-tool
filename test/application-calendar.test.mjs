@@ -2,8 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initApplication } from '../public/js/application.mjs';
 import { initStrategyOverlay } from '../public/js/features/strategy/overlay.mjs';
-import { loadMarket } from '../public/js/features/market/chart.mjs';
+import { initMarketChart, loadMarket } from '../public/js/features/market/chart.mjs';
+import { appEvents } from '../public/js/services/events.mjs';
 import { drawOverview } from '../public/js/charts/sentiment.mjs';
+
+function trackAppEvents(t) {
+  const added = [];
+  const original = appEvents.addEventListener.bind(appEvents);
+  t.mock.method(appEvents, 'addEventListener', (type, fn, options) => {
+    added.push([type, fn, options]);
+    return original(type, fn, options);
+  });
+  t.after(() => {
+    for (const [type, fn, options] of added) appEvents.removeEventListener(type, fn, options);
+  });
+}
 
 function canvasContext(calls = []) {
   return new Proxy({}, {
@@ -14,6 +27,7 @@ function canvasContext(calls = []) {
 }
 
 for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口：${mode}`, async t => {
+  trackAppEvents(t);
   const nodes = new Map();
   const ctx = canvasContext();
   const element = () => ({
@@ -177,4 +191,240 @@ test('概览曲线按联合日期范围定位，指数缺失区间保持留白',
   });
   assert.equal(calls.find(([name]) => name === 'moveTo')[1], 20);
   assert.equal(calls.find(([name]) => name === 'lineTo')[1], 40);
+});
+
+test('PWA 切回前台仅在 status.json 更新后刷新行情与情绪，离线失败保留当前画面', async t => {
+  trackAppEvents(t);
+  const nodes = new Map();
+  const ctx = canvasContext();
+  const element = () => {
+    const handlers = {};
+    return {
+      textContent: '', value: '', dataset: {}, hidden: false, open: false,
+      clientWidth: 600, clientHeight: 300, offsetHeight: 0, children: [], listeners: {},
+      style: { setProperty() {} }, classList: { toggle() {}, add() {}, remove() {} },
+      setAttribute() {}, replaceChildren(...values) { this.children = values; },
+      append(value) { this.children.push(value); },
+      addEventListener(key, fn) {
+        (handlers[key] ||= []).push(fn);
+        this.listeners[key] = (...args) => {
+          let result;
+          for (const handler of handlers[key]) result = handler(...args);
+          return result;
+        };
+      },
+      closest(selector) { return selector === 'details' ? this : null; },
+      querySelector() { return element(); }, getContext() { return ctx; },
+      getBoundingClientRect() { return { left: 0, top: 0, width: 600, height: 300 }; }
+    };
+  };
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, element());
+    return nodes.get(id);
+  };
+  const docListeners = {};
+  const doc = {
+    visibilityState: 'visible',
+    getElementById: $,
+    createElement: element,
+    createElementNS: element,
+    querySelector: () => null,
+    addEventListener(key, fn) { docListeners[key] = fn; }
+  };
+  let now = 1_000_000;
+  t.mock.method(Date, 'now', () => now);
+  const nav = { onLine: true };
+  for (const [key, value] of Object.entries({
+    document: doc,
+    navigator: nav,
+    window: { devicePixelRatio: 1 }, devicePixelRatio: 1,
+    ResizeObserver: class { observe() {} },
+    localStorage: { getItem: () => null, setItem() {} }
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  $('symbol').value = 'VGT';
+  $('symbol').options = [{ value: 'VGT', textContent: 'VGT' }];
+  $('range').value = 'all';
+  $('frequency').value = 'daily';
+  $('layout').value = 'expanded';
+
+  const baseRows = ['2026-10-15', '2026-10-16'].map((date, i) => ({
+    date, open: 100 + i, high: 110 + i, low: 90 + i, close: 100 + i, volume: 10
+  }));
+  let market = { symbol: 'VGT', anchorDate: '2026-10-16', fetchedAt: '2026-10-16T21:00:00Z', rows: [...baseRows] };
+  let health = { version: 1, expectedDate: '2026-10-16', checkedAt: '2026-10-16T21:01:00Z', complete: true, results: [] };
+  let sentimentScore = 30;
+  let failStatus = false;
+  let failSentiment = false;
+  let failMarket = false;
+  let statusFetches = 0;
+  let sentimentFetches = 0;
+  let marketFetches = 0;
+
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('status.json')) {
+      statusFetches++;
+      if (failStatus) throw Error('offline');
+      return { ok: true, json: async () => health };
+    }
+    if (url.includes('fear-greed.csv')) {
+      sentimentFetches++;
+      if (failSentiment) throw Error('sentiment offline');
+      return { ok: true, text: async () => `Date,Fear Greed,Rating\n2026-10-15,40,Fear\n2026-10-16,${sentimentScore},Fear\n` };
+    }
+    if (url.includes('vgt.json')) {
+      marketFetches++;
+      if (failMarket) throw Error('market offline');
+      return { ok: true, json: async () => market };
+    }
+    return { ok: true, json: async () => url.includes('deployment') ? { mode: 'local' } : null };
+  });
+
+  initStrategyOverlay();
+  initMarketChart();
+  initApplication();
+  for (let i = 0; i < 20 && (!$('price-asof').textContent.includes('2026-10-16') || !$('status').textContent); i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(statusFetches, 1);
+  assert.equal(marketFetches, 1);
+  assert.equal($('price-close').textContent, '101.00');
+
+  // Within 60s cooldown, hidden tab, or offline must not fetch status.json.
+  now += 30_000;
+  await docListeners.visibilitychange();
+  now += 40_000;
+  doc.visibilityState = 'hidden';
+  await docListeners.visibilitychange();
+  doc.visibilityState = 'visible';
+  nav.onLine = false;
+  await docListeners.visibilitychange();
+  nav.onLine = true;
+  assert.equal(statusFetches, 1);
+
+  // Unchanged status.json after cooldown must not re-fetch market snapshot.
+  now += 70_000;
+  await docListeners.visibilitychange();
+  assert.equal(statusFetches, 2);
+  assert.equal(marketFetches, 1);
+
+  // Offline status failure keeps existing close price intact.
+  now += 70_000;
+  failStatus = true;
+  await docListeners.visibilitychange();
+  assert.equal(statusFetches, 3);
+  assert.equal($('price-close').textContent, '101.00');
+  assert.equal(marketFetches, 1);
+
+  // Newer status.json + sentiment failure keeps current view and retries next resume.
+  failStatus = false;
+  failSentiment = true;
+  market = {
+    symbol: 'VGT',
+    anchorDate: '2026-10-19',
+    fetchedAt: '2026-10-19T21:00:00Z',
+    rows: [...baseRows, { date: '2026-10-19', open: 102, high: 112, low: 92, close: 109, volume: 10 }]
+  };
+  health = { version: 1, expectedDate: '2026-10-19', checkedAt: '2026-10-19T21:01:00Z', complete: true, results: [] };
+  now += 70_000;
+  await docListeners.visibilitychange();
+  assert.equal($('price-close').textContent, '101.00');
+  assert.equal(marketFetches, 1);
+
+  // Newer status.json + market failure preserves close price and retries next resume.
+  failSentiment = false;
+  failMarket = true;
+  now += 70_000;
+  await docListeners.visibilitychange();
+  assert.equal(marketFetches, 2);
+  assert.equal($('price-close').textContent, '101.00');
+
+  // Next resume when network recovers completes the refresh and updates close price in a single render pass.
+  failMarket = false;
+  let strategySettingsEvents = 0;
+  const countSettings = () => { strategySettingsEvents++; };
+  appEvents.addEventListener('strategy-settings', countSettings);
+  now += 70_000;
+  await docListeners.visibilitychange();
+  appEvents.removeEventListener('strategy-settings', countSettings);
+  assert.equal(strategySettingsEvents, 0);
+  assert.equal(marketFetches, 3);
+  assert.equal($('price-close').textContent, '109.00');
+  assert.match($('price-asof').textContent, /2026-10-19/);
+
+  // Unchanged visibilitychange while #refresh load() is in flight must not cancel load().
+  let resolveRefreshSentiment;
+  const refreshSentimentWait = new Promise(resolve => { resolveRefreshSentiment = resolve; });
+  const baseFetch = globalThis.fetch;
+  sentimentScore = 25;
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('fear-greed.csv')) {
+      await refreshSentimentWait;
+    }
+    return baseFetch(url);
+  });
+  const refreshPromise = $('refresh').listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  now += 70_000;
+  await docListeners.visibilitychange();
+  resolveRefreshSentiment();
+  await refreshPromise;
+  assert.equal($('score').textContent, 25);
+  t.mock.method(globalThis, 'fetch', baseFetch);
+
+  // Resume during an active symbol switch must not cancel loadMarket() or stall loading=true.
+  let resolveSwitch;
+  const switchWait = new Promise(resolve => { resolveSwitch = resolve; });
+  let failSmh = false;
+  $('symbol').options.push({ value: 'SMH', textContent: 'SMH' });
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('smh.json')) {
+      await switchWait;
+      if (failSmh) throw Error('smh offline');
+      return { ok: true, json: async () => ({ ...market, symbol: 'SMH' }) };
+    }
+    if (url.includes('status.json')) {
+      return { ok: true, json: async () => ({ ...health, checkedAt: '2026-10-20T21:01:00Z' }) };
+    }
+    return baseFetch(url);
+  });
+  $('symbol').value = 'SMH';
+  $('symbol').listeners.change();
+  now += 70_000;
+  const resumeDuringSwitch = docListeners.visibilitychange();
+  await resumeDuringSwitch;
+  resolveSwitch();
+  for (let i = 0; i < 20 && (!$('price-title').textContent.includes('SMH') || $('price-close').textContent === '—'); i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.match($('price-title').textContent, /^SMH/);
+  assert.equal($('price-close').textContent, '109.00');
+  assert.match($('price-asof').textContent, /2026-10-19/);
+
+  // Failed symbol load recovers on next resume even when status.json is unchanged (without re-fetching sentiment).
+  $('symbol').options.push({ value: 'QQQ', textContent: 'QQQ' });
+  failSmh = true;
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('qqq.json')) {
+      if (failSmh) throw Error('qqq offline');
+      return { ok: true, json: async () => ({ ...market, symbol: 'QQQ' }) };
+    }
+    return baseFetch(url);
+  });
+  $('symbol').value = 'QQQ';
+  $('symbol').listeners.change();
+  for (let i = 0; i < 20 && !$('price-asof').textContent.includes('qqq offline'); i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal($('price-close').textContent, '—');
+  failSmh = false;
+  const sentimentBeforeRetry = sentimentFetches;
+  now += 70_000;
+  await docListeners.visibilitychange();
+  assert.equal(sentimentFetches, sentimentBeforeRetry);
+  assert.match($('price-title').textContent, /^QQQ/);
+  assert.equal($('price-close').textContent, '109.00');
 });

@@ -84,3 +84,38 @@ details:not([open])::details-content {
 ) {
   transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
+
+/* Keep standalone / edge-to-edge PWA UI clear of notches and system bars. */
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+dialog:is(#symbol-dialog, #allocation-dialog, #strategy-dialog, #welcome-dialog) {
+  inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  max-width: calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+#symbol-dialog {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+@media (pointer: coarse) {
+  .welcome-close,
+  .title-actions #refresh,
+  #add-symbol {
+    position: relative;
+  }
+
+  .welcome-close::after,
+  .title-actions #refresh::after,
+  #add-symbol::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+  }
+}

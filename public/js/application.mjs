@@ -13,7 +13,7 @@ import { tooltipContent, positionTooltip } from './ui/tooltip.mjs';
 import { drawSentiment, drawOverview } from './charts/sentiment.mjs';
 import { periodKey } from './charts/geometry.mjs';
 import { attachChartNavigation, constrainWindow, navigatorState } from './charts/navigation.mjs';
-import { loadMarket, renderMarket, drawPrice, setMarketHover, invalidateMarket } from './features/market/chart.mjs';
+import { loadMarket, renderMarket, drawPrice, setMarketHover, invalidateMarket, hasLoadedMarket } from './features/market/chart.mjs';
 import { aggregate, selectRange, rating } from './domain/sentiment.mjs';
 
 export function initApplication() {
@@ -159,8 +159,13 @@ export function initApplication() {
     if ($('data-table').closest('details').open) renderDataTable();
   });
 
+  let sentimentRequestID = 0;
+
   async function load() {
-    rows = await loadSentimentRows();
+    const id = ++sentimentRequestID;
+    const nextRows = await loadSentimentRows();
+    if (id !== sentimentRequestID) return;
+    rows = nextRows;
     syncCalendar();
     setSignalSentiment(rows);
     render();
@@ -255,10 +260,18 @@ export function initApplication() {
   $('chart').addEventListener('pointerleave', hideHover);
 
   const deploymentReady = getDeploymentMode();
+  let loadedHealthKey = null;
+  let lastResumeCheck = 0;
+  let resumeChecking = false;
+  let initialLoadSettled = false;
+  const healthKey = health => (health ? JSON.stringify([health.checkedAt, health.expectedDate]) : null);
 
   async function loadHealth() {
     try {
-      $('status').textContent = healthSummary(await loadSourceHealth());
+      const health = await loadSourceHealth();
+      loadedHealthKey = healthKey(health);
+      if (health) lastResumeCheck = Date.now();
+      $('status').textContent = healthSummary(health);
     } catch {
       $('status').textContent = '无法检查数据更新状态，请核对各图的数据日期。';
     }
@@ -366,8 +379,63 @@ export function initApplication() {
 
   appEvents.addEventListener(events.sourceHealth, loadHealth);
 
+  // Standalone PWAs keep the page alive across backgrounding; refresh snapshots on resume when status advances.
+  document.addEventListener?.('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible' || resumeChecking || !initialLoadSettled) return;
+    if (globalThis.navigator?.onLine === false || Date.now() - lastResumeCheck < 60000) return;
+    resumeChecking = true;
+    lastResumeCheck = Date.now();
+    const expectedID = sentimentRequestID;
+    try {
+      const health = await loadSourceHealth();
+      if (expectedID !== sentimentRequestID) return;
+      const nextKey = healthKey(health);
+      const healthChanged = Boolean(nextKey && nextKey !== loadedHealthKey);
+      const needsSentimentRetry = !rows.length;
+      const needsMarketRetry = !hasLoadedMarket();
+      if (!healthChanged && !needsSentimentRetry && !needsMarketRetry) return;
+
+      let nextRows = null;
+      if (healthChanged || needsSentimentRetry) {
+        nextRows = await loadSentimentRows();
+        if (expectedID !== sentimentRequestID) return;
+      }
+
+      let committed = false;
+      const refreshed = await invalidateMarket({
+        preserveOnError: true,
+        onCommit(dates) {
+          if (expectedID !== sentimentRequestID) return true;
+          sentimentRequestID++;
+          committed = true;
+          if (nextRows) {
+            rows = nextRows;
+            setSignalSentiment(rows, { notify: false });
+          }
+          marketCalendar = [...new Set(dates)].sort();
+          syncCalendar();
+          if (rows.length) {
+            render();
+            return true;
+          }
+          return false;
+        }
+      });
+      if (!refreshed || !committed) return;
+      if (nextKey) loadedHealthKey = nextKey;
+      if (health) $('status').textContent = healthSummary(health);
+    } catch {
+      // Keep existing rendered snapshots when offline or refresh fails on resume.
+    } finally {
+      resumeChecking = false;
+    }
+  });
+
   loadMarket();
   load().catch(error => {
     $('status').textContent = error.message + '。请检查本地数据文件后刷新页面。';
+  }).finally(() => {
+    initialLoadSettled = true;
+    if (!lastResumeCheck) lastResumeCheck = Date.now();
   });
 }

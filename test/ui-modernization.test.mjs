@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
   bindDialogCommands,
   closeDialog,
@@ -68,4 +69,31 @@ test('无 commandForElement 支持时 bindDialogCommands 为声明式关闭按�
 
   await closeDialog(dialog);
   assert.equal(closed, 2);
+});
+
+test('PWA 清单、iOS 图标与主页面入口声明有效且使用相对路径', async () => {
+  const pub = new URL('../public/', import.meta.url);
+  const manifest = JSON.parse(await readFile(new URL('manifest.webmanifest', pub), 'utf8'));
+  assert.equal(manifest.id, './');
+  assert.equal(manifest.start_url, './');
+  assert.equal(manifest.scope, './');
+  assert.equal(manifest.display, 'standalone');
+  assert.ok(manifest.icons.length >= 2);
+  const pngDims = bytes => {
+    assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    assert.equal(bytes.subarray(12, 16).toString('ascii'), 'IHDR');
+    return `${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`;
+  };
+  for (const icon of manifest.icons) {
+    assert.ok(icon.src.startsWith('./'), icon.src);
+    assert.equal(pngDims(await readFile(new URL(icon.src, pub))), icon.sizes);
+  }
+  assert.equal(pngDims(await readFile(new URL('icons/apple-touch-icon.png', pub))), '180x180');
+  for (const page of ['index.html', 'nasdaq-funds.html', 'sp500-funds.html']) {
+    const html = await readFile(new URL(page, pub), 'utf8');
+    assert.ok(html.includes('viewport-fit=cover'), page);
+    assert.ok(html.includes('href="./manifest.webmanifest"'), page);
+    assert.ok(html.includes('href="./icons/apple-touch-icon.png"'), page);
+  }
+  assert.ok((await readFile(new URL('diagram.html', pub), 'utf8')).includes('viewport-fit=cover'));
 });

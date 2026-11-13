@@ -133,13 +133,42 @@ export function initFundComparison() {
       ' · 前复权累计涨幅 · ' + benchmarkInfo.symbol + ' 美元 / 场内 ETF 人民币 · 不做汇率换算' +
       (history?.complete === false ? ' · 部分历史数据不完整' : '');
   }
-  async function load() {
-    try { snapshot = await loadFundSnapshot(group.id); render(); }
-    catch {
+  let lastResumeCheck = 0;
+  let resumeChecking = false;
+  let initialLoadSettled = false;
+  let requestID = 0;
+  const snapshotKey = value => (value ? JSON.stringify([
+    value.checkedAt,
+    value.lastAttemptAt,
+    value.ok,
+    value.performance?.endDate,
+    value.performance?.ok,
+    value.performance?.complete
+  ]) : null);
+  async function load({ silentOnError = false } = {}) {
+    const id = ++requestID;
+    try {
+      const next = await loadFundSnapshot(group.id);
+      if (id !== requestID) return;
+      lastResumeCheck = Date.now();
+      if (silentOnError && snapshot && snapshotKey(next) === snapshotKey(snapshot)) return;
+      snapshot = next;
+      render();
+    } catch {
+      if (id !== requestID) return;
+      if (silentOnError && snapshot?.rows?.length) return;
       $('fund-updated').textContent = '基金快照读取失败，请稍后重试或运行基金数据更新。';
       $('fund-empty').hidden = !!snapshot?.rows?.length;
     }
   }
+  document.addEventListener?.('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible' || resumeChecking || !initialLoadSettled) return;
+    if (globalThis.navigator?.onLine === false || Date.now() - lastResumeCheck < 60000) return;
+    resumeChecking = true;
+    lastResumeCheck = Date.now();
+    try { await load({ silentOnError: true }); }
+    finally { resumeChecking = false; }
+  });
   for (const button of headers) button.addEventListener('click', event => {
     const key = button.dataset.fundSort;
     const control = event.shiftKey && !primaryControl.value.startsWith(key + ':') ? secondaryControl : primaryControl;
@@ -149,6 +178,9 @@ export function initFundComparison() {
   });
   primaryControl.addEventListener('change', render);
   secondaryControl.addEventListener('change', render);
-  appEvents.addEventListener(events.fundsUpdated, load);
-  void load();
+  appEvents.addEventListener(events.fundsUpdated, () => load());
+  void load().finally(() => {
+    initialLoadSettled = true;
+    if (!lastResumeCheck) lastResumeCheck = Date.now();
+  });
 }

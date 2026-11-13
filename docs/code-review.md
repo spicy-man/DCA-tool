@@ -120,12 +120,8 @@
 
 ---
 
-## 三、最近一轮审查摘要（2026-11-13 · v1.17.8）
+## 三、最近一轮审查摘要（2026-11-13 · PWA 与切回前台工作区改动闭环）
 
-- **审查范围**：双人独立只读全量审查（服务端、构建/CI 脚本、前端域逻辑/图表/特性/UI、HTML/CSS 与全套测试；两方审查前均未预读台账与技术债文档）。
-- **测试验证**：运行 `npm test`（`node --test test/*.test.mjs`），**194 / 194 全部通过**（`0 fail`、`0 skipped`）；未做真实浏览器渲染及线上外部接口实测。
-- **新增登记**：确认并登记 **13 项**新待修项（**5 Medium** `#10–#14` + **8 Low** `#15–#22`），保留原 `#9`。
-- **已排查排除的关键疑似问题**：
-  1. **前端 DOM XSS**：`public/` 下零 `innerHTML` / `outerHTML` / `eval` / 内联事件，外链均有 `rel="noreferrer"` 或 `rel="noopener noreferrer"`。
-  2. **静态路径穿越与静态构建隔离**：[http-server.mjs](../server/http-server.mjs#L153) 拦截路径穿越与点文件；[build-site.mjs](../scripts/build-site.mjs) 严格白名单过滤 `public/data/` 并剥离个人标的。
-  3. **策略未来函数与跨月顺延**：回测成交、`kd-strategy.mjs` 周线确认、`pyramid-strategy.mjs` 跨月顺延及 `backtest.mjs` 风险指标均按既定规则通过 194 项测试验证。
+- **审查范围**：工作区 14 个已修改文件、5 个未跟踪 PWA 资源及关联模块与测试，经两轮双人独立审查闭环（两方审查前均未预读台账与技术债文档）。
+- **发现与处置**：首轮确认并修复 3 项问题（[application-calendar.test.mjs](../test/application-calendar.test.mjs#L196-L430) 死锁与监听隔离、[application.mjs](../public/js/application.mjs#L383-L432) `sentimentRequestID` 抢先递增竞态，以及未加载行情重试、单次重绘与 [page.css](../public/css/page.css#L121) 双重底部安全区留白），详见 [历史审查归档](./review-archive.md)。本轮无新增未解决待修项，保留原 `#9–#22`。
+- **测试验证**：修复后运行 `npm test`（`node --test test/*.test.mjs`），**197 / 197 全部通过**（`0 fail`、`0 skipped`）；真机 iOS/Android Standalone PWA 安全区渲染未在 CLI 环境中实测。

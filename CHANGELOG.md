@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v1.17.8** (更新日期: 2026-11-13)。
+目前系统版本为 **v2.0.0** (更新日期: 2026-11-13)。
+
+## ✨ v2.0.0 支持 PWA 独立应用与切回前台自动刷新 [NEW]
+
+- **PWA 独立应用支持**：新增 `public/manifest.webmanifest` 与 `public/icons/*` 应用图标，为首页、纳斯达克 100 / 标普 500 ETF 对比页与策略原图页补充 `viewport-fit=cover` 及 iOS/Android 主屏幕元数据；本地服务补充 `.webmanifest` 与 `.png` MIME 类型。
+- **刘海屏安全区与触控优化**：在 `public/css/modern.css`、`public/css/page.css` 与 `public/diagram.html` 中为页面及各类弹窗适配 `env(safe-area-inset-*)`，支持 `#symbol-dialog` 内部滚动并为粗指针触控按钮扩大点击热区，同时统一开场引导弹窗配色变量。
+- **切回前台自动刷新**：主页面与 ETF 对比页在 Standalone PWA 切回前台时按 60 秒冷却与在线状态检测更新；仅在 `status.json` 或基金快照变化（或此前加载失败需要重试）时静默拉取并单次刷新视图，离线失败或正在切标时保留当前画面不干扰用户操作。
 
 ## 🔧 v1.17.8 修复手机端组合定投弹窗按钮居中与标题行布局 [FIX]
 

@@ -141,10 +141,10 @@ function syncControlsForSymbol(symbol) {
   if ($('signal-error')) $('signal-error').textContent = '';
 }
 
-export function setSignalSentiment(rows) {
+export function setSignalSentiment(rows, { notify = true } = {}) {
   sentimentRows = rows;
   refreshAllocationPreview?.();
-  appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
+  if (notify) appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
 }
 
 export function signalSettings() {

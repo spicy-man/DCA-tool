@@ -118,7 +118,7 @@
   .allocation-summary { margin: 10px 0; font-size: 12px; }
   .allocation-estimate { padding: 10px; }
   .allocation-estimate-head { flex-wrap: wrap; gap: 2px 10px; }
-  #allocation-dialog .allocation-actions { padding: 10px 14px max(10px, env(safe-area-inset-bottom)); }
+  #allocation-dialog .allocation-actions { padding: 10px 14px 12px; }
   #allocation-dialog .symbol-dialog-actions button { flex: 1; min-height: 42px; font-size: 13px; }
 }
 .base-amount-group { display: inline-flex; align-items: center; gap: 6px; }

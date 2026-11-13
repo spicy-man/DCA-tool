@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { NASDAQ_FUNDS, normalizeFundQuotes, premiumRate, sortFunds } from '../public/js/domain/nasdaq-funds.mjs';
+import { initFundComparison } from '../public/js/features/funds/comparison.mjs';
 import { FUND_QUOTES_URL, TENCENT_QUOTES_URL, parseFundProfile, parseTencentQuotes, fetchFundSnapshot } from '../server/nasdaq-funds.mjs';
 import { refreshFunds } from '../server/updater.mjs';
 
@@ -154,4 +155,91 @@ test('东方财富不可用时使用腾讯，真实来源写入快照', async t 
   assert.equal(result.ok, true);
   assert.equal(result.quoteSource, '腾讯财经');
   assert.equal(result.rows[0].netAssets, 34682000000);
+});
+
+test('基金对比页切回前台遵守冷却并跳过未变更快照重绘，离线失败保留当前列表', async t => {
+  const nodes = new Map();
+  const element = () => ({
+    textContent: '', value: '', href: '', hidden: false, children: [], options: [], listeners: {},
+    classList: { toggle() {} }, setAttribute() {}, removeAttribute() {}, closest() { return this; },
+    replaceChildren(...values) { this.children = values; },
+    append(...values) { this.children.push(...values); },
+    addEventListener(key, fn) { this.listeners[key] = fn; },
+    querySelector() { return element(); }
+  });
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, element());
+    return nodes.get(id);
+  };
+  const docListeners = {};
+  const doc = {
+    visibilityState: 'visible',
+    body: { dataset: { fundGroup: 'nasdaq100' } },
+    getElementById: $,
+    createElement: element,
+    querySelectorAll: () => [],
+    addEventListener(key, fn) { docListeners[key] = fn; }
+  };
+  let now = 2_000_000;
+  t.mock.method(Date, 'now', () => now);
+  const nav = { onLine: true };
+  for (const [key, value] of Object.entries({ document: doc, navigator: nav })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  let snapshot = {
+    version: 1,
+    groupId: 'nasdaq100',
+    ok: true,
+    checkedAt: '2026-10-26T07:05:00Z',
+    rows: [{ code: '513100', manager: '国泰', price: 1.5, iopv: 1.4, premium: 7.14, amount: 5e8, netAssets: 1e10, annualFee: 0.6, quoteDate: '2026-10-26' }],
+    performance: { version: 2, ok: true, complete: true, endDate: '2026-10-26', benchmark: { code: 'QQQ', price: 500, quoteDate: '2026-10-26' }, funds: {} }
+  };
+  let fetches = 0;
+  let fail = false;
+  t.mock.method(globalThis, 'fetch', async () => {
+    fetches++;
+    if (fail) throw Error('offline');
+    return { ok: true, json: async () => snapshot };
+  });
+
+  initFundComparison();
+  for (let i = 0; i < 20 && $('fund-table').children.length === 0; i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(fetches, 1);
+  assert.equal($('fund-table').children.length, 1);
+  const initialRow = $('fund-table').children[0];
+
+  // Within cooldown / offline skips fetch.
+  now += 30_000;
+  await docListeners.visibilitychange();
+  now += 40_000;
+  nav.onLine = false;
+  await docListeners.visibilitychange();
+  nav.onLine = true;
+  assert.equal(fetches, 1);
+
+  // Offline error after cooldown keeps existing table intact.
+  now += 70_000;
+  fail = true;
+  await docListeners.visibilitychange();
+  assert.equal(fetches, 2);
+  assert.equal($('fund-table').children[0], initialRow);
+  assert.equal($('fund-empty').hidden, true);
+
+  // Identical snapshot skips DOM replacement.
+  fail = false;
+  now += 70_000;
+  await docListeners.visibilitychange();
+  assert.equal(fetches, 3);
+  assert.equal($('fund-table').children[0], initialRow);
+
+  // Advanced checkedAt re-renders with updated data.
+  snapshot = { ...snapshot, checkedAt: '2026-10-27T07:05:00Z', rows: [{ ...snapshot.rows[0], price: 1.6 }] };
+  now += 70_000;
+  await docListeners.visibilitychange();
+  assert.equal(fetches, 4);
+  assert.notEqual($('fund-table').children[0], initialRow);
 });

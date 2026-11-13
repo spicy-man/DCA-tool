@@ -67,10 +67,36 @@ export async function loadMarket(force = false) {
   }
 }
 
-export function invalidateMarket() {
-  store.clear();
-  invalidatePortfolioMarketCache();
-  return loadMarket(true);
+export function hasLoadedMarket() {
+  return store.has($('symbol').value);
+}
+
+export async function invalidateMarket({ preserveOnError = false, onCommit = null } = {}) {
+  if (!preserveOnError) {
+    store.clear();
+    invalidatePortfolioMarketCache();
+    return loadMarket(true);
+  }
+  if (loading) return false;
+  const id = ++requestID;
+  const symbol = $('symbol').value;
+  try {
+    const data = await loadMarketSnapshot(symbol);
+    if (id !== requestID) return false;
+    store.clear();
+    store.set(symbol, data);
+    invalidatePortfolioMarketCache();
+    const dates = data.rows.map(r => r.date);
+    if (onCommit) {
+      if (!onCommit(dates)) renderMarket(browsingSettings);
+    } else {
+      appEvents.dispatchEvent(new CustomEvent(events.marketCalendar, { detail: dates }));
+      renderMarket(browsingSettings);
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function renderMarket(next, { syncBacktest = true } = {}) {
