@@ -81,8 +81,7 @@ export function renderMarket(next, { syncBacktest = true } = {}) {
   const data = store.get(symbol);
   if (!data) return;
 
-  const signalData = next.replay ? { ...data, rows: data.rows.filter(row => row.date <= next.end) } : data;
-  updateSignals(signalData, next, { syncBacktest });
+  updateSignals(data, next, { syncBacktest });
   const daily = data.rows.filter(r => r.date >= next.start && r.date <= next.end);
   shown = aggregateOHLC(daily, next.frequency);
   active = -1;

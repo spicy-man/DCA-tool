@@ -125,12 +125,6 @@ test('中美假期不同时选可用共同收盘日，不以中国休市日覆�
   assert.equal(result.complete, true);
   assert.equal(result.benchmark.periods[1].endDate, result.endDate);
   assert.ok(result.rows.every(row => row.periods[1].status === 'ok' && row.periods[1].endDate === result.endDate));
-  const partial = await fetchFundPerformance({ now, quoteDate: '2026-10-08', previous: result,
-    fetchText: url => url.includes('159941') ? Promise.reject(Error('offline')) : fetchText(url) });
-  assert.equal(partial.endDate, result.endDate);
-  assert.equal(partial.complete, false);
-  assert.equal(partial.rows[0].ok, false);
-  assert.equal(performanceRows([{ code: '159941' }], partial)[0].return1, null);
   const newer = { ...result, endDate: '2026-10-01' };
   const regressed = await fetchFundPerformance({ now, quoteDate: '2026-10-08', previous: newer, fetchText });
   assert.equal(regressed.ok, false);

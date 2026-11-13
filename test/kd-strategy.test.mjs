@@ -85,7 +85,7 @@ test('K使用源HLC而非前复权账户估值价；平价无波幅时K=0且投�
 
 test('KD与普通定投信号及次日开盘成交日相同，末日待成交不计资金',()=>{
  const rows=sample('2024-01-02','2024-04-01'),r=run(rows);const regular=r.results[0],kd=r.results.find(s=>s.id==='kd');assert.equal(kd.id,'kd');assert.equal(r.deferredKD,1);assert.equal(r.deferredMonthly,1);assert.equal(r.kdOrders.length,3);assert.equal(r.kdOrders[0].date,'2024-01-03');assert.ok(r.kdOrders.every(o=>o.date>o.signalDate));assert.equal(regular.invested,3000);near(kd.invested,r.kdOrders.reduce((n,o)=>n+o.amount,0));
- for(const buyDay of [1,15,28,29,30,31]){const s=signals(rows,1000,buyDay);assert.deepEqual(s.monthlySignals.map(s=>[s.date,s.scheduledMonth]),s.kdSignals.map(s=>[s.date,s.scheduledMonth]));}
+ for(const buyDay of [1,15,28,29,30,31]){const s=signals(rows,1000,buyDay);assert.deepEqual(s.monthlySignals.map(s=>[s.date,s.scheduledMonth]),s.kdSignals.map(s=>[s.date,s.scheduledMonth]));assert.ok(s.kdSignals.every(k=>k.buyDay===buyDay));}
 });
 
 test('KD＋恐慌叠加独立恐慌买入，同日合并需求，未成交KD信号不提前投入',()=>{

@@ -12,6 +12,12 @@
   - `#1 [High]` [fund-performance.mjs](../server/fund-performance.mjs#L42-L44)：在计算 `endDate` 前增加 `if (!availableDates.length) throw Error('没有可用的基金历史行情');`，并在 [fund-performance.test.mjs](../test/fund-performance.test.mjs#L167-L179) 补充本地 `loadBenchmarkSnapshot` + 全基金抓取失败回归用例。
   - `#2 [Medium]` [overlay.mjs](../public/js/features/strategy/overlay.mjs#L401-L426)：`apply()` 对 `#base-amount` 与 `#fear-buy-count` 的 `.value.trim() === ''` 进行空值拦截，避免退格清空时覆盖已保存配置。
   - `#3 [Medium]` [overlay.mjs](../public/js/features/strategy/overlay.mjs#L67-L102)：抽取 `allocateWeightedAmounts`（整数美分最大余数法），统一用于组合配比预览与保存；在 [frontend-regressions.test.mjs](../test/frontend-regressions.test.mjs#L1019-L1052) 补充 #2 与 #3 回归用例。
+- **后续修复（#4–#8，2026-11-13，Node v24.14.0 全套测试验证通过）**：
+  - `#4 [Low]` [chart.mjs](../public/js/features/market/chart.mjs#L84)、[overlay.mjs](../public/js/features/strategy/overlay.mjs#L200-L216)、[summary.mjs](../public/js/features/strategy/summary.mjs#L34-L96)：复盘传入完整 `data.rows` 以命中 Pyramid 与 KD `WeakMap` 缓存，仅按 `next.end` 过滤信号与摘要视图，并在 [frontend-regressions.test.mjs](../test/frontend-regressions.test.mjs#L782-L790) 补充回归用例。
+  - `#5 [Low]` [kd-strategy.mjs](../public/js/domain/kd-strategy.mjs#L186-L191)：KD 月度信号保留 `buyDay`，并在 [kd-strategy.test.mjs](../test/kd-strategy.test.mjs#L88) 补充回归用例。
+  - `#6 [Low]` [backtest.mjs](../public/js/domain/backtest.mjs#L135)、[backtest.mjs](../public/js/domain/backtest.mjs#L366-L368)：单标的 `trades` 增加 `toFixed(2)` 取整，组合回测补充 `Number.isFinite` 溢出校验，并在 [backtest.test.mjs](../test/backtest.test.mjs#L216-L239) 补充回归用例。
+  - `#7 [Low]` [symbol-dialog.mjs](../public/js/ui/symbol-dialog.mjs#L50-L124)：增删请求抽取 `requestSymbols`，先判 `405` 并以 `parseJson` 与响应结构校验兜底非 JSON 响应体，并在 [symbol-dialog.test.mjs](../test/symbol-dialog.test.mjs#L121-L164) 补充回归用例。
+  - `#8 [Low]` [http-server.mjs](../server/http-server.mjs#L165-L176)：`URIError` 返回 `400`、`EISDIR` 返回 `404`，并在 [backend.test.mjs](../test/backend.test.mjs#L426-L434) 补充回归用例。
 
 ---
 

@@ -31,13 +31,14 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
   resetPlanEstimateHelp();
   document.getElementById('next-plan-estimate-note').hidden = true;
   set('next-plan-estimate-note', '');
-  if (!data?.rows.length || !range) {
+  const rows = range?.replay ? data?.rows?.filter(row => row.date <= range.end) : data?.rows;
+  if (!rows?.length || !range) {
     for (const id of ['recent-signal', 'next-plan', 'fear-state', 'funding-range']) set(id, '等待行情数据');
     for (const id of ['recent-signal-note', 'next-plan-estimate', 'fear-state-note', 'funding-split', 'funding-average-note', 'funding-peak-note', 'funding-annual-peak-note']) set(id, '');
     for (const id of ['funding-total', 'funding-average', 'funding-peak', 'funding-annual-peak']) set(id, '—');
     return;
   }
-  const lastDate = data.rows.at(-1).date;
+  const lastDate = rows.at(-1).date;
   const latest = signals.at(-1);
   if (latest) {
     const sameDate = signals.filter(signal => signal.date === latest.date);
@@ -50,12 +51,14 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     set('recent-signal-note', '完整可用历史内尚未产生买入信号');
   }
   const monthlySignals = signals.filter(signal => signal.type === 'monthly');
-  const scheduleSignals = monthlySignals.length || settings.baseAmount > 0 ? monthlySignals : calculatePyramidSignals(data.rows, { buyDay: settings.buyDay, baseAmount: 1 });
-  const plan = nextMonthlyPlan(data.rows, scheduleSignals, settings.buyDay);
+  const scheduleSignals = monthlySignals.length || settings.baseAmount > 0
+    ? monthlySignals
+    : calculatePyramidSignals(data.rows, { buyDay: settings.buyDay, baseAmount: 1 }).filter(s => !range.replay || s.date <= range.end);
+  const plan = nextMonthlyPlan(rows, scheduleSignals, settings.buyDay);
   set('next-plan', dateWithWeekday(plan.expectedDate));
   const usesKD=strategy==='kd'||strategy==='kdFear';
   const kdState=usesKD?calculateKDSeries(data.rows,kdOptions).get(lastDate):null;
-  const estimate = strategy==='regular'?{multiple:1,amount:settings.baseAmount}:usesKD?{multiple:kdState?kdMultiple(kdState.weightedK,kdOptions.tierFactor):1,amount:settings.baseAmount*(kdState?kdMultiple(kdState.weightedK,kdOptions.tierFactor):1)}:estimateMonthlyBuy(data.rows, settings.baseAmount, plan.expectedDate, scheduleSignals.at(-1)?.date);
+  const estimate = strategy==='regular'?{multiple:1,amount:settings.baseAmount}:usesKD?{multiple:kdState?kdMultiple(kdState.weightedK,kdOptions.tierFactor):1,amount:settings.baseAmount*(kdState?kdMultiple(kdState.weightedK,kdOptions.tierFactor):1)}:estimateMonthlyBuy(rows, settings.baseAmount, plan.expectedDate, scheduleSignals.at(-1)?.date);
   set('next-plan-estimate', estimate
     ? (strategy==='regular'?'固定买入 ':'暂估买入 ') + formatMultiple(estimate.multiple) + 'N · ' + money(estimate.amount)
     : '金额待定，等待下期窗口内的新完整日线');
@@ -65,8 +68,8 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     help.hidden=false;
   }else if (estimate&&strategy!=='regular') {
     const note = '当前自' + estimate.cutoff.slice(5) + '窗口高点回撤' + (estimate.drawdown * 100).toFixed(2) + '%';
-    const ath = data.rows.reduce((peak, row) => Math.max(peak, row.high), 0);
-    const athDrawdown = Math.max(0, 1 - data.rows.at(-1).close / ath);
+    const ath = rows.reduce((peak, row) => Math.max(peak, row.high), 0);
+    const athDrawdown = Math.max(0, 1 - rows.at(-1).close / ath);
     set('next-plan-estimate-note', note + '\n自 ATH 回撤 ' + (athDrawdown * 100).toFixed(2) + '%');
     help.hidden = false;
   }
@@ -76,7 +79,7 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
   }else if(strategy==='regular'){
     set('fear-state','每月固定1N');set('fear-state-note','不依据回撤或K值调整，不叠加恐慌买入');
   }else if(strategy==='pyramid'){
-    const now=estimateMonthlyBuy(data.rows,settings.baseAmount,lastDate);
+    const now=estimateMonthlyBuy(rows,settings.baseAmount,lastDate);
     set('fear-state',now?(now.drawdown*100).toFixed(2)+'%':'等待行情');set('fear-state-note','相对前一个日历月窗口高点；不叠加恐慌买入');
   }else if (fear?.disabled) {
     set('fear-state', '未启用恐慌加投');
@@ -90,7 +93,7 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     set('fear-state', status);
     set('fear-state-note', detail);
   }
-  const funding = summarizeFunding(signals, data.rows, range);
+  const funding = summarizeFunding(signals, rows, range);
   if (!funding) {
     set('funding-range', '当前区间无行情，无法统计');
     for (const id of ['funding-total', 'funding-average', 'funding-peak', 'funding-annual-peak']) set(id, '—');

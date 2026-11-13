@@ -117,3 +117,48 @@ test('管理列表仅显示个人标的；删除当前标的切回 SPY 并同步
   assert.equal($('floating-charts-symbol').value, 'AAPL');
   assert.deepEqual($('symbol').lastEventDetail, { forceRefresh: true });
 });
+
+test('非 JSON 错误响应时仍先识别 405 升级提示并兜底非 JSON 报错', async t => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const previousOption = Object.getOwnPropertyDescriptor(globalThis, 'Option');
+  globalThis.Option = function(text, value) { this.text = text; this.value = value; };
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, 'document', previous);
+    else delete globalThis.document;
+    if (previousOption) Object.defineProperty(globalThis, 'Option', previousOption);
+    else delete globalThis.Option;
+  });
+  const nodes = new Map();
+  globalThis.document = { createElement: element, getElementById(id) {
+    if (!nodes.has(id)) nodes.set(id, element());
+    return nodes.get(id);
+  } };
+  const $ = id => document.getElementById(id);
+  $('symbol').add({ value: 'SPY' });
+  $('floating-charts-symbol').add({ value: 'SPY' });
+  let status = 405;
+  let ok = false;
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url === './deployment.json') return { ok: true, json: async () => ({ mode: 'local' }) };
+    if (url === './data/custom-symbols.json') return { ok: true, json: async () => ['AAPL'] };
+    return {
+      ok,
+      status,
+      json: async () => { throw new SyntaxError('Unexpected token <'); }
+    };
+  });
+  await initSymbolDialog();
+  const removeBtn = $('custom-symbol-list').querySelectorAll('button')[0];
+  await removeBtn.listeners.click();
+  assert.match($('symbol-message').textContent, /重新运行 start\.cmd/);
+  status = 200; ok = true;
+  await removeBtn.listeners.click();
+  assert.equal($('symbol-message').textContent, '删除失败，请稍后重试');
+  status = 502; ok = false;
+  $('custom-symbol').value = 'MSFT';
+  await $('symbol-form').listeners.submit({ preventDefault() {} });
+  assert.equal($('symbol-message').textContent, '添加失败，请稍后重试');
+  status = 200; ok = true;
+  await $('symbol-form').listeners.submit({ preventDefault() {} });
+  assert.equal($('symbol-message').textContent, '添加失败，请稍后重试');
+});

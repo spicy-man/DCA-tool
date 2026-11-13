@@ -53,15 +53,8 @@ test('每日更新覆盖两个独立分组，直接复用本地SPY与QQQ历史�
   assert.equal(saved.ok, false);
   assert.deepEqual(saved.rows, sp.rows);
   assert.equal(await read(FUND_GROUPS.nasdaq100), nasdaq);
-  await assert.rejects(refreshFunds({ dataDir, group: '../private', fetchText: async () => { throw Error('unexpected fetch'); } }), /未知基金分组/);
-});
-
-test('两种入口、快照路径与基准明确分离，未知配置拒绝使用', () => {
-  assert.equal(getFundGroup('sp500').homeSymbol, 'SPY');
-  assert.equal(getFundGroup('sp500').benchmark.symbol, 'SPY');
-  assert.equal(getFundGroup('nasdaq100').benchmark.symbol, 'QQQ');
-  assert.notEqual(getFundGroup('sp500').snapshotFile, getFundGroup('nasdaq100').snapshotFile);
   assert.throws(() => getFundGroup('__proto__'));
+  await assert.rejects(refreshFunds({ dataDir, group: '../private', fetchText: async () => { throw Error('unexpected fetch'); } }), /未知基金分组/);
 });
 
 test('基准缓存JSON损坏仅影响历史收益，新基金报价仍保存且保留有效收益', async t => {

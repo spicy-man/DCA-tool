@@ -197,8 +197,9 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
     computed.set(key, state.baseAmount === 0 ? [] : calculatePyramidSignals(data.rows, state));
   }
 
+  const replayRows = next.replay ? data.rows.filter(row => row.date <= next.end) : data.rows;
   const rawFear = evaluateFearStrategy(
-    data.rows,
+    replayRows,
     next.replay ? sentimentRows.filter(row => row.date <= next.end) : sentimentRows,
     { ...state, baseAmount: state.baseAmount || 1, fearBuyCount: Math.max(1, state.fearBuyCount) }
   );
@@ -206,10 +207,12 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
     ? { ...rawFear, signals: [], pending: [], disabled: !state.fearEnabled }
     : rawFear;
   const kdOptions = getKDOptions();
-  const monthlySignals = computed.get(key);
-  const kdSignals = syncBacktest || viewStrategy === 'kdFear'
-    ? calculateKDSignals(data.rows, monthlySignals, { ...kdOptions, baseAmount: state.baseAmount })
+  const fullMonthlySignals = computed.get(key);
+  const fullKdSignals = syncBacktest || viewStrategy === 'kdFear'
+    ? calculateKDSignals(data.rows, fullMonthlySignals, { ...kdOptions, baseAmount: state.baseAmount })
     : [];
+  const monthlySignals = next.replay ? fullMonthlySignals.filter(s => s.date <= next.end) : fullMonthlySignals;
+  const kdSignals = next.replay ? fullKdSignals.filter(s => s.date <= next.end) : fullKdSignals;
   const history = selectSignalHistory(viewStrategy, {
     monthlySignals, fearSignals: fear.signals, kdSignals, baseAmount: state.baseAmount
   });

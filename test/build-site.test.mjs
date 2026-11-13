@@ -33,12 +33,10 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
   await save();
   const original = await readFile(localFile, 'utf8');
   build();
-  assert.equal(await readFile(path.join(root, 'dist/nasdaq-funds.html'), 'utf8'),
-    await readFile(path.join(root, 'public/nasdaq-funds.html'), 'utf8'));
-  assert.equal(await readFile(path.join(root, 'dist/sp500-funds.html'), 'utf8'),
-    await readFile(path.join(root, 'public/sp500-funds.html'), 'utf8'));
-  assert.equal(await readFile(path.join(root, 'dist/js/funds-page.mjs'), 'utf8'),
-    await readFile(path.join(root, 'public/js/funds-page.mjs'), 'utf8'));
+  for (const rel of ['nasdaq-funds.html', 'sp500-funds.html', 'js/funds-page.mjs']) {
+    assert.equal(await readFile(path.join(root, 'dist', rel), 'utf8'),
+      await readFile(path.join(root, 'public', rel), 'utf8'));
+  }
   assert.deepEqual((await readdir(path.dirname(outputFile))).sort(),
     ['status.json', 'fear-greed.csv', 'nasdaq100-etfs.json', 'sp500-etfs.json', ...SYMBOLS.map(symbol => symbol.toLowerCase() + '.json')].sort());
   let published = JSON.parse(await readFile(outputFile, 'utf8'));

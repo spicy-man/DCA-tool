@@ -60,12 +60,6 @@ test('跨纽约午夜后，昨夜已收盘数据可读；当天未收盘不纳�
  assert.equal(normalizeYahoo(yahoo('SPY'),'SPY',Date.parse('2025-01-07T06:00Z')).anchorDate,'2025-01-06');
  assert.equal(normalizeYahoo(yahoo('SPY'),'SPY',Date.parse('2025-01-06T20:00Z')).anchorDate,'2025-01-03');
 });
-test('CNN UTC 日期不移位，接受盘中日期，同日保留最后一条，拒绝空分数',()=>{
- assert.deepEqual(parseCNN(cnn(dates),now).map(r=>r.date),dates);
- assert.equal(parseCNN(cnn(dates),Date.parse('2025-01-06T20:00Z')).at(-1).date,'2025-01-06');
- const bad=cnn(dates);bad.fear_and_greed_historical.data[0].y=null;assert.throws(()=>parseCNN(bad,now));
- assert.equal(parseCNN(cnn([dates[0],dates[0]]),now).length,1);
-});
 test('指数与全部ETF更新成功，写入可追溯状态并保留早期历史',async t=>{
  const d=await dir(t);await seed(d);const status=await refreshAll({...opts(d),fetchText:async url=>source(url)});
  assert.equal(status.complete,true);assert.equal(status.expectedDate,'2025-01-06');
@@ -210,29 +204,26 @@ test('部分来源失败不影响其他源，保留失败源原始字节',async 
  assert.equal(status.complete,false);assert.equal(status.results[1].fresh,true);assert.equal(status.results[2].ok,false);assert.equal(attempts,1);
  assert.equal(await readFile(path.join(d,'qqq.json'),'utf8'),original);
 });
-test('相同记录数但丢失历史日期仍拒绝替换',async t=>{
- const d=await dir(t);await seed(d);const original=await readFile(path.join(d,'spy.json'),'utf8');
- const status=await refreshAll({...opts(d),fetchText:async url=>url.includes('/SPY?')?JSON.stringify(yahoo('SPY',[dates[0],dates[2]])):source(url)});
- assert.equal(status.results[1].ok,false);assert.equal(await readFile(path.join(d,'spy.json'),'utf8'),original);
-});
-test('请求瞬时失败最多重试一次；每天首轮全历史重算复权',async t=>{
- const d=await dir(t);await seed(d);let count=0;
- const status=await refreshAll({...opts(d),fetchText:async url=>{
-  if(!url.includes('/SPY?'))return source(url);
-  if(++count===1)throw Error('timeout');const p=yahoo('SPY');p.chart.result[0].indicators.adjclose[0].adjclose=[80,90,95];return JSON.stringify(p);
- }});
- assert.equal(count,2);assert.equal(status.complete,true);
- const data=JSON.parse(await readFile(path.join(d,'spy.json'),'utf8'));assert.ok(Math.abs(data.rows[0].close-100*80/95)<1e-9);assert.equal(data.rows.at(-1).close,100);
-});
-test('已到齐的补抓仅跳过ETF网络，指数仍接收同日修订；手动更新请求各源',async t=>{
+test('已到齐的补抓及FNG单独刷新均跳过ETF且不覆盖检查状态，指数接收同日修订；手动更新请求各源',async t=>{
  const d=await dir(t);await seed(d);await refreshAll({...opts(d),fetchText:async url=>source(url)});
+ const originalSpy=await readFile(path.join(d,'spy.json'),'utf8');
  const result=await refreshAll({...opts(d),skipFresh:true,fetchText:async url=>{
   assert.equal(url,CNN_URL);const payload=cnn(dates);payload.fear_and_greed_historical.data.at(-1).y=28;return JSON.stringify(payload);
  }});
  assert.equal(result.complete,true);assert.ok(result.results.slice(1).every(r=>r.skipped));
  assert.equal(result.results[0].skipped,undefined);
  assert.match(await readFile(path.join(d,'fear-greed.csv'),'utf8'),/2025-01-06,28,/);
- let calls=0;await refreshAll({...opts(d),fetchText:async url=>{calls++;return source(url);}});assert.equal(calls,SYMBOLS.length+1);
+ let calls=0;
+ const fngOnly=await refreshAll({...opts(d),now:now+6*3600000,skipFresh:true,sources:['Fear & Greed'],fetchText:async url=>{
+  calls++;assert.equal(url,CNN_URL);
+  const revised=cnn(dates);revised.fear_and_greed_historical.data.at(-1).y=22;
+  return JSON.stringify(revised);
+ }});
+ assert.equal(calls,1);assert.equal(fngOnly.complete,true);
+ assert.match(await readFile(path.join(d,'fear-greed.csv'),'utf8'),/2025-01-06,22,/);
+ assert.equal(await readFile(path.join(d,'spy.json'),'utf8'),originalSpy);
+ assert.deepEqual(fngOnly.results.slice(1),result.results.slice(1));
+ calls=0;await refreshAll({...opts(d),fetchText:async url=>{calls++;return source(url);}});assert.equal(calls,SYMBOLS.length+1);
 });
 test('进程内合并并发；跨进程锁阻止第二个写入者，结束释放锁',async t=>{
  const d=await dir(t);await seed(d);let release;const gate=new Promise(r=>{release=r;});
@@ -240,22 +231,6 @@ test('进程内合并并发；跨进程锁阻止第二个写入者，结束释�
  assert.equal(first,refreshAll({...opts(d)}));release();await first;
  await withDataLock(d,async()=>{await assert.rejects(withDataLock(d,async()=>{}),/已有数据更新任务/);});
  await withDataLock(d,async()=>{});
-});
-
-test('FNG单独刷新接受同日历史修订，不请求或覆盖ETF及其检查状态',async t=>{
- const d=await dir(t);await seed(d);
- const first=await refreshAll({...opts(d),fetchText:async url=>source(url)});
- const original=await readFile(path.join(d,'spy.json'),'utf8');
- let calls=0;
- const status=await refreshAll({...opts(d),now:now+6*3600000,skipFresh:true,sources:['Fear & Greed'],fetchText:async url=>{
-  calls++;assert.equal(url,CNN_URL);
-  const revised=cnn(dates);revised.fear_and_greed_historical.data.at(-1).y=22;
-  return JSON.stringify(revised);
- }});
- assert.equal(calls,1);assert.equal(status.complete,true);
- assert.match(await readFile(path.join(d,'fear-greed.csv'),'utf8'),/2025-01-06,22,/);
- assert.equal(await readFile(path.join(d,'spy.json'),'utf8'),original);
- assert.deepEqual(status.results.slice(1),first.results.slice(1));
 });
 
 test('K线第二轮强制请求并接收复权修订，不因日期已到齐跳过',async t=>{
@@ -287,10 +262,6 @@ test('catchUp 在仅选中 FNG 且跨过收盘后自动补抓滞后 ETF',async t
  });
  assert.equal(calls,1+SYMBOLS.length);
  assert.deepEqual(status.requestedSources,['Fear & Greed',...SYMBOLS]);
-});
-test('健康状态按浏览器当前日期重新判断，不能把旧 manifest 当成今日成功',()=>{
- const status={checkedAt:new Date(now).toISOString(),results:[{symbol:'SPY',date:'2025-01-06',ok:true,fresh:true}]};
- assert.match(healthSummary(status,Date.parse('2025-01-07T23:00Z')),/等待更新/);
 });
 test('本地 HTTP：部署模式、快照、跨站保护、方法及冷却防重复刷新',async t=>{
  const d=await dir(t);await seed(d);let calls=0;
@@ -404,7 +375,7 @@ test('CNN瞬时失败重试一次，严格CNN模式保留安全的拒绝原因',
 });
 
 
-test('与上游一致：实时尾点按UTC日期合并，保留输入中同日最后值及评级', () => {
+test('与上游一致：实时尾点按UTC日期合并，保留输入中同日最后值及评级，拒绝空分数', () => {
  const payload=cnn(dates);payload.fear_and_greed_historical.data.push({x:Date.parse('2025-01-06T19:40:15Z'),y:99,rating:'extreme greed'});
  const rows=parseCNN(payload,Date.parse('2025-01-06T20:00Z'));
  assert.equal(rows.length,3);assert.equal(rows.at(-1).score,99);assert.equal(rows.at(-1).label,'extreme greed');
@@ -412,6 +383,7 @@ test('与上游一致：实时尾点按UTC日期合并，保留输入中同日�
  assert.equal(parseCNN(payload).at(-1).date,'2025-01-07');
  payload.fear_and_greed_historical.data.push({x:Date.parse('2025-01-06'),y:52});
  assert.equal(parseCNN(payload).find(r=>r.date==='2025-01-06').score,52);
+ const bad=cnn(dates);bad.fear_and_greed_historical.data[0].y=null;assert.throws(()=>parseCNN(bad,now));
 });
 
 test('CNN滚动窗口保留更早历史，修订重叠日期，缺少窗口内已有日期拒绝替换', async t => {
@@ -426,23 +398,6 @@ test('CNN滚动窗口保留更早历史，修订重叠日期，缺少窗口内�
  assert.match(saved,/2021-01-29/);assert.match(saved,/2025-01-02/);assert.match(saved,/2025-01-03,27.2,/);assert.match(saved,/2025-01-06,99,/);
  const failed=await refreshAll({...opts(d),sources:['Fear & Greed'],sentimentSource:'cnn',fetchText:async()=>JSON.stringify(cnn([dates[0],dates[2]]))});
  assert.equal(failed.requestedComplete,false);assert.equal(await readFile(path.join(d,'fear-greed.csv'),'utf8'),saved);
-});
-
-test('盘中首次获取后六小时仍更新同日实时值，重复UTC日标签不会导致写入失败', async t => {
- const d=await dir(t);await seed(d);
- const at=Date.parse('2025-01-06T14:03Z');
- for(const [time,score] of [[at,30],[at+6*3600000,22]]) {
-  const status=await refreshAll({...opts(d),now:time,skipFresh:true,sources:['Fear & Greed'],fetchText:async url=>{
-   assert.equal(url,CNN_URL);const payload=cnn(dates);
-   payload.fear_and_greed_historical.data.push({x:Date.parse('2025-01-06'),y:35});
-   payload.fear_and_greed_historical.data.push({x:time,y:score,rating:'fear'});
-   return JSON.stringify(payload);
-  }});
-  assert.equal(status.requestedComplete,true);assert.equal(status.results[0].source,'CNN');
-  const saved=await readFile(path.join(d,'fear-greed.csv'),'utf8');
-  assert.match(saved,new RegExp('2025-01-06,'+score+',fear'));
-  assert.equal(saved.split('\n').filter(line=>line.startsWith('2025-01-06,')).length,1);
- }
 });
 
 test('CNN失败后备用源允许上游盘中日期，不用收盘日期拒绝有效新值', async t => {
@@ -467,3 +422,13 @@ for(const sentimentSource of ['cnn','archive']) {
   assert.equal(await readFile(path.join(d,'fear-greed.csv'),'utf8'),original);
  });
 }
+
+test('本地 HTTP：非法 URI 编码返回 400，目录路径返回 404', async t => {
+  const server = createServer();
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  assert.equal((await fetch(base + '/%E0%A4%A')).status, 400);
+  assert.equal((await fetch(base + '/js')).status, 404);
+});

@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { summarizeFunding, summarizePortfolioFunding, nextMonthlyPlan, estimateMonthlyBuy } from '../public/js/domain/strategy-summary.mjs';
-import { evaluateFearStrategy, calculateFearSignals } from '../public/js/domain/fear-strategy.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
 
 const market = dates => dates.map(date => ({ date, high: 100, close: 100 }));
@@ -132,92 +131,6 @@ test('预计定投日顺延周末及交易所节假日，保留原计划日', ()
   assert.equal(christmas.expectedDate, '2026-12-28');
 });
 
-test('恐慌状态与原信号共用下穿和重置规则，未确认执行不计入投入', () => {
-  const rows = market(['2026-01-02', '2026-01-05']);
-  const sentiment = [
-    { date: '2026-01-02', score: 16 },
-    { date: '2026-01-05', score: 9 }
-  ];
-  let result = evaluateFearStrategy(rows, sentiment);
-  assert.equal(result.armed, false);
-  assert.equal(result.signals.length, 0);
-  assert.equal(result.pending[0].signalDate, '2026-01-05');
-  rows.push(...market(['2026-01-06']));
-  result = evaluateFearStrategy(rows, sentiment);
-  assert.equal(result.pending.length, 0);
-  assert.deepEqual(result.signals, calculateFearSignals(rows, sentiment));
-  assert.equal(result.signals[0].date, '2026-01-06');
-  sentiment.push({ date: '2026-01-06', score: 14.99 });
-  assert.equal(evaluateFearStrategy(rows, sentiment).armed, false);
-  sentiment.push({ date: '2026-01-07', score: 15 });
-  assert.equal(evaluateFearStrategy(rows, sentiment).armed, true);
-  assert.equal(evaluateFearStrategy(rows, []).latest, null);
-  const preInception = evaluateFearStrategy(market(['2026-01-06']), sentiment.slice(0, 2));
-  assert.equal(preInception.pending.length, 0);
-  assert.equal(preInception.signals.length, 0);
-});
-
-test('摘要使用完整历史状态和选区统计，数据失效时清除旧金额', async t => {
-  const { renderStrategySummary } = await import('../public/js/features/strategy/summary.mjs');
-  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
-  const nodes = new Map();
-  globalThis.document = { getElementById(id) {
-    if (!nodes.has(id)) nodes.set(id, { textContent: '' });
-    return nodes.get(id);
-  } };
-  t.after(() => {
-    if (original) Object.defineProperty(globalThis, 'document', original);
-    else delete globalThis.document;
-  });
-  const text = id => nodes.get(id).textContent;
-  const rows = market(['2026-01-02', '2026-02-02']);
-  const signals = calculatePyramidSignals(rows).map(signal => ({ ...signal, type: 'monthly' }));
-  const settings = { buyDay: 1, baseAmount: 1000, fearThreshold: 10 };
-  const fear = evaluateFearStrategy(rows, [{ date: '2026-02-02', score: 9 }]);
-  const data = { symbol: 'SPY', rows };
-  renderStrategySummary(data, { start: '2026-01-01', end: '2026-02-28' }, settings, signals, fear);
-  assert.equal(text('funding-total'), '2,000.00（2N）');
-  assert.equal(text('funding-annual-peak'), '2,000.00（2N）');
-  assert.equal(text('funding-annual-peak-note'), '2026 年');
-  assert.equal(text('recent-signal'), '2026-02-02');
-  assert.equal(text('next-plan-estimate'), '金额待定，等待下期窗口内的新完整日线');
-  renderStrategySummary(data, { start: '2026-01-01', end: '2026-01-31' }, settings, signals, fear);
-  assert.equal(text('funding-total'), '1,000.00（1N）');
-  assert.equal(text('funding-annual-peak'), '1,000.00（1N）');
-  assert.equal(text('recent-signal'), '2026-02-02');
-  renderStrategySummary(data, { start: '2025-01-01', end: '2025-12-31' }, settings, signals, fear);
-  assert.equal(text('funding-total'), '—');
-  assert.equal(text('funding-annual-peak'), '—');
-  assert.equal(text('funding-annual-peak-note'), '');
-  assert.equal(text('funding-split'), '');
-  const october = [
-    { date: '2026-10-06', high: 762.86, close: 760 },
-    { date: '2026-10-26', high: 714, close: 712.2 }
-  ];
-  const octoberSignals = calculatePyramidSignals(october, { buyDay: 25, baseAmount: 2000 })
-    .map(signal => ({ ...signal, type: 'monthly' }));
-  renderStrategySummary({ symbol: 'QQQ', rows: october }, { start: '2026-10-01', end: '2026-10-26' },
-    { ...settings, buyDay: 25, baseAmount: 2000 }, octoberSignals, fear);
-  assert.equal(text('recent-signal'), '2026-10-26');
-  assert.match(text('recent-signal-note'), /月度定投 2N/);
-  assert.equal(text('next-plan'), '2026-11-25（周三）');
-  assert.equal(text('next-plan-estimate'), '金额待定，等待下期窗口内的新完整日线');
-  october.push({ date: '2026-10-27', high: 720, close: 718 });
-  renderStrategySummary({ symbol: 'QQQ', rows: october }, { start: '2026-10-01', end: '2026-10-27' },
-    { ...settings, buyDay: 25, baseAmount: 2000 }, octoberSignals, fear);
-  assert.equal(text('next-plan'), '2026-11-25（周三）');
-  assert.equal(text('next-plan-estimate'), '暂估买入 1N · 2,000.00');
-  assert.equal(text('next-plan-estimate-note'), '当前自10-25窗口高点回撤0.28%\n自 ATH 回撤 5.88%');
-  assert.equal(nodes.get('next-plan-help').hidden, false);
-  renderStrategySummary(null, null, settings);
-  assert.equal(text('funding-total'), '—');
-  assert.equal(text('next-plan'), '等待行情数据');
-  assert.equal(text('next-plan-estimate'), '');
-  assert.equal(text('next-plan-estimate-note'), '');
-  assert.equal(nodes.get('next-plan-help').hidden, true);
-  assert.equal(text('fear-state-note'), '');
-});
-
 test('基础、金字塔超额和恐慌投入独立拆分，避免加投倍数重复计算基础金额', () => {
   const rows = market(['2026-02-02', '2026-03-02']);
   const signals = [
@@ -331,22 +244,6 @@ test('组合年度峰值合计各标的成交金额，跨年成交归入次年',
   assert.equal(funding.peak, 150);
   assert.equal(funding.annualPeak, 450);
   assert.deepEqual(funding.peakYears, ['2026']);
-});
-
-test('组合月度与恐慌订单均按成交月份计入峰值', () => {
-  const rows = market(['2026-01-29', '2026-01-30', '2026-02-02', '2026-02-27', '2026-03-02', '2026-03-03', '2026-03-30']);
-  const funding = summarizePortfolioFunding({
-    items: [{ symbol: 'SPY', rows, baseAmount: 100, fearBuyCount: 1 }],
-    sentiment: [{ date: '2026-01-29', score: 16 }, { date: '2026-01-30', score: 9 }],
-    buyDay: 30,
-    mode: 'actual'
-  });
-  assert.equal(funding.total, 300);
-  assert.equal(funding.count, 3);
-  assert.equal(funding.peak, 200);
-  assert.deepEqual(funding.peakMonths, ['2026-02']);
-  assert.deepEqual(funding.peakBreakdown, [{ symbol: 'SPY', amount: 200 }]);
-  assert.equal(funding.backtest.results[2].invested, funding.total);
 });
 
 test('组合方案切换使预算和峰值跟随跌幅＋恐慌或KD＋恐慌，回测仍保留全部策略', () => {

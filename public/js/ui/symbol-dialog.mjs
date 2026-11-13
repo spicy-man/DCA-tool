@@ -47,18 +47,32 @@ export async function initSymbolDialog() {
     }
     $('floating-charts-symbol').value = select.value;
   }
+  async function parseJson(response) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+  async function requestSymbols(method, symbol, fallbackError) {
+    const response = await fetch('./api/symbols', {
+      method, headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol })
+    });
+    if (response.status === 405) throw Error('本地服务尚未更新，请停止旧服务并重新运行 start.cmd，再刷新页面后重试');
+    const result = await parseJson(response);
+    if (!response.ok) throw Error(result?.error || fallbackError);
+    if (!result || !Array.isArray(result.symbols) || (method === 'POST' && !result.symbol)) {
+      throw Error(fallbackError);
+    }
+    return result;
+  }
   async function remove(symbol) {
     if (busy) return;
     setBusy(true);
     message.textContent = '正在删除 ' + symbol + '…';
     try {
-      const response = await fetch('./api/symbols', {
-        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol })
-      });
-      const result = await response.json();
-      if (response.status === 405) throw Error('本地服务尚未更新，请停止旧服务并重新运行 start.cmd，再刷新页面后重试');
-      if (!response.ok) throw Error(result.error || '删除失败，请稍后重试');
+      const result = await requestSymbols('DELETE', symbol, '删除失败，请稍后重试');
       sync(result.symbols);
       appEvents.dispatchEvent(new Event(events.sourceHealth));
       message.textContent = symbol + ' 已删除';
@@ -95,12 +109,7 @@ export async function initSymbolDialog() {
     setBusy(true);
     message.textContent = '正在获取 ' + symbol + ' 完整历史行情，请稍候…';
     try {
-      const response = await fetch('./api/symbols', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol })
-      });
-      const result = await response.json();
-      if (!response.ok) throw Error(result.error || '添加失败，请稍后重试');
+      const result = await requestSymbols('POST', symbol, '添加失败，请稍后重试');
       sync(result.symbols);
       appEvents.dispatchEvent(new Event(events.sourceHealth));
       select.value = result.symbol;

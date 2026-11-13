@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { compareStrategies, moneyWeightedReturn, findLatestPeakRecovery } from '../public/js/domain/backtest.mjs';
+import { compareStrategies, comparePortfolioStrategies, moneyWeightedReturn, findLatestPeakRecovery } from '../public/js/domain/backtest.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
 import { calculateFearSignals } from '../public/js/domain/fear-strategy.mjs';
 import { parseCSV } from '../public/js/domain/sentiment.mjs';
@@ -186,28 +186,21 @@ test('现金年化3%覆盖整年、闰日、复利与末日新注资不追溯计
 });
 
 
-test('可调恐慌笔数同步改变回测买入与供资，不改变月度策略',()=>{
- const sentiment=[{date:'2025-01-02',score:16},{date:'2025-01-03',score:9}];
- const fear=calculateFearSignals(rows,sentiment,{baseAmount:100,fearBuyCount:3});
- assert.equal(fear[0].amount,300);
- const actual=compareStrategies({...input,fearSignals:fear});
- assert.deepEqual(actual.results.map(s=>s.invested),[100,200,500]);
- assert.deepEqual(actual.results.map(s=>s.equity),[160,320,560]);
- assert.deepEqual(actual.results.map(s=>s.trades),[1,2,5]);
- const equal=compareStrategies({...input,fearSignals:fear,mode:'equal'});
- assert.deepEqual(equal.results.map(s=>s.invested),[500,500,500]);
- assert.equal(equal.results[2].equity,560);
-});
-
-test('买入N数包含月度金字塔与三次恐慌加投，资金和资产计算不变', () => {
+test('买入N数包含月度金字塔与三次恐慌加投，不改变月度策略且资金和资产计算不变', () => {
   const daily = Array.from({ length: 8 }, (_, i) => ({ date: `2025-01-${String(i + 2).padStart(2, '0')}`, open: 100, close: 100, high: 100 }));
   const sentiment = daily.slice(0, 6).map((row, i) => ({ date: row.date, score: i % 2 ? 9 : 16 }));
   const fear = calculateFearSignals(daily, sentiment, { baseAmount: 100, fearBuyCount: 2 });
   assert.equal(fear.length, 3);
   const config = { rows: daily, monthlySignals: [{ date: daily[0].date, amount: 200 }], fearSignals: fear, baseAmount: 100, range: { start: daily[0].date, end: daily.at(-1).date } };
+  const withoutFear = compareStrategies({ ...config, fearSignals: [] });
   for (const mode of ['actual', 'equal']) {
     const result = compareStrategies({ ...config, mode });
     assert.deepEqual(result.results.map(s => s.trades), [1, 2, 8]);
+    if (mode === 'actual') {
+      assert.deepEqual(result.results.slice(0, 2).map(s => [s.invested, s.equity]), withoutFear.results.slice(0, 2).map(s => [s.invested, s.equity]));
+    } else {
+      assert.equal(new Set(result.results.map(s => s.invested)).size, 1);
+    }
     const legacy = compareStrategies({ ...config, mode, fearSignals: fear.map(({ multiple, ...signal }) => signal) });
     for (let i = 0; i < 3; i++) {
       const { trades: actualTrades, ...actual } = result.results[i];
@@ -218,4 +211,29 @@ test('买入N数包含月度金字塔与三次恐慌加投，资金和资产计�
     assert.deepEqual(narrowed.results.map(s => s.trades), [0, 0, 4]);
   }
 
+});
+
+test('单标的 trades 保留两位小数，组合回测数值溢出抛出明确错误', () => {
+  const daily = [
+    { date: '2025-01-02', open: 100, close: 100, high: 100 },
+    { date: '2025-01-03', open: 100, close: 100, high: 100 },
+    { date: '2025-01-06', open: 100, close: 100, high: 100 }
+  ];
+  const single = compareStrategies({
+    rows: daily,
+    monthlySignals: [{ date: '2025-01-02', amount: 333.33 }],
+    fearSignals: [{ date: '2025-01-03', amount: 2333.31 }],
+    baseAmount: 333.33,
+    mode: 'actual',
+    range: { start: '2025-01-02', end: '2025-01-06' }
+  });
+  assert.equal(single.results[2].trades, 8);
+  assert.throws(
+    () => comparePortfolioStrategies({
+      items: [{ symbol: 'SPY', rows: daily, monthlySignals: [{ date: '2025-01-02', amount: 1e308 }], fearSignals: [{ date: '2025-01-03', amount: 1e308 }], baseAmount: 1e308 }],
+      startDate: '2025-01-02',
+      totalBaseAmount: 1e308
+    }),
+    /超出可计算范围/
+  );
 });

@@ -163,12 +163,17 @@ export function createServer({
       });
       res.end(req.method === 'HEAD' ? undefined : data);
     } catch (error) {
+      if (error instanceof URIError) {
+        send(400, { error: '无效请求路径' });
+        return;
+      }
       if (error.code === 'ELOCKED') {
         send(409, { error: error.message });
         return;
       }
-      send(error.code === 'ENOENT' ? 404 : 500, {
-        error: error.code === 'ENOENT' ? '文件不存在' : '请求失败，已保留原数据'
+      const notFound = error.code === 'ENOENT' || error.code === 'EISDIR';
+      send(notFound ? 404 : 500, {
+        error: notFound ? '文件不存在' : '请求失败，已保留原数据'
       });
     }
   });

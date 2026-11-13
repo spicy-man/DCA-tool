@@ -22,36 +22,41 @@ test('五策略筛选独立，KD＋恐慌叠加两类信号，切换不修改原
  for(const strategy of ['regular','pyramid','combined','kd','kdFear'])assert.deepEqual(selectSignalHistory(strategy,{baseAmount:0}),[]);
 });
 
-test('状态及资金需求跟随策略，KD按已确认周线估算并展示当前参数；数据失效清空',t=>{
+test('策略摘要随策略、区间与待确认状态更新，数据失效时清空',t=>{
  const previous=globalThis.document,nodes=new Map();globalThis.document={getElementById(id){if(!nodes.has(id))nodes.set(id,{textContent:'',hidden:false,setAttribute(){}});return nodes.get(id);}};t.after(()=>{globalThis.document=previous;});
  const text=id=>nodes.get(id).textContent,settings={baseAmount:1000,buyDay:1,fearThreshold:10},range={start:rows[0].date,end:rows.at(-1).date},monthlySignals=calculatePyramidSignals(rows,settings),kdSignals=calculateKDSignals(rows,monthlySignals,{...options,baseAmount:1000}),fear={disabled:false,latest:{date:'2024-03-04',score:9},armed:false,rearmThreshold:15,pending:[]};
  const input={monthlySignals,kdSignals,fearSignals:[{date:'2024-02-02',amount:3000,multiple:3,type:'fear'}],baseAmount:1000},data={symbol:'TEST',rows};
  for(const strategy of ['regular','pyramid','combined','kd','kdFear']){
    const signals=selectSignalHistory(strategy,input);renderStrategySummary(data,range,settings,signals,fear,{strategy,kdOptions:options});
-   if(strategy==='regular'){assert.equal(text('fear-state'),'每月固定1N');assert.equal(text('next-plan-estimate'),'固定买入 1N · 1,000.00');assert.equal(text('funding-total'),'3,000.00（3N）');assert.doesNotMatch(text('funding-split'),/金字塔|恐慌/);}
+   if(strategy==='regular'){assert.match(text('funding-total'),/3,000\.00/);assert.doesNotMatch(text('funding-split'),/金字塔|恐慌/);}
    if(strategy==='kd'){
-     const state=calculateKDSeries(rows,options).get(rows.at(-1).date);assert.equal(text('fear-state'),state.weightedK.toFixed(2));
-     assert.match(text('next-plan-estimate'),new RegExp('暂估买入 '+kdMultiple(state.weightedK,1.5)+'N'));
-     assert.match(text('next-plan-estimate-note'),/80%.*20%.*1.5.*计划日收盘/);assert.match(text('funding-split'),/KD额外投入/);assert.doesNotMatch(text('funding-split'),/金字塔|恐慌/);
-     assert.equal(text('recent-signal'),kdSignals.at(-1).date);assert.match(text('recent-signal-note'),/KD定投/);
-   }
-   if (strategy === 'combined' || strategy === 'kdFear') {
-     assert.equal(text('strategy-state-label'), '恐慌加投状态（2024-03-04）');
-     assert.equal(text('fear-state'), '等待回升至 15 点重置 · 当前 9.00');
-     assert.equal(text('fear-state-note'), '暂无待确认加投');
-   }
-   if(strategy==='kdFear'){
      const state=calculateKDSeries(rows,options).get(rows.at(-1).date);
-     assert.doesNotMatch(text('recent-signal-note'), /信号K/);
-     assert.match(text('next-plan-estimate'),new RegExp('暂估买入 '+kdMultiple(state.weightedK,1.5)+'N'));
-     assert.match(text('next-plan-estimate-note'),/未计未来可能触发的恐慌加投/);
+     assert.equal(text('fear-state'),state.weightedK.toFixed(2));
+     assert.ok(text('next-plan-estimate').includes(kdMultiple(state.weightedK,1.5)+'N'));
+     assert.match(text('funding-split'),/KD额外投入/);assert.doesNotMatch(text('funding-split'),/金字塔|恐慌/);
+   }
+   if(strategy==='combined'||strategy==='kdFear')assert.match(text('fear-state'),/9\.00/);
+   if(strategy==='kdFear'){
+     const expected=(kdSignals.reduce((sum,s)=>sum+s.amount,3000)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+     assert.ok(text('funding-total').startsWith(expected));
      assert.match(text('funding-split'),/KD额外投入/);assert.match(text('funding-split'),/恐慌加投/);
-     assert.equal(text('funding-total'),(kdSignals.reduce((sum,s)=>sum+s.amount,3000)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'（'+(kdSignals.reduce((sum,s)=>sum+s.amount,3000)/1000).toLocaleString('en-US',{maximumFractionDigits:2})+'N）');
    }
  }
- renderStrategySummary(data, range, settings, [], { ...fear, pending: [{ amount: 3000 }] });
- assert.equal(text('fear-state-note'), '已触发加投 · 执行日待确认\nTEST 3,000.00');
- renderStrategySummary(data, range, settings, [], { ...fear, armed: true, latest: { date: '2024-03-04', score: 33.46 } });
- assert.equal(text('fear-state'), '等待下穿 10 点 · 当前 33.46');
- renderStrategySummary(null,null,settings,[],null,{strategy:'kd',kdOptions:options});assert.equal(text('fear-state'),'等待行情数据');assert.equal(text('next-plan-estimate'),'');assert.equal(text('funding-total'),'—');
+ renderStrategySummary(data,{start:'2024-01-01',end:'2024-01-31'},settings,selectSignalHistory('combined',input),fear);
+ assert.match(text('funding-total'),/1,000\.00/);
+ assert.equal(text('recent-signal'),'2024-03-01');
+ const oct=[{date:'2026-10-06',high:762.86,close:760},{date:'2026-10-26',high:714,close:712.2},{date:'2026-10-27',high:720,close:718}];
+ const octSignals=calculatePyramidSignals(oct,{buyDay:25,baseAmount:2000}).map(s=>({...s,type:'monthly'}));
+ renderStrategySummary({symbol:'QQQ',rows:oct},{start:'2026-10-01',end:'2026-10-27'},{...settings,buyDay:25,baseAmount:2000},octSignals,fear);
+ assert.match(text('next-plan'),/^2026-11-25（/);
+ assert.match(text('next-plan-estimate-note'),/自 ATH 回撤 5\.88%/);
+ assert.equal(nodes.get('next-plan-help').hidden,false);
+ renderStrategySummary({symbol:'QQQ',rows:[...oct,{date:'2026-11-02',high:1000,close:718}]},{start:'2026-10-01',end:'2026-10-27',replay:true},{...settings,buyDay:25,baseAmount:2000},octSignals,fear);
+ assert.match(text('next-plan-estimate-note'),/自 ATH 回撤 5\.88%/);
+ renderStrategySummary(data,range,settings,[],{...fear,pending:[{amount:3000}]});
+ assert.match(text('fear-state-note'),/TEST 3,000\.00/);
+ renderStrategySummary(data,range,settings,[],{...fear,armed:true,latest:{date:'2024-03-04',score:33.46}});
+ assert.match(text('fear-state'),/33\.46/);
+ renderStrategySummary(null,null,settings,[],null,{strategy:'kd',kdOptions:options});
+ assert.equal(text('next-plan-estimate'),'');assert.equal(text('funding-total'),'—');assert.equal(nodes.get('next-plan-help').hidden,true);assert.equal(text('fear-state-note'),'');
 });

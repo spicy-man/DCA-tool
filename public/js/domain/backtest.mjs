@@ -132,7 +132,7 @@ function simulate(rows, orders, commonDeposits, baseAmount) {
     xirr: moneyWeightedReturn(deposits, rows.at(-1).date, equity),
     maxDrawdown: invested ? withoutNAVRoundoff(maxDrawdown) : null,
     ...riskAdjustedMetrics(curve, maxDrawdown),
-    trades: baseAmount > 0 ? orders.reduce((sum, order) => sum + order.amount, 0) / baseAmount : 0, curve
+    trades: baseAmount > 0 ? Number((orders.reduce((sum, order) => sum + order.amount, 0) / baseAmount).toFixed(2)) : 0, curve
   };
 }
 
@@ -363,6 +363,9 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
       }
       equity = closingStockValue + cash;
       const nav = units > 0 ? equity / units : 1;
+      if (![equity, invested, cash, cashInterest, units, nav, ...shares].every(Number.isFinite)) {
+        throw Error('回测金额超出可计算范围，请调小定投金额');
+      }
       peak = Math.max(peak, nav);
       if (units > 0) maxDrawdown = Math.max(maxDrawdown, 1 - nav / peak);
       curve.push({ date, equity, invested, profit: equity - invested, nav });

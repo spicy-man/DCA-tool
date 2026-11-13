@@ -11,10 +11,15 @@ test('下穿采用原始小数，等于阈值不触发，信号后首个交易�
  const signals=calculateFearSignals(market(['2025-01-02','2025-01-03','2025-01-06']),series([12,10,9.99]),{baseAmount:123.45});
  assert.equal(signals.length,1);assert.equal(signals[0].signalDate,'2025-01-03');assert.equal(signals[0].date,'2025-01-06');assert.equal(signals[0].amount,123.45);assert.equal(signals[0].multiple,1);
 });
-test('持续低位与阈值附近震荡只触发一次，回升到15后才重置',()=>{
+test('持续低位与阈值附近震荡只触发一次，回升到15后才重置；状态与原信号一致',()=>{
  const sentiment=series([16,9,7,10,9,14.99,9,15,10,9]);
  const signals=calculateFearSignals(market([...sentiment.map(r=>r.date),'2025-01-11']),sentiment);
  assert.deepEqual(signals.map(s=>s.signalDate),['2025-01-02','2025-01-10']);
+ const evalLow=evaluateFearStrategy(market(['2025-01-01','2025-01-02']),sentiment.slice(0,2));
+ assert.equal(evalLow.armed,false);assert.equal(evalLow.pending[0].signalDate,'2025-01-02');
+ assert.equal(evaluateFearStrategy(market(['2025-01-01','2025-01-02']),[...sentiment.slice(0,2),{date:'2025-01-03',score:14.99}]).armed,false);
+ assert.equal(evaluateFearStrategy(market(['2025-01-01','2025-01-02']),[...sentiment.slice(0,2),{date:'2025-01-03',score:15}]).armed,true);
+ assert.equal(evaluateFearStrategy(market(['2025-01-02']),[]).latest,null);
 });
 test('可调阈值同步采用加5缓冲；首条已低于阈值不伪造下穿',()=>{
  const sentiment=series([9,8,17,12,11.9]);

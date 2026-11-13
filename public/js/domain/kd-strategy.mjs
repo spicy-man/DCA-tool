@@ -183,12 +183,12 @@ export function calculateKDSignals(rows, monthlySignals, { baseAmount = 1000, ..
   if (baseAmount === 0) return [];
 
   const states = calculateKDSeries(rows, options);
-  return monthlySignals.map(({ date, scheduledMonth, scheduledDate }) => {
+  return monthlySignals.map(({ date, scheduledMonth, scheduledDate, buyDay }) => {
     if (!states.has(date)) throw Error('KD月度信号缺少对应行情');
     const state = states.get(date);
     const multiple = state ? kdMultiple(state.weightedK, options.tierFactor) : 1;
     return {
-      date, scheduledMonth, scheduledDate,
+      date, scheduledMonth, scheduledDate, buyDay,
       signalWeek: state?.signalDate ?? null,
       monthK: state?.monthK ?? null,
       quarterK: state?.quarterK ?? null,
