@@ -36,4 +36,34 @@ test('Actions 汇总区分部署、本轮与整体，数据未齐或更新异常
   assert.match(result.stdout, /整体数据：已到齐/);
   result = run('failure');assert.equal(result.status, 1);
   assert.match(result.stdout, /数据更新步骤：failure/);
+
+  // 收盘后 2 小时宽限期内：未选 ETF 仍停在上一交易日且 ok=true，应退出 0 而不误报
+  const graceStatus = {
+    checkedAt: '2026-10-20T20:45:00Z',
+    expectedDate: '2026-10-20',
+    requestedSources: ['Fear & Greed'],
+    requestedComplete: true,
+    complete: false,
+    results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'].map(symbol => ({
+      symbol,
+      ok: true,
+      date: symbol === 'Fear & Greed' ? '2026-10-20' : '2026-10-19',
+      checkedAt: '2026-10-20T20:45:00Z'
+    }))
+  };
+  await writeFile(path.join(root, 'public/data/status.json'), JSON.stringify(graceStatus));
+  result = run('success');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /宽限窗口内/);
+
+  // 宽限期内若存在多日滞后（T-2）或 ok=false，仍必须退出 1
+  graceStatus.results[1].date = '2026-10-16';
+  await writeFile(path.join(root, 'public/data/status.json'), JSON.stringify(graceStatus));
+  result = run('success');
+  assert.equal(result.status, 1);
+  graceStatus.results[1].date = '2026-10-19';
+  graceStatus.results[2].ok = false;
+  await writeFile(path.join(root, 'public/data/status.json'), JSON.stringify(graceStatus));
+  result = run('success');
+  assert.equal(result.status, 1);
 });

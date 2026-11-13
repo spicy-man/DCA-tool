@@ -33,3 +33,37 @@ test('任务延迟跨小时仍按触发的计划选择来源，未知调度拒�
   assert.deepEqual(scheduledSources(slot(16), Date.parse('2026-10-17T01:30Z')), all);
   assert.throws(() => scheduledSources('invalid'));
 });
+
+test('catchUp 模式仅补抓缺失、失败或日期滞后的来源，全部新鲜时不重复抓取', () => {
+  const freshStatus = {
+    results: all.map(symbol => ({ symbol, ok: true, date: '2026-11-02' }))
+  };
+  assert.deepEqual(
+    scheduledSources(slot(13, '1-5'), Date.parse('2026-11-02T21:15Z'), { status: freshStatus, catchUp: true }),
+    []
+  );
+  const staleStatus = {
+    results: all.map(symbol => ({
+      symbol,
+      ok: true,
+      date: symbol === 'Fear & Greed' ? '2026-11-02' : '2026-10-30'
+    }))
+  };
+  assert.deepEqual(
+    scheduledSources(slot(10), Date.parse('2026-11-02T21:15Z'), { status: staleStatus, catchUp: true }),
+    all
+  );
+  assert.deepEqual(
+    scheduledSources(slot(13, '1-5'), Date.parse('2026-11-02T21:15Z'), {
+      status: {
+        results: all.map(symbol => ({
+          symbol,
+          ok: symbol !== 'QQQ',
+          date: '2026-11-02'
+        }))
+      },
+      catchUp: true
+    }),
+    ['QQQ']
+  );
+});

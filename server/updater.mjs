@@ -315,6 +315,7 @@ async function run({
   now = Date.now(),
   wait = sleep,
   skipFresh = false,
+  catchUp = false,
   includeFunds = false,
   sources,
   sentimentSource = process.env.FEAR_GREED_SOURCE || 'auto'
@@ -332,6 +333,15 @@ async function run({
   const checkedAt = new Date(now).toISOString();
   const oldText = await readOptional(path.join(dataDir, 'status.json'));
   const old = oldText ? JSON.parse(oldText) : null;
+  if (catchUp) {
+    for (const symbol of ['Fear & Greed', ...symbols]) {
+      if (sources.includes(symbol)) continue;
+      const last = old?.results?.find(r => r.symbol === symbol);
+      if (!last || !last.ok || !last.date || last.date < expectedDate) {
+        sources.push(symbol);
+      }
+    }
+  }
   const context = { dataDir, fetchText, now, expectedDate, sentimentSource, wait };
 
   const results = await Promise.all(

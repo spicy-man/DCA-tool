@@ -272,6 +272,22 @@ test('K线第二轮强制请求并接收复权修订，不因日期已到齐跳�
  const saved=JSON.parse(await readFile(path.join(d,'spy.json'),'utf8'));
  assert.ok(Math.abs(saved.rows[0].close-100*80/95)<1e-9);
 });
+
+test('catchUp 在仅选中 FNG 且跨过收盘后自动补抓滞后 ETF',async t=>{
+ const d=await dir(t);await seed(d);
+ await refreshAll({...opts(d),fetchText:async url=>source(url)});
+ let calls=0;
+ const afterNextClose=Date.parse('2025-01-07T21:10:00Z');
+ const status=await refreshAll({
+  ...opts(d),
+  now:afterNextClose,
+  catchUp:true,
+  sources:['Fear & Greed'],
+  fetchText:async url=>{calls++;return source(url);}
+ });
+ assert.equal(calls,1+SYMBOLS.length);
+ assert.deepEqual(status.requestedSources,['Fear & Greed',...SYMBOLS]);
+});
 test('健康状态按浏览器当前日期重新判断，不能把旧 manifest 当成今日成功',()=>{
  const status={checkedAt:new Date(now).toISOString(),results:[{symbol:'SPY',date:'2025-01-06',ok:true,fresh:true}]};
  assert.match(healthSummary(status,Date.parse('2025-01-07T23:00Z')),/等待更新/);

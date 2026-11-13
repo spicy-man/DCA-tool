@@ -110,11 +110,14 @@ jobs:
           FORCE_REFRESH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force) }}
           REFRESH_SOURCES: ${{ needs.schedule.outputs.sources }}
         run: |
-          if [ "$FORCE_REFRESH" = "true" ]; then
-            node scripts/update-data.mjs
-          else
-            node scripts/update-data.mjs --scheduled
+          ARGS=""
+          if [ "$FORCE_REFRESH" != "true" ]; then
+            ARGS="$ARGS --scheduled"
           fi
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            ARGS="$ARGS --catch-up"
+          fi
+          node scripts/update-data.mjs $ARGS
       - name: Update domestic ETF snapshots
         id: funds
         if: needs.schedule.outputs.funds == 'true'

@@ -78,3 +78,13 @@ export function healthSummary(status, now = Date.now()) {
   return lines.join('。\n') + '。\n整体数据：' + overall +
     '；应有数据截至 ' + expected + '；时间均为纽约时间。';
 }
+
+export function hasBlockingDataGap(status, now = Date.now(), graceMinutes = 120) {
+  if (!status?.results?.length) return true;
+  const requiredDate = latestClosedSession(now, graceMinutes);
+  const bySymbol = new Map(status.results.map(r => [r.symbol, r]));
+  for (const symbol of ['Fear & Greed', ...SYMBOLS]) {
+    if (!bySymbol.has(symbol)) return true;
+  }
+  return status.results.some(r => !r.ok || !r.date || r.date < requiredDate);
+}

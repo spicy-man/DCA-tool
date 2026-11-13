@@ -1,9 +1,23 @@
-import { isTradingDay, nyDate, sessionClose } from '../public/js/domain/trading-calendar.mjs';
+import { isTradingDay, latestClosedSession, nyDate, sessionClose } from '../public/js/domain/trading-calendar.mjs';
 import { SYMBOLS } from '../public/js/domain/market.mjs';
+
+function appendStaleSources(sources, now, { status, customSymbols = [] }) {
+  const expectedDate = latestClosedSession(now);
+  const bySymbol = new Map((status?.results || []).map(r => [r.symbol, r]));
+  const merged = [...sources];
+  for (const symbol of ['Fear & Greed', ...SYMBOLS, ...customSymbols]) {
+    if (merged.includes(symbol)) continue;
+    const record = bySymbol.get(symbol);
+    if (!record || !record.ok || !record.date || record.date < expectedDate) {
+      merged.push(symbol);
+    }
+  }
+  return merged;
+}
 
 // Each workflow entry has one New York hour. Resolve the planned slot rather
 // than the runner's hour so a delayed job still refreshes the intended sources.
-export function scheduledSources(cron, now = Date.now()) {
+export function scheduledSources(cron, now = Date.now(), options = {}) {
   const match = /^1 (4|10|13|14|16|17|22) \* \* (\*|1-5)$/.exec(cron);
   if (!match) throw Error('未知数据更新时间');
   const hour = Number(match[1]);
@@ -22,7 +36,7 @@ export function scheduledSources(cron, now = Date.now()) {
         if (!sources.includes('Fear & Greed')) sources.push('Fear & Greed');
         sources.push(...SYMBOLS);
       }
-      return sources;
+      return options?.catchUp ? appendStaleSources(sources, now, options) : sources;
     }
     date = new Date(noon - 86400000).toISOString().slice(0, 10);
   }
