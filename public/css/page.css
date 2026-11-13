@@ -94,12 +94,13 @@
 @media (max-width: 600px) {
   #allocation-dialog { width: calc(100% - 20px); max-width: none; max-height: calc(100dvh - 20px); font-size: 14px; }
   #allocation-form { padding: 18px 14px; }
-  .allocation-heading { flex-direction: column; align-items: flex-start; margin-bottom: 8px; }
-  #allocation-dialog h2 { font-size: 18px; }
+  .allocation-heading { gap: 8px 6px; margin-bottom: 8px; }
+  .allocation-heading > .strategy-status-switch { margin-left: auto; }
+  #allocation-dialog h2 { font-size: 13px; }
   #allocation-dialog .allocation-intro { margin: 0 0 14px; color: #607487; font-size: 13px; line-height: 1.6; }
   .allocation-parameters label { font-size: 13px; }
   .allocation-parameters input { height: 42px; padding: 0 10px; font-size: 16px; }
-  .allocation-heading .strategy-status-switch button { height: 42px; padding-inline: 6px; }
+  .allocation-heading .strategy-status-switch button { min-height: 42px; height: auto; padding-inline: 4px; font-size: 11px; }
   .allocation-bulk-fear label { flex: 1; }
   .allocation-bulk-fear button { height: 42px; }
   .allocation-list-heading { margin-top: 18px; font-size: 14px; }
@@ -223,6 +224,7 @@ button:disabled {
   border-color: var(--navy);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
 }
 
