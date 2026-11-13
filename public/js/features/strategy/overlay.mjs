@@ -16,14 +16,14 @@ const $ = id => document.getElementById(id);
 const storageKey = 'seeker.pyramid.v1';
 const symbolStorageKey = 'seeker.symbol.v1';
 const strategyViewKey='seeker.strategyView.v1';
-let viewStrategy='combined';
+let viewStrategy='kdFear';
 const cache = new WeakMap();
-const defaults = { buyDay: 1, baseAmount: 2000, enabled: true, fearThreshold: 10, fearBuyCount: 3, fearEnabled: true };
+const defaults = { buyDay: 1, baseAmount: 2000, enabled: true, fearThreshold: 10, fearBuyCount: 0, fearEnabled: false };
 
 let state = { ...defaults };
 let fallback = { baseAmount: defaults.baseAmount, fearBuyCount: defaults.fearBuyCount, fearEnabled: defaults.fearEnabled };
 let bySymbol = {};
-let allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {}, plan: 'pyramidFear' };
+let allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {}, plan: 'kdFear' };
 let current = [];
 let allCurrent = [];
 let market = null;
@@ -1111,12 +1111,16 @@ function initAllocationDialog() {
 export function initStrategyOverlay() {
   initBacktest();
   market = null;
+  settings = null;
+  current = [];
+  allCurrent = [];
+  candleMap = new Map();
   state = { ...defaults };
   fallback = { baseAmount: defaults.baseAmount, fearBuyCount: defaults.fearBuyCount, fearEnabled: defaults.fearEnabled };
   bySymbol = {};
-  allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {}, plan:'pyramidFear' };
+  allocation = { totalAmount: defaults.baseAmount, weights: {}, fearEnabled: {}, plan:'kdFear' };
   refreshAllocationPreview = null;
-  viewStrategy='combined';try{viewStrategy=normalizeStatusStrategy(localStorage.getItem(strategyViewKey));}catch{}
+  viewStrategy='kdFear';try{viewStrategy=normalizeStatusStrategy(localStorage.getItem(strategyViewKey));}catch{}
   const syncStatusSwitch=()=>{
     const kd=viewStrategy==='kdFear';
     $('status-strategy-combined').setAttribute('aria-pressed',String(!kd));
@@ -1150,11 +1154,13 @@ export function initStrategyOverlay() {
       saved.buyDay <= 31 &&
       validBaseAmount(saved.baseAmount)
     ) {
+      const hasSavedFearCount = validFearBuyCount(saved.fearBuyCount, saved.baseAmount);
       fallback = {
         baseAmount: saved.baseAmount,
-        fearBuyCount: validFearBuyCount(saved.fearBuyCount, saved.baseAmount)
-          ? saved.fearBuyCount : defaults.fearBuyCount,
-        fearEnabled: typeof saved.fearEnabled === 'boolean' ? saved.fearEnabled : defaults.fearEnabled
+        fearBuyCount: hasSavedFearCount ? saved.fearBuyCount : defaults.fearBuyCount,
+        fearEnabled: typeof saved.fearEnabled === 'boolean'
+          ? saved.fearEnabled
+          : (hasSavedFearCount ? true : defaults.fearEnabled)
       };
       state = {
         ...defaults,
@@ -1171,12 +1177,13 @@ export function initStrategyOverlay() {
       if (saved.bySymbol && typeof saved.bySymbol === 'object') {
         for (const [symbol, entry] of Object.entries(saved.bySymbol)) {
           if (!entry || !validBaseAmount(entry.baseAmount)) continue;
+          const hasEntryFearCount = validFearBuyCount(entry.fearBuyCount, entry.baseAmount);
           bySymbol[symbol] = {
             baseAmount: entry.baseAmount,
-            fearBuyCount: validFearBuyCount(entry.fearBuyCount, entry.baseAmount)
-              ? entry.fearBuyCount
-              : fallback.fearBuyCount,
-            fearEnabled: typeof entry.fearEnabled === 'boolean' ? entry.fearEnabled : fallback.fearEnabled
+            fearBuyCount: hasEntryFearCount ? entry.fearBuyCount : fallback.fearBuyCount,
+            fearEnabled: typeof entry.fearEnabled === 'boolean'
+              ? entry.fearEnabled
+              : (hasEntryFearCount ? true : fallback.fearEnabled)
           };
         }
       }
@@ -1198,13 +1205,13 @@ export function initStrategyOverlay() {
             if (typeof enabled === 'boolean') fearEnabled[symbol] = enabled;
           }
         }
-        allocation = { totalAmount, weights, fearEnabled, plan:saved.allocation.plan==='kdFear'?'kdFear':'pyramidFear' };
+        allocation = { totalAmount, weights, fearEnabled, plan:saved.allocation.plan==='pyramidFear'?'pyramidFear':'kdFear' };
       } else {
         allocation = {
           totalAmount: validTotalAmount(fallback.baseAmount) ? fallback.baseAmount : defaults.baseAmount,
           weights: {},
           fearEnabled: {},
-          plan:'pyramidFear'
+          plan:'kdFear'
         };
       }
     }

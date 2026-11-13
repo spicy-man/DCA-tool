@@ -23,7 +23,7 @@ export function formatFearStatus(states, threshold) {
   };
 }
 
-export function renderStrategySummary(data, range, settings, signals = [], fear = null, {strategy='combined',kdOptions=KD_DEFAULTS}={}) {
+export function renderStrategySummary(data, range, settings, signals = [], fear = null, {strategy='kdFear',kdOptions=KD_DEFAULTS}={}) {
   const set = (id, value) => { document.getElementById(id).textContent = value; };
   set('strategy-state-label',strategy==='kd'?'最新可用加权K':strategy==='regular'?'定投规则':strategy==='pyramid'?'当前近月回撤':'恐慌加投状态');
   const help = document.getElementById('next-plan-help');

@@ -25,7 +25,7 @@ export function renderKDExplanation() {
 export function initStrategyDialog() {
   const $ = id => document.getElementById(id);
   const strategyDialog = $('strategy-dialog');
-  const tabs = ['pyramid', 'kd', 'fear'].map(name => ({
+  const tabs = ['kd', 'pyramid', 'fear'].map(name => ({
     name,
     tab: $('strategy-tab-' + name),
     panel: $('strategy-' + name + '-panel')

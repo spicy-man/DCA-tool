@@ -16,7 +16,7 @@ test('五策略筛选独立，KD＋恐慌叠加两类信号，切换不修改原
  assert.deepEqual(kd.map(s=>s.amount),kdSignals.map(s=>s.amount));assert.ok(kd.every(s=>s.strategy==='kd'&&s.type==='monthly'));
  assert.deepEqual(pyramid.map(s=>s.amount),monthlySignals.map(s=>s.amount));assert.equal(combined.length,pyramid.length+1);
  assert.deepEqual(kdFear.filter(s=>s.type==='monthly').map(s=>s.amount),kdSignals.map(s=>s.amount));assert.deepEqual(kdFear.filter(s=>s.type==='fear'),fearSignals);assert.equal(kdFear.length,kd.length+fearSignals.length);
- assert.equal(JSON.stringify(inputs),before);assert.equal(normalizeSignalStrategy('invalid'),'combined');
+  assert.equal(JSON.stringify(inputs),before);assert.equal(normalizeSignalStrategy('invalid'),'kdFear');
  assert.equal(normalizeSignalStrategy('kdFear'),'kdFear');
  assert.equal(normalizeStatusStrategy('kd'),'kdFear');assert.equal(normalizeStatusStrategy('pyramid'),'combined');
  for(const strategy of ['regular','pyramid','combined','kd','kdFear'])assert.deepEqual(selectSignalHistory(strategy,{baseAmount:0}),[]);
@@ -42,16 +42,16 @@ test('策略摘要随策略、区间与待确认状态更新，数据失效时�
      assert.match(text('funding-split'),/KD额外投入/);assert.match(text('funding-split'),/恐慌加投/);
    }
  }
- renderStrategySummary(data,{start:'2024-01-01',end:'2024-01-31'},settings,selectSignalHistory('combined',input),fear);
+ renderStrategySummary(data,{start:'2024-01-01',end:'2024-01-31'},settings,selectSignalHistory('combined',input),fear,{strategy:'combined'});
  assert.match(text('funding-total'),/1,000\.00/);
  assert.equal(text('recent-signal'),'2024-03-01');
  const oct=[{date:'2026-10-06',high:762.86,close:760},{date:'2026-10-26',high:714,close:712.2},{date:'2026-10-27',high:720,close:718}];
  const octSignals=calculatePyramidSignals(oct,{buyDay:25,baseAmount:2000}).map(s=>({...s,type:'monthly'}));
- renderStrategySummary({symbol:'QQQ',rows:oct},{start:'2026-10-01',end:'2026-10-27'},{...settings,buyDay:25,baseAmount:2000},octSignals,fear);
+ renderStrategySummary({symbol:'QQQ',rows:oct},{start:'2026-10-01',end:'2026-10-27'},{...settings,buyDay:25,baseAmount:2000},octSignals,fear,{strategy:'combined'});
  assert.match(text('next-plan'),/^2026-11-25（/);
  assert.match(text('next-plan-estimate-note'),/自 ATH 回撤 5\.88%/);
  assert.equal(nodes.get('next-plan-help').hidden,false);
- renderStrategySummary({symbol:'QQQ',rows:[...oct,{date:'2026-11-02',high:1000,close:718}]},{start:'2026-10-01',end:'2026-10-27',replay:true},{...settings,buyDay:25,baseAmount:2000},octSignals,fear);
+ renderStrategySummary({symbol:'QQQ',rows:[...oct,{date:'2026-11-02',high:1000,close:718}]},{start:'2026-10-01',end:'2026-10-27',replay:true},{...settings,buyDay:25,baseAmount:2000},octSignals,fear,{strategy:'combined'});
  assert.match(text('next-plan-estimate-note'),/自 ATH 回撤 5\.88%/);
  renderStrategySummary(data,range,settings,[],{...fear,pending:[{amount:3000}]});
  assert.match(text('fear-state-note'),/TEST 3,000\.00/);

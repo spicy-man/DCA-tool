@@ -83,24 +83,27 @@ function drawProfitChart(result) {
     add('circle', { cx: x(last.date), cy: y(metric(last)), r: 3, fill: colors[i] });
   }
   let recoveryLabel = null;
-  const combined = result.results.find(strategy => strategy.id === 'combined');
-  const recovery = replay && combined && findLatestPeakRecovery(combined.curve, seriesMode);
+  const kdIndex = result.results.findIndex(strategy => strategy.id === 'kdFear');
+  const combinedIndex = result.results.findIndex(strategy => strategy.id === 'combined');
+  const focusIndex = kdIndex >= 0 ? kdIndex : combinedIndex;
+  const focus = focusIndex >= 0 ? result.results[focusIndex] : null;
+  const recovery = replay && focus && findLatestPeakRecovery(focus.curve, seriesMode);
   if (recovery) {
     const x1 = x(recovery.start);
     const x2 = x(recovery.end);
     const py = y(recovery.value);
     const label = recovery.recovered ? '前高修复 · ' + recovery.days + ' 天' : '未修复 · 已 ' + recovery.days + ' 天';
     add('line', {
-      x1, x2, y1: py, y2: py, stroke: colors[2], 'stroke-width': 1.5,
+      x1, x2, y1: py, y2: py, stroke: colors[focusIndex], 'stroke-width': 1.5,
       'stroke-dasharray': '6 4', 'data-recovery-line': '',
-      'aria-label': '金字塔＋恐慌加投' + (showEquity ? '累计资产' : '累计盈亏') + '前高 ' + amount(recovery.value) + '，' + recovery.start + ' 至 ' + recovery.end + '，' + label
+      'aria-label': focus.name + (showEquity ? '累计资产' : '累计盈亏') + '前高 ' + amount(recovery.value) + '，' + recovery.start + ' 至 ' + recovery.end + '，' + label
     });
-    for (const px of [x1, x2]) add('circle', { cx: px, cy: py, r: 3, fill: '#fff', stroke: colors[2], 'stroke-width': 1.5 });
+    for (const px of [x1, x2]) add('circle', { cx: px, cy: py, r: 3, fill: '#fff', stroke: colors[focusIndex], 'stroke-width': 1.5 });
     const halfLabel = label.length * 5.5 + 4;
     const labelRight = replay ? Math.min(width - right, x(principalCurve.at(-1).date) - 4) : width - right;
     recoveryLabel = add('text', {
       x: Math.max(left + halfLabel, Math.min(labelRight - halfLabel, (x1 + x2) / 2)),
-      y: Math.max(top + 12, py - 9), 'text-anchor': 'middle', fill: colors[2],
+      y: Math.max(top + 12, py - 9), 'text-anchor': 'middle', fill: colors[focusIndex],
       'font-size': 11, stroke: '#fff', 'stroke-width': 4, 'paint-order': 'stroke',
       'stroke-linejoin': 'round', 'data-recovery-label': ''
     }, label);

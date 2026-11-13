@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.17.5">
+  <link rel="stylesheet" href="./style.css?v=1.17.6">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.17.5">v1.17.5</span>
+        <span class="version-badge" aria-label="版本 1.17.6">v1.17.6</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -129,7 +129,7 @@
               <input id="fear-threshold" title="跌破此值按所设倍数加投；回升至阈值 +5 后重置" aria-label="恐慌指数加投阈值" type="number" min="0.01" max="95" step="any" value="10" inputmode="decimal">
             </label>
             <label>恐慌加投倍数
-              <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；填 3 表示一次加投 3N，填 0 表示不启用恐慌加投（按当前标的独立保存）" type="number" min="0" step="1" value="3" inputmode="numeric">
+              <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；默认 0 表示不启用恐慌加投，填正整数（如 3）表示一次加投 3N（按当前标的独立保存）" type="number" min="0" step="1" value="0" inputmode="numeric">
             </label>
             <label>KD 分档系数
               <input id="main-kd-tier-factor" type="number" min="1" max="3" step="any" value="1.5" inputmode="decimal" aria-describedby="kd-factor-help main-kd-factor-error">
@@ -146,8 +146,8 @@
           <div class="summary-heading strategy-status-heading">
             <h3 id="strategy-status-heading">当前策略状态</h3>
             <div class="strategy-status-switch" role="group" aria-label="当前策略状态：选择策略">
-              <button id="status-strategy-combined" type="button" aria-pressed="true">金字塔＋恐慌加投</button>
-              <button id="status-strategy-kdFear" type="button" aria-pressed="false">KD 定投＋恐慌加投</button>
+              <button id="status-strategy-kdFear" type="button" aria-pressed="true">KD 定投＋恐慌加投</button>
+              <button id="status-strategy-combined" type="button" aria-pressed="false">金字塔＋恐慌加投</button>
             </div>
           </div>
           <div class="summary-grid status-grid">
@@ -226,13 +226,13 @@
           <a id="price-source" class="price-source" href="https://finance.yahoo.com/quote/SPY/history/" target="_blank" rel="noreferrer">Yahoo Finance ↗</a>
 
           <section class="strategy-details" aria-labelledby="strategy-heading">
-            <h3 id="strategy-heading">金字塔＋恐慌加投买入信号</h3>
+            <h3 id="strategy-heading">KD 定投＋恐慌加投买入信号</h3>
             <p id="signal-strategy-rule"></p>
             <div id="signal-pyramid-explanation">
             <p>回看前一个日历月（包含当天、月底对齐）的最高价，以当日收盘价计算回撤。不足 5% 投入 N；5% 为 2N；10% 为 4N；15% 为 6N，之后每多 5% 增加 2N，最多 38N。</p>
             <p>不存在的定投日对齐当月月末，非交易日顺延。每个定投所属月份各买一次；上月顺延到本月的买入不占用本月额度，因此同一执行月份可能有两笔月度定投。月度额度不限制恐慌加投。仅在完整日线上显示信号。按全部已取得的历史日线计算，缩放和拖动不会重新触发定投。</p>
             </div>
-            <p id="signal-fear-explanation">1N = 设置中的定投金额。F&amp;G 日终指数从不低于阈值跌至阈值下方时，按“恐慌加投倍数 × N”加投（默认 3N，即蓝色 buy 3N；倍数可在主图调整），与月度定投独立累加。默认阈值 10，可调整；触发后须回升到阈值 +5 才可再次触发，避免临界值附近重复买入。这是策略缓冲带，并非统计置信区间。信号在指数日期之后的首个可用 ETF 交易日展示；无后续完整行情时暂不生成买入。</p>
+            <p id="signal-fear-explanation">1N = 设置中的定投金额。F&amp;G 日终指数从不低于阈值跌至阈值下方时，按“恐慌加投倍数 × N”加投（默认 0 不启用恐慌加投；填入正整数如 3 即为蓝色 buy 3N，可在主图调整），与月度定投独立累加。默认阈值 10，可调整；触发后须回升到阈值 +5 才可再次触发，避免临界值附近重复买入。这是策略缓冲带，并非统计置信区间。信号在指数日期之后的首个可用 ETF 交易日展示；无后续完整行情时暂不生成买入。</p>
             <p id="signal-total"></p>
             <div class="table-scroll">
               <table>
@@ -517,8 +517,8 @@
       <div class="allocation-heading">
         <h2 id="allocation-dialog-title" tabindex="-1" autofocus>组合定投与回测</h2>
         <div class="strategy-status-switch" role="group" aria-label="组合定投方案">
-          <button id="allocation-plan-pyramidFear" type="button" aria-pressed="true">金字塔＋恐慌加投</button>
-          <button id="allocation-plan-kdFear" type="button" aria-pressed="false">KD 定投＋恐慌加投</button>
+          <button id="allocation-plan-kdFear" type="button" aria-pressed="true">KD 定投＋恐慌加投</button>
+          <button id="allocation-plan-pyramidFear" type="button" aria-pressed="false">金字塔＋恐慌加投</button>
         </div>
       </div>
       <p class="allocation-intro">按每期总金额和标的配比，自动计算各标的的定投金额。配比为 0% 时，该标的的 1N 为 0.00。</p>
@@ -658,7 +658,7 @@
       <p>前人的智慧，让我们在犹疑时有所回望；事先想清楚的规则，让每一次行动有所依据。先为生活留好余地，确定能够持续承担的定投金额与备用资金，再从容地开始。</p>
       <section class="welcome-rules" aria-labelledby="welcome-rules-title">
         <h3 id="welcome-rules-title">心中有尺度，行动有章法</h3>
-        <p>平日按月积累，回撤时依档位增加投入，恐慌信号出现时按设定倍数独立加投。具体的加仓规则由本工具设计，可在「策略说明」中细读。</p>
+        <p>默认采用「KD 定投＋0 恐慌加投」：每月依周线月 K 与季 K 加权所处档位从容买入，不随短期情绪噪声折腾；也可按需开启恐慌加投或切换至近月回撤金字塔做对比，具体规则可在「策略说明」中细读。</p>
         <p>下跌可能持续，加仓之后仍可能亏损，历史回测也无法许诺未来。愿每一笔投入，都在自己理解并能承受的范围之内。</p>
       </section>
       <p class="welcome-ending">愿这份小工具，陪你理解自己的选择，然后安心地回到工作与生活。</p>
@@ -682,16 +682,16 @@
     <div class="strategy-explanation-tabs" role="tablist" aria-label="定投策略说明类型">
       <div class="strategy-tab-group" role="group" aria-labelledby="strategy-main-label">
         <span id="strategy-main-label">主策略</span>
-        <button type="button" role="tab" id="strategy-tab-pyramid" aria-controls="strategy-pyramid-panel" aria-selected="true">金字塔跌幅定投</button>
-        <button type="button" role="tab" id="strategy-tab-kd" aria-controls="strategy-kd-panel" aria-selected="false" tabindex="-1">KD 定投</button>
+        <button type="button" role="tab" id="strategy-tab-kd" aria-controls="strategy-kd-panel" aria-selected="true">KD 定投</button>
+        <button type="button" role="tab" id="strategy-tab-pyramid" aria-controls="strategy-pyramid-panel" aria-selected="false" tabindex="-1">金字塔跌幅定投</button>
       </div>
       <div class="strategy-tab-group" role="group" aria-labelledby="strategy-aux-label">
         <span id="strategy-aux-label">辅策略</span>
         <button type="button" role="tab" id="strategy-tab-fear" aria-controls="strategy-fear-panel" aria-selected="false" tabindex="-1">恐慌加投</button>
       </div>
     </div>
-    <p id="strategy-diagram-note" class="strategy-diagram-note">月度买入可按金字塔或 KD 确定金额。恐慌加投独立触发，可叠加到任一种主策略。</p>
-    <section class="strategy-explanation" id="strategy-pyramid-panel" role="tabpanel" aria-labelledby="strategy-tab-pyramid" tabindex="0">
+    <p id="strategy-diagram-note" class="strategy-diagram-note">月度买入可按 KD 或金字塔确定金额。恐慌加投默认倍数为 0（不启用），可按需叠加到任一种主策略。</p>
+    <section class="strategy-explanation" id="strategy-pyramid-panel" role="tabpanel" aria-labelledby="strategy-tab-pyramid" tabindex="0" hidden>
       <header>
         <h3>近月回撤越深，月度买入越多</h3>
         <p id="strategy-pyramid-parameters"></p>
@@ -705,7 +705,7 @@
       <aside class="strategy-explanation-example"><h4>回撤 12%，买入 4N</h4><p>近月最高价为 $100，判断日收盘价为 $88，回撤为 12%，落在 10% 至低于 15% 的档位。若 N = $50，本次买入 $200。</p></aside>
       <div class="strategy-diagram-toolbar"><button type="button" class="strategy-diagram-original" data-image="monthly_dca_logic.svg" aria-label="查看金字塔跌幅定投流程图（在新标签页打开）">查看流程图</button></div>
     </section>
-    <section class="strategy-explanation" id="strategy-kd-panel" role="tabpanel" aria-labelledby="strategy-tab-kd" tabindex="0" hidden>
+    <section class="strategy-explanation" id="strategy-kd-panel" role="tabpanel" aria-labelledby="strategy-tab-kd" tabindex="0">
       <header><h3>K 越低，按档位增加月度买入金额</h3><p id="strategy-kd-parameters"></p></header>
       <ol class="strategy-explanation-steps strategy-kd-steps">
         <li><span>01 / 确认数据</span><h4>使用已完成的周线</h4><p>用日线 High / Low / Close 合成周线。每周最后一个交易日收盘后，本周周线才纳入计算。</p></li>
@@ -726,7 +726,7 @@
       </header>
       <ol class="strategy-explanation-steps">
         <li><span>01 / 确认触发</span><h4>日终指数由达标转为低于阈值</h4><p>比较相邻两条 F&amp;G 日终记录。上一条达到或高于阈值，本次低于阈值，且策略具备触发资格时，加投一次。</p></li>
-        <li><span>02 / 确定投入</span><h4>按设定倍数额外买入</h4><p class="strategy-explanation-formula">加投金额 = N × 加投倍数</p><p>信号日之后的首个交易日开盘买入。将倍数设为 0 即可停用恐慌加投。</p></li>
+        <li><span>02 / 确定投入</span><h4>按设定倍数额外买入</h4><p class="strategy-explanation-formula">加投金额 = N × 加投倍数</p><p>信号日之后的首个交易日开盘买入。默认倍数为 0（不启用恐慌加投），如需启用可设为正整数。</p></li>
         <li><span>03 / 恢复触发资格</span><h4>等指数回升到阈值加 5</h4><p>触发后进入冷却。指数达到或超过阈值加 5 时，恢复触发资格，等待下一次下穿。</p></li>
         <li><span>04 / 叠加主策略</span><h4>与月度买入独立累加</h4><p>可叠加到金字塔跌幅定投或 KD 定投。若两笔订单在同一天成交，当天的买入金额是两笔订单之和。</p></li>
       </ol>

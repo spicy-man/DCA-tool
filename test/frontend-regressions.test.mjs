@@ -205,6 +205,16 @@ test('空指数窗口清除旧画布，保留背景和坐标绘制且不崩溃',
 
 test('历史指数修正和等长日历坐标变更重绘信号，行情失败清除明细', t => {
   const $ = dom(t);
+  const oldStorage = globalThis.localStorage;
+  const oldResize = globalThis.ResizeObserver;
+  globalThis.localStorage = { getItem: () => null, setItem() {} };
+  globalThis.ResizeObserver = class { observe() {} };
+  t.after(() => { globalThis.localStorage = oldStorage; globalThis.ResizeObserver = oldResize; });
+  $('symbol').value = 'QQQ';
+  $('price-chart').getContext = () => new Proxy({}, { get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {}, set: () => true });
+  initStrategyOverlay();
+  $('fear-buy-count').value = '3';
+  $('fear-buy-count').listeners.input();
   setSignalSentiment([{ date: '2025-01-02', score: 20 }, { date: '2025-01-03', score: 9 }]);
   updateSignals(data, settings);
   drawSignalMarkers(frame);
@@ -571,19 +581,20 @@ test('配比弹窗支持按权重填入、草稿校验与取消隔离、0倍数�
   const sparseRows = ['2025-01-30', '2025-02-28'].map(date => ({ date, open: 100, high: 100, low: 100, close: 100 }));
   updateSignals({ ...data, symbol: 'SPY', rows: sparseRows }, settings);
   $('allocation-open').listeners.click();
+  assert.equal($('allocation-plan-kdFear').getAttribute('aria-pressed'), 'true');
+  $('allocation-plan-pyramidFear').listeners.click();
   $('allocation-buy-day').value = '31';
   $('allocation-buy-day').listeners.input();
   assert.match($('allocation-recent-signal').textContent, /2025-02-28.*5,000\.00/);
   assert.equal($('allocation-recent-detail').textContent, 'SPY 5,000.00');
 
-  $('allocation-plan-kdFear').listeners.click();
   $('allocation-form').listeners.submit({ preventDefault() {} });
   $('allocation-open').listeners.click();
-  assert.equal($('allocation-plan-kdFear').getAttribute('aria-pressed'), 'true');
-  $('allocation-plan-pyramidFear').listeners.click();
+  assert.equal($('allocation-plan-pyramidFear').getAttribute('aria-pressed'), 'true');
+  $('allocation-plan-kdFear').listeners.click();
   $('allocation-cancel').listeners.click();
   $('allocation-open').listeners.click();
-  assert.equal($('allocation-plan-kdFear').getAttribute('aria-pressed'), 'true');
+  assert.equal($('allocation-plan-pyramidFear').getAttribute('aria-pressed'), 'true');
 });
 
 test('KD行情失效时清空旧指标、明细及曲线，并禁止导出旧结果',async t=>{
@@ -696,7 +707,7 @@ test('策略说明在三个页签间切换，KD 十档金额和示例同步当�
  $('base-amount').listeners.input();
  const diagrams=['monthly_dca_logic.svg','fear_dca_logic.svg'].map(image=>Object.assign(element(),{dataset:{image}}));
  $('strategy-dialog').querySelectorAll=()=>diagrams;
- const names = ['pyramid', 'kd', 'fear'];
+ const names = ['kd', 'pyramid', 'fear'];
  const tabs = names.map(name => $('strategy-tab-' + name));
  const panels = names.map(name => $('strategy-' + name + '-panel'));
  let focused;
@@ -707,11 +718,11 @@ test('策略说明在三个页签间切换，KD 十档金额和示例同步当�
  };
  initStrategyDialog();
  assertSelected(0);
- tabs[1].listeners.click();
- assertSelected(1);
  assert.equal($('strategy-kd-tiers').children.length,10);
  $('kd-tier-factor').value='3';$('kd-tier-factor').listeners.input();
  assert.match($('strategy-kd-tiers').children[9].children.map(c=>c.textContent).join(' '), /19,683N/);
+ tabs[1].listeners.click();
+ assertSelected(1);
  tabs[1].listeners.keydown({key:'Home',preventDefault(){}});assert.equal(focused,0);assertSelected(0);
  tabs[0].listeners.keydown({key:'End',preventDefault(){}});assert.equal(focused,2);assertSelected(2);
  $('base-amount').value='50';$('fear-buy-count').value='0';$('fear-buy-count').listeners.input();
@@ -729,7 +740,13 @@ test('状态只保留两种组合策略，切换和刷新恢复选择',async t=>
  t.after(()=>{globalThis.localStorage=oldStorage;globalThis.ResizeObserver=oldResize;});
  $('symbol').value='QQQ';$('symbol').options=[{value:'QQQ',textContent:'QQQ'}];
  $('price-chart').getContext=()=>new Proxy({},{get:(_,name)=>name==='measureText'?()=>({width:20}):()=>{},set:()=>true});
- initStrategyOverlay();const daily=['2024-01-02','2024-01-05','2024-02-01','2024-02-02','2024-03-01','2024-03-04'].map((date,i)=>({date,open:100-i*5,high:105-i*5,low:90-i*5,close:100-i*5}));
+ initStrategyOverlay();
+ assert.equal(getSignalStrategy(),'kdFear');
+ assert.equal($('status-strategy-kdFear').getAttribute('aria-pressed'),'true');
+ assert.equal(signalSettings().fearBuyCount,0);
+ assert.equal(signalSettings().fearEnabled,false);
+ assert.equal(Number($('fear-buy-count').value),0);
+ const daily=['2024-01-02','2024-01-05','2024-02-01','2024-02-02','2024-03-01','2024-03-04'].map((date,i)=>({date,open:100-i*5,high:105-i*5,low:90-i*5,close:100-i*5}));
  const range={start:daily[0].date,end:daily.at(-1).date,calendar:daily.map(r=>r.date),frequency:'daily',replay:true};updateSignals({symbol:'QQQ',rows:daily},range);
  const backtest=$('backtest-results').children,period=$('backtest-period').textContent;
  for(const strategy of ['combined','kdFear']){

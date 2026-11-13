@@ -6,8 +6,8 @@ export const SIGNAL_STRATEGIES = Object.freeze({
   kdFear: 'KD 定投＋恐慌加投'
 });
 
-export const normalizeSignalStrategy = value => Object.hasOwn(SIGNAL_STRATEGIES, value) ? value : 'combined';
-export const normalizeStatusStrategy = value => value === 'kd' || value === 'kdFear' ? 'kdFear' : 'combined';
+export const normalizeSignalStrategy = value => Object.hasOwn(SIGNAL_STRATEGIES, value) ? value : 'kdFear';
+export const normalizeStatusStrategy = value => value === 'pyramid' || value === 'combined' ? 'combined' : 'kdFear';
 export const formatMultiple = value => value.toLocaleString('en-US', { maximumFractionDigits: 10 });
 
 export function signalName(signal) {

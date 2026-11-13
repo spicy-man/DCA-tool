@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initApplication } from '../public/js/application.mjs';
+import { initStrategyOverlay } from '../public/js/features/strategy/overlay.mjs';
 import { loadMarket } from '../public/js/features/market/chart.mjs';
 import { drawOverview } from '../public/js/charts/sentiment.mjs';
 
@@ -33,13 +34,15 @@ for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口�
   for (const [key, value] of Object.entries({
     document: { getElementById: $, createElement: element, createElementNS: element, querySelector() { return null; } },
     window: { devicePixelRatio: 1 }, devicePixelRatio: 1,
-    ResizeObserver: class { observe() {} }
+    ResizeObserver: class { observe() {} },
+    localStorage: { getItem: () => null, setItem() {} }
   })) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
     t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
   }
   $('symbol').value = 'SPY';
+  $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }, { value: 'QQQ', textContent: 'QQQ' }];
   $('range').value = 'all';
   $('frequency').value = 'daily';
   $('layout').value = 'expanded';
@@ -61,6 +64,7 @@ for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口�
       text: async () => `Date,Fear Greed,Rating\n${sentimentStart},50,Neutral\n2026-10-15,40,Fear\n2026-10-16,30,Fear\n`
     };
   });
+  initStrategyOverlay();
   initApplication();
   await new Promise(resolve => setImmediate(resolve));
   for (let i = 0; i < 20 && !$('price-asof').textContent.includes('Yahoo'); i++) {
@@ -133,8 +137,12 @@ for (const mode of ['static', 'local']) test(`联合时间范围与刷新入口�
   await loadMarket();
   assert.equal($('date-range').textContent, '2011-01-03 – 2026-10-21');
 
+  assert.equal($('fear-state').textContent, '未启用恐慌加投');
+
   // 行情已更新时，后续情绪数据读取失败仍必须丢弃旧行情缓存。
   $('symbol').value = 'SPY';
+  $('fear-buy-count').value = '3';
+  $('fear-buy-count').listeners.input();
   market = { ...market, anchorDate: '2026-10-22', rows: [...market.rows, { ...rows.at(-1), date: '2026-10-22', close: 107 }] };
   failSentiment = true;
   await $('refresh').listeners.click();
