@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { calculateKDSignals, calculateKDSeries, normalizeKDOptions, kdMultiple } from '../public/js/domain/kd-strategy.mjs';
+import { calculateKDSignals, calculateKDSeries, normalizeKDOptions, kdMultiple, kdTierLevel } from '../public/js/domain/kd-strategy.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
 import { compareStrategies, comparePortfolioStrategies } from '../public/js/domain/backtest.mjs';
 import { isTradingDay, periodKey } from '../public/js/domain/trading-calendar.mjs';
@@ -20,6 +20,7 @@ function reference(rows,period,n=9,sig=3){
 
 test('KD全部10档、精确边界、权重和周期校验',()=>{
  for(const[k,n]of [[100,1],[90,1],[89.999999,2],[80,2],[70,4],[60,8],[50,16],[40,32],[30,64],[20,128],[10,256],[9.99999,512],[0,512]])assert.equal(kdMultiple(k,2),n);
+ assert.equal(kdTierLevel(100),0);assert.equal(kdTierLevel(89.999999),1);assert.equal(kdTierLevel(71.28),2);assert.equal(kdTierLevel(0),9);
  for(const o of [{monthWeight:60},{monthWeight:-1,quarterWeight:101},{period:0},{signal:1.5},{period:201}])assert.throws(()=>normalizeKDOptions(o));
  const rows=sample('2024-01-02','2024-03-01');for(const n of [-1,.001,NaN,Infinity])assert.throws(()=>calculateKDSignals(rows,[],{baseAmount:n}));assert.deepEqual(calculateKDSignals(rows,[],{baseAmount:0}),[]);
 });

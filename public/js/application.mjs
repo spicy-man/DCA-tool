@@ -10,6 +10,7 @@ import { healthSummary } from './domain/data-health.mjs';
 import { sentimentLabel, sourceLabel } from './ui/labels.mjs';
 import { downloadCSV } from './ui/download.mjs';
 import { tooltipContent, positionTooltip } from './ui/tooltip.mjs';
+import { canTransitionDisplay } from './ui/dialog-utils.mjs';
 import { drawSentiment, drawOverview } from './charts/sentiment.mjs';
 import { periodKey } from './charts/geometry.mjs';
 import { attachChartNavigation, constrainWindow, navigatorState } from './charts/navigation.mjs';
@@ -60,7 +61,77 @@ export function initApplication() {
       ? limits.end : Math.max(limits.start, Math.min(limits.end, Date.parse(windowRange.end))));
   }
 
+  const isFearEnabled = () => {
+    const { fearEnabled, fearBuyCount } = signalSettings();
+    return Boolean(fearEnabled && fearBuyCount > 0);
+  };
+
+  let lastFearEnabled = isFearEnabled();
+  let sentimentCollapsed = !lastFearEnabled;
+  let sentimentVisibilityToken = 0;
+
+  function applySentimentChartVisibility({ animate = true } = {}) {
+    const token = ++sentimentVisibilityToken;
+    const collapse = $('sentiment-chart-collapse');
+    const wrap = $('chart-wrap');
+    const toggle = $('sentiment-chart-toggle');
+    const label = $('sentiment-chart-toggle-label');
+    if (label) label.textContent = sentimentCollapsed ? '展开图表' : '折叠图表';
+    toggle.setAttribute('aria-expanded', String(!sentimentCollapsed));
+
+    if (!sentimentCollapsed) {
+      collapse.removeAttribute?.('data-closing');
+      collapse.inert = false;
+      wrap.hidden = false;
+      collapse.hidden = false;
+      if (rows.length && windowRange) draw();
+      return;
+    }
+
+    $('tooltip').hidden = true;
+    const inFlow = !wrap.parentElement || wrap.parentElement === collapse;
+    const finishCollapse = () => {
+      if (token !== sentimentVisibilityToken || !sentimentCollapsed) return;
+      collapse.removeAttribute?.('data-closing');
+      collapse.inert = true;
+      collapse.hidden = true;
+      wrap.hidden = true;
+      plot = null;
+    };
+
+    if (!animate || !inFlow || !collapse.getAnimations) {
+      finishCollapse();
+      return;
+    }
+
+    collapse.inert = true;
+    if (canTransitionDisplay()) {
+      collapse.hidden = true;
+    } else {
+      collapse.setAttribute?.('data-closing', '');
+    }
+
+    const animations = collapse.getAnimations();
+    if (!animations.length) {
+      finishCollapse();
+      return;
+    }
+
+    let timer;
+    Promise.race([
+      Promise.allSettled(animations.map(animation => animation.finished)),
+      new Promise(resolve => { timer = setTimeout(resolve, 400); })
+    ]).then(() => {
+      clearTimeout(timer);
+      finishCollapse();
+    });
+  }
+
   function draw() {
+    if ($('chart-wrap').hidden) {
+      plot = null;
+      return;
+    }
     plot = drawSentiment($('chart'), {
       visible,
       windowRange,
@@ -192,6 +263,11 @@ export function initApplication() {
 
   $('layout').addEventListener('change', applyLayout);
   applyLayout();
+  applySentimentChartVisibility({ animate: false });
+  $('sentiment-chart-toggle').addEventListener('click', () => {
+    sentimentCollapsed = !sentimentCollapsed;
+    applySentimentChartVisibility();
+  });
 
   $('latest').addEventListener('click', () => {
     if (!calendar.length) return;
@@ -213,6 +289,10 @@ export function initApplication() {
   }
 
   function showSentimentHover(date, pointer = null) {
+    if (sentimentCollapsed || $('chart-wrap').hidden) {
+      $('tooltip').hidden = true;
+      return;
+    }
     crossDate = date;
     hover = date && windowRange
       ? visible.findIndex(row => periodKey(row.date, windowRange.frequency) === periodKey(date, windowRange.frequency))
@@ -330,12 +410,14 @@ export function initApplication() {
     downloadCSV('fear-greed-' + visible[0].date + '-' + visible.at(-1).date + '.csv', csv);
   });
 
-  new ResizeObserver(() => {
+  const resizeObserver = new ResizeObserver(() => {
     if (rows.length) {
       draw();
       mini();
     }
-  }).observe($('chart-wrap'));
+  });
+  resizeObserver.observe($('chart-wrap'));
+  resizeObserver.observe($('mini'));
 
   appEvents.addEventListener(events.marketHover, event => {
     showSentimentHover(event.detail);
@@ -374,7 +456,21 @@ export function initApplication() {
   });
 
   appEvents.addEventListener(events.strategySettings, () => {
-    if (rows.length) draw();
+    const fearActive = isFearEnabled();
+    if (fearActive !== lastFearEnabled) {
+      lastFearEnabled = fearActive;
+      sentimentCollapsed = !fearActive;
+      applySentimentChartVisibility();
+    } else if (rows.length) {
+      draw();
+    }
+  });
+
+  appEvents.addEventListener(events.symbolSettings, () => {
+    const fearActive = isFearEnabled();
+    lastFearEnabled = fearActive;
+    sentimentCollapsed = !fearActive;
+    applySentimentChartVisibility();
   });
 
   appEvents.addEventListener(events.sourceHealth, loadHealth);

@@ -130,7 +130,7 @@ function saveStorage() {
   } catch {}
 }
 
-function syncControlsForSymbol(symbol) {
+function syncControlsForSymbol(symbol, { notify = true } = {}) {
   const params = symbolParams(symbol);
   state = { ...state, ...params };
   if ($('buy-day')) $('buy-day').value = state.buyDay;
@@ -139,6 +139,7 @@ function syncControlsForSymbol(symbol) {
   if ($('fear-buy-count')) $('fear-buy-count').value = state.fearEnabled ? state.fearBuyCount : 0;
   if ($('signals-enabled')) $('signals-enabled').checked = state.enabled;
   if ($('signal-error')) $('signal-error').textContent = '';
+  if (notify) appEvents.dispatchEvent(new CustomEvent(events.symbolSettings));
 }
 
 export function setSignalSentiment(rows, { notify = true } = {}) {
@@ -1096,7 +1097,7 @@ function initAllocationDialog() {
       bySymbol[symbol] = { baseAmount, fearBuyCount, fearEnabled };
     }
     state = { ...state, buyDay, fearThreshold };
-    syncControlsForSymbol(activeSymbol());
+    syncControlsForSymbol(activeSymbol(), { notify: false });
     saveStorage();
     closeDialog(dialog);
     setKDTierFactor(tierFactor);
@@ -1220,6 +1221,7 @@ export function initStrategyOverlay() {
   $('buy-day').value = state.buyDay;
   $('base-amount').value = state.baseAmount;
   $('signals-enabled').checked = state.enabled;
+  appEvents.dispatchEvent(new CustomEvent(events.symbolSettings));
 
   $('symbol').addEventListener('change', () => {
     syncControlsForSymbol(activeSymbol());

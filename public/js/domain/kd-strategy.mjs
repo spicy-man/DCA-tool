@@ -162,15 +162,19 @@ export function calculateKDSeries(rows, input = {}) {
   return states;
 }
 
-export function kdMultiple(value, factor = KD_DEFAULTS.tierFactor) {
+/** Map weighted K (0–100) to tier level 0 (90–100) through 9 (0–10). */
+export function kdTierLevel(value) {
   if (!Number.isFinite(value)) throw Error('KD加权K无效');
-  if (!Number.isFinite(factor) || factor < 1 || factor > 3) throw Error('KD分档系数须为1至3');
   const nearestTier = Math.round(value / 10);
   const tier = Math.abs(value - nearestTier * 10) <= TIER_BOUNDARY_TOLERANCE
     ? nearestTier
     : Math.floor(value / 10);
-  const level = Math.min(9, Math.max(0, 9 - tier));
-  return Math.round(factor ** level * 10) / 10;
+  return Math.min(9, Math.max(0, 9 - tier));
+}
+
+export function kdMultiple(value, factor = KD_DEFAULTS.tierFactor) {
+  if (!Number.isFinite(factor) || factor < 1 || factor > 3) throw Error('KD分档系数须为1至3');
+  return Math.round(factor ** kdTierLevel(value) * 10) / 10;
 }
 
 // Reuse the monthly plan dates, including distinct plans rolled into one month.

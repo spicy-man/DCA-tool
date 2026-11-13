@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { selectSignalHistory, normalizeSignalStrategy, normalizeStatusStrategy } from '../public/js/domain/signal-view.mjs';
 import { calculatePyramidSignals } from '../public/js/domain/pyramid-strategy.mjs';
-import { calculateKDSignals, calculateKDSeries, kdMultiple } from '../public/js/domain/kd-strategy.mjs';
+import { calculateKDSignals, calculateKDSeries, kdMultiple, kdTierLevel } from '../public/js/domain/kd-strategy.mjs';
 import { renderStrategySummary } from '../public/js/features/strategy/summary.mjs';
 
 const rows=['2024-01-02','2024-01-05','2024-02-01','2024-02-02','2024-03-01','2024-03-04'].map((date,i)=>({date,open:100-i*5,high:105-i*5,low:90-i*5,close:100-i*5}));
@@ -33,6 +33,8 @@ test('策略摘要随策略、区间与待确认状态更新，数据失效时�
      const state=calculateKDSeries(rows,options).get(rows.at(-1).date);
      assert.equal(text('fear-state'),state.weightedK.toFixed(2));
      assert.ok(text('next-plan-estimate').includes(kdMultiple(state.weightedK,1.5)+'N'));
+     assert.match(text('next-plan-estimate-note'),new RegExp(`^加权K ${state.weightedK.toFixed(2)}，第 ${kdTierLevel(state.weightedK)} 档（\\d+–\\d+）\\n自 ATH 回撤 \\d+\\.\\d{2}%$`));
+     assert.doesNotMatch(text('next-plan-estimate-note'),/金额可能变化|未计未来/);
      assert.match(text('funding-split'),/KD额外投入/);assert.doesNotMatch(text('funding-split'),/金字塔|恐慌/);
    }
    if(strategy==='combined'||strategy==='kdFear')assert.match(text('fear-state'),/9\.00/);

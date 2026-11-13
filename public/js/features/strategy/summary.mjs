@@ -1,11 +1,16 @@
 import { estimateMonthlyBuy, nextMonthlyPlan, summarizeFunding } from '../../domain/strategy-summary.mjs';
 import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
 import { resetPlanEstimateHelp } from '../../ui/plan-estimate-help.mjs';
-import { calculateKDSeries, kdMultiple, KD_DEFAULTS } from '../../domain/kd-strategy.mjs';
+import { calculateKDSeries, kdMultiple, kdTierLevel, KD_DEFAULTS } from '../../domain/kd-strategy.mjs';
 import { SIGNAL_STRATEGIES, signalName, formatMultiple } from '../../domain/signal-view.mjs';
 
 const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateWithWeekday = date => date + '（周' + '日一二三四五六'[new Date(date + 'T12:00:00Z').getUTCDay()] + '）';
+const athDrawdownNote = rows => {
+  const ath = rows.reduce((peak, row) => Math.max(peak, row.high), 0);
+  const drawdown = ath > 0 ? Math.max(0, 1 - rows.at(-1).close / ath) : 0;
+  return '自 ATH 回撤 ' + (drawdown * 100).toFixed(2) + '%';
+};
 
 export function formatFearStatus(states, threshold) {
   const { latest, armed, rearmThreshold } = states[0];
@@ -64,13 +69,17 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
     : '金额待定，等待下期窗口内的新完整日线');
   if(settings.baseAmount===0)set('next-plan-estimate','当前N为0，不执行买入');
   if(estimate&&usesKD){
-    set('next-plan-estimate-note',(kdState?'依据截至 '+kdState.signalDate+' 的已收盘周线：月K '+kdState.monthK.toFixed(2)+'，季度K '+kdState.quarterK.toFixed(2)+'，加权K '+kdState.weightedK.toFixed(2)+'。\n按月K '+kdOptions.monthWeight+'% / 季度K '+kdOptions.quarterWeight+'%，分档系数 '+kdOptions.tierFactor+'；计划日收盘按届时可用数据重新计算，金额可能变化。':'暂无已完成周线，暂按1N；计划日收盘按届时可用数据重新计算。')+(strategy==='kdFear'?' 此处仅估算KD月度买入，未计未来可能触发的恐慌加投。':''));
+    let firstLine='暂无已完成周线，暂按1N';
+    if(kdState){
+      const level=kdTierLevel(kdState.weightedK);
+      const bandLow=(9-level)*10;
+      firstLine='加权K '+kdState.weightedK.toFixed(2)+'，第 '+level+' 档（'+bandLow+'–'+(bandLow+10)+'）';
+    }
+    set('next-plan-estimate-note',firstLine+'\n'+athDrawdownNote(rows));
     help.hidden=false;
   }else if (estimate&&strategy!=='regular') {
     const note = '当前自' + estimate.cutoff.slice(5) + '窗口高点回撤' + (estimate.drawdown * 100).toFixed(2) + '%';
-    const ath = rows.reduce((peak, row) => Math.max(peak, row.high), 0);
-    const athDrawdown = Math.max(0, 1 - rows.at(-1).close / ath);
-    set('next-plan-estimate-note', note + '\n自 ATH 回撤 ' + (athDrawdown * 100).toFixed(2) + '%');
+    set('next-plan-estimate-note', note + '\n' + athDrawdownNote(rows));
     help.hidden = false;
   }
   if(strategy==='kd'){

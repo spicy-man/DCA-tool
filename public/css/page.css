@@ -285,6 +285,46 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+
+.chart-heading > div:first-child {
+  min-width: 0;
+}
+
+.chart-heading-side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.sentiment-chart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-block-size: 26px;
+  height: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #4a5c68;
+  white-space: nowrap;
+}
+
+.sentiment-chart-toggle svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.sentiment-chart-toggle[aria-expanded="true"] svg {
+  rotate: 180deg;
 }
 
 .eyebrow {
@@ -1288,6 +1328,30 @@ footer {
   height: clamp(86.4px,calc((100dvh - 490px)*.304),160px);
 }
 
+.sentiment-chart-collapse {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  margin-top: 8px;
+}
+
+.sentiment-chart-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sentiment-chart-collapse #chart-wrap {
+  margin-top: 0;
+}
+
+.sentiment-chart-collapse[hidden],
+#chart-wrap[hidden] {
+  display: none;
+}
+
+.chart-card:has(.sentiment-chart-collapse:is([hidden], [data-closing])) .navigator {
+  margin-top: 10px;
+}
+
 #chart-wrap.expanded {
   height: 224px;
 }
@@ -1714,9 +1778,12 @@ footer {
   }
 
   .chart-controls .strategy-row #fear-threshold,
-  .chart-controls .strategy-row #fear-buy-count,
-  .chart-controls .strategy-row #main-kd-tier-factor {
+  .chart-controls .strategy-row #fear-buy-count {
     width: 54px;
+  }
+
+  .chart-controls .strategy-row #main-kd-tier-factor {
+    width: 68px;
   }
 }
 /* Chart navigation travels with the K-line chart, including its floating view. */

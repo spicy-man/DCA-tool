@@ -428,3 +428,172 @@ test('PWA 切回前台仅在 status.json 更新后刷新行情与情绪，离线
   assert.match($('price-title').textContent, /^QQQ/);
   assert.equal($('price-close').textContent, '109.00');
 });
+
+test('恐慌加投倍数为 0 时自动折叠恐慌图表并保留拖动条，开启或手动切换可展开', async t => {
+  trackAppEvents(t);
+  const nodes = new Map();
+  const ctx = canvasContext();
+  const element = () => {
+    const attrs = {};
+    const handlers = {};
+    return {
+      textContent: '', value: '', dataset: {}, hidden: false, open: false,
+      clientWidth: 600, clientHeight: 300, offsetHeight: 0, children: [], listeners: {},
+      style: { setProperty() {} }, classList: { toggle() {}, add() {}, remove() {} },
+      setAttribute(name, value) { attrs[name] = String(value); },
+      getAttribute(name) { return attrs[name]; },
+      replaceChildren(...values) { this.children = values; },
+      append(value) { this.children.push(value); },
+      before() {},
+      after() {},
+      addEventListener(key, fn) {
+        (handlers[key] ||= []).push(fn);
+        this.listeners[key] = (...args) => {
+          let result;
+          for (const handler of handlers[key]) result = handler(...args);
+          return result;
+        };
+      },
+      closest(selector) { return selector === 'details' ? this : null; },
+      querySelector() { return element(); }, getContext() { return ctx; },
+      getBoundingClientRect() { return { left: 0, top: 0, bottom: -10, width: 600, height: this.hidden ? 0 : 224 }; }
+    };
+  };
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, element());
+    return nodes.get(id);
+  };
+  const createdAnchors = [];
+  const doc = {
+    getElementById: $,
+    createElement: tag => {
+      const el = element();
+      el.tagName = tag;
+      createdAnchors.push(el);
+      return el;
+    },
+    createElementNS: element,
+    querySelector: () => null
+  };
+  for (const [key, value] of Object.entries({
+    document: doc,
+    window: { devicePixelRatio: 1 }, devicePixelRatio: 1,
+    ResizeObserver: class { observe() {} },
+    localStorage: { getItem: () => null, setItem() {} },
+    matchMedia: () => ({ matches: true, addEventListener() {} }),
+    getComputedStyle: () => ({ marginTop: '8px', marginBottom: '0px' }),
+    requestAnimationFrame: fn => { fn(); return 1; },
+    addEventListener() {},
+    removeEventListener() {},
+    innerWidth: 1280,
+    innerHeight: 800
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  $('symbol').value = 'SPY';
+  $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }, { value: 'QQQ', textContent: 'QQQ' }];
+  $('range').value = '12';
+  $('frequency').value = 'daily';
+  $('frequency').selectedOptions = [{ textContent: '日线' }];
+  $('layout').value = 'expanded';
+
+  const rows = ['2025-01-02', '2026-09-01', '2026-10-15', '2026-10-16', '2026-10-19'].map((date, i) => ({
+    date, open: 100 + i, high: 110 + i, low: 90 + i, close: 100 + i, volume: 10
+  }));
+  t.mock.method(globalThis, 'fetch', async url => ({
+    ok: true,
+    json: async () => url.includes('qqq.json')
+      ? { symbol: 'QQQ', anchorDate: '2026-10-19', fetchedAt: '2026-10-20T00:00:00Z', rows }
+      : url.includes('spy.json')
+        ? { symbol: 'SPY', anchorDate: '2026-10-19', fetchedAt: '2026-10-20T00:00:00Z', rows }
+        : url.includes('deployment') ? { mode: 'static' } : null,
+    text: async () => 'Date,Fear Greed,Rating\n2025-01-02,50,Neutral\n2026-10-15,40,Fear\n2026-10-16,30,Fear\n'
+  }));
+
+  const { initFloatingCharts } = await import('../public/js/ui/floating-charts.mjs');
+  initStrategyOverlay();
+  initMarketChart();
+  initApplication();
+  initFloatingCharts();
+  for (let i = 0; i < 20 && !$('price-asof').textContent.includes('Yahoo'); i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+
+  // 默认恐慌加投倍数为 0：折叠恐慌图表，但保留拖动条且可拖动更新区间。
+  assert.equal($('sentiment-chart-collapse').hidden, true);
+  assert.equal($('chart-wrap').hidden, true);
+  assert.equal($('sentiment-chart-toggle').getAttribute('aria-expanded'), 'false');
+  assert.equal($('sentiment-chart-toggle-label').textContent, '展开图表');
+  assert.equal($('timeline').hidden, false);
+  assert.equal($('mini').hidden, false);
+  assert.equal(createdAnchors[1].hidden, true);
+
+  $('timeline').value = Date.parse('2026-10-16');
+  $('timeline').listeners.input({ currentTarget: $('timeline') });
+  assert.match($('date-range').textContent, /2026-10-16$/);
+
+  // 手动点击展开按钮后可查看图表，调整阈值不会意外收起。
+  $('sentiment-chart-toggle').listeners.click();
+  assert.equal($('sentiment-chart-collapse').hidden, false);
+  assert.equal($('chart-wrap').hidden, false);
+  assert.equal($('sentiment-chart-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal($('sentiment-chart-toggle-label').textContent, '折叠图表');
+  $('fear-threshold').value = '15';
+  $('fear-threshold').listeners.input();
+  assert.equal($('chart-wrap').hidden, false);
+
+  // 再次点击收起，然后启用恐慌加投倍数 -> 自动展开。
+  $('sentiment-chart-toggle').listeners.click();
+  assert.equal($('chart-wrap').hidden, true);
+  $('fear-buy-count').value = '3';
+  $('fear-buy-count').listeners.input();
+  assert.equal($('chart-wrap').hidden, false);
+  assert.equal($('sentiment-chart-toggle').getAttribute('aria-expanded'), 'true');
+
+  // 切换到未启用恐慌加投的 QQQ -> 自动折叠；切回 SPY（3N）-> 自动展开。
+  $('symbol').value = 'QQQ';
+  $('symbol').listeners.change();
+  assert.equal($('chart-wrap').hidden, true);
+  $('symbol').value = 'SPY';
+  $('symbol').listeners.change();
+  assert.equal($('chart-wrap').hidden, false);
+
+  // 将 SPY 改回 0 -> 自动折叠并隐藏 tooltip。
+  $('tooltip').hidden = false;
+  $('fear-buy-count').value = '0';
+  $('fear-buy-count').listeners.input();
+  assert.equal($('sentiment-chart-collapse').hidden, true);
+  assert.equal($('chart-wrap').hidden, true);
+  assert.equal($('tooltip').hidden, true);
+
+  // 带过渡动画的折叠：等待动画结束后再彻底隐藏；动画中途再次展开会取消收起。
+  let resolveTransition;
+  const collapse = $('sentiment-chart-collapse');
+  const attrs = {};
+  collapse.setAttribute = (k, v) => { attrs[k] = String(v); };
+  collapse.getAttribute = k => attrs[k];
+  collapse.hasAttribute = k => Object.hasOwn(attrs, k);
+  collapse.removeAttribute = k => { delete attrs[k]; };
+  collapse.getAnimations = () => [{ finished: new Promise(resolve => { resolveTransition = resolve; }) }];
+  $('sentiment-chart-toggle').listeners.click();
+  assert.equal(collapse.hidden, false);
+  $('sentiment-chart-toggle').listeners.click();
+  assert.equal(collapse.inert, true);
+  assert.equal(collapse.hasAttribute('data-closing'), true);
+  assert.equal($('chart-wrap').hidden, false);
+  $('sentiment-chart-toggle').listeners.click();
+  resolveTransition();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(collapse.hidden, false);
+  assert.equal($('chart-wrap').hidden, false);
+  assert.equal(collapse.hasAttribute('data-closing'), false);
+
+  $('sentiment-chart-toggle').listeners.click();
+  assert.equal(collapse.hasAttribute('data-closing'), true);
+  resolveTransition();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(collapse.hidden, true);
+  assert.equal($('chart-wrap').hidden, true);
+});

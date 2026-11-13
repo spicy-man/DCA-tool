@@ -27,6 +27,7 @@
 }
 .floating-charts #price-wrap { height: min(200px, 34vh); }
 .floating-charts #chart-wrap { height: min(120px, 22vh); }
+.floating-charts #chart-wrap[hidden] { display: none; }
 @media(max-width: 1023px), (hover: none), (pointer: coarse) {
   .floating-charts { display: none; }
 }

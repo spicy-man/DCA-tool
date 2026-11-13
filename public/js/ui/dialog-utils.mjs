@@ -1,6 +1,6 @@
 let supportsDisplayTransition;
 
-function canTransitionDisplay() {
+export function canTransitionDisplay() {
   if (supportsDisplayTransition !== undefined) return supportsDisplayTransition;
   if (!globalThis.CSS?.supports?.('transition-behavior', 'allow-discrete') || !globalThis.document?.body) {
     return false;

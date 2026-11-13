@@ -50,11 +50,17 @@ export function initFloatingCharts() {
     if (floating) return;
     for (const id of ['price-tooltip', 'tooltip']) document.getElementById(id).hidden = true;
     for (const [i, wrap] of wraps.entries()) {
-      const style = getComputedStyle(wrap);
-      anchors[i].style.height = wrap.getBoundingClientRect().height + 'px';
-      anchors[i].style.marginTop = style.marginTop;
-      anchors[i].style.marginBottom = style.marginBottom;
-      anchors[i].hidden = false;
+      const collapse = wrap.closest?.('#sentiment-chart-collapse');
+      const collapsed = wrap.hidden || Boolean(collapse?.hidden || collapse?.hasAttribute?.('data-closing'));
+      if (collapsed) {
+        anchors[i].hidden = true;
+      } else {
+        const style = getComputedStyle(wrap);
+        anchors[i].style.height = wrap.getBoundingClientRect().height + 'px';
+        anchors[i].style.marginTop = style.marginTop;
+        anchors[i].style.marginBottom = style.marginBottom;
+        anchors[i].hidden = false;
+      }
       body.append(wrap);
     }
     floating = true;

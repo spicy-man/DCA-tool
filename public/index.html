@@ -18,7 +18,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=2.0.0">
+  <link rel="stylesheet" href="./style.css?v=2.1.0">
 </head>
 <body>
   <div class="shell">
@@ -27,7 +27,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 2.0.0">v2.0.0</span>
+        <span class="version-badge" aria-label="版本 2.1.0">v2.1.0</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -138,7 +138,7 @@
               <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；默认 0 表示不启用恐慌加投，填正整数（如 3）表示一次加投 3N（按当前标的独立保存）" type="number" min="0" step="1" value="0" inputmode="numeric">
             </label>
             <label>KD 分档系数
-              <input id="main-kd-tier-factor" type="number" min="1" max="3" step="any" value="1.5" inputmode="decimal" aria-describedby="kd-factor-help main-kd-factor-error">
+              <input id="main-kd-tier-factor" type="number" min="1" max="3" step="0.05" value="1.5" inputmode="decimal" aria-describedby="kd-factor-help main-kd-factor-error">
             </label>
             <label class="signal-toggle">
               <input id="signals-enabled" type="checkbox" checked>买入信号
@@ -262,7 +262,7 @@
               <label>季度K权重 (%)<input id="kd-quarter-weight" type="number" value="20" readonly aria-readonly="true"></label>
               <label>Period · 日历回看<input id="kd-period" type="number" min="1" max="200" step="1" value="9" aria-describedby="kd-parameter-error"></label>
               <label>Signal · 日历平滑<input id="kd-signal" type="number" min="1" max="200" step="1" value="3" aria-describedby="kd-parameter-error"></label>
-              <label>分档系数 (1–3)<input id="kd-tier-factor" type="number" min="1" max="3" step="any" value="1.5" inputmode="decimal" aria-describedby="kd-factor-help kd-error"></label>
+              <label>分档系数 (1–3)<input id="kd-tier-factor" type="number" min="1" max="3" step="0.05" value="1.5" inputmode="decimal" aria-describedby="kd-factor-help kd-error"></label>
               <button id="kd-reset" type="button">恢复默认参数</button>
             </div>
             <p id="kd-factor-help" class="backtest-note">每降低10分，投入乘以分档系数。系数1为每月固定1N，系数2为原翻倍规则；支持小数。</p>
@@ -302,15 +302,25 @@
             <h2 id="chart-title">恐慌与贪婪指数</h2>
             <p>指数范围 0–100，数值越高代表越贪婪</p>
           </div>
-          <div class="score-block">
-            <div><strong id="score">—</strong><span> / 100</span></div>
-            <span id="rating">—</span>
+          <div class="chart-heading-side">
+            <button id="sentiment-chart-toggle" class="sentiment-chart-toggle" type="button" aria-expanded="false" aria-controls="sentiment-chart-collapse">
+              <span id="sentiment-chart-toggle-label">展开图表</span>
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+            <div class="score-block">
+              <div><strong id="score">—</strong><span> / 100</span></div>
+              <span id="rating">—</span>
+            </div>
           </div>
         </div>
 
-        <div class="chart-wrap expanded" id="chart-wrap">
-          <canvas id="chart" aria-label="恐慌与贪婪指数历史折线图" role="img"></canvas>
-          <div id="tooltip" class="tooltip" hidden></div>
+        <div class="sentiment-chart-collapse" id="sentiment-chart-collapse" hidden>
+          <div class="sentiment-chart-collapse-inner">
+            <div class="chart-wrap expanded" id="chart-wrap" hidden>
+              <canvas id="chart" aria-label="恐慌与贪婪指数历史折线图" role="img"></canvas>
+              <div id="tooltip" class="tooltip" hidden></div>
+            </div>
+          </div>
         </div>
 
         <div class="navigator">
@@ -519,7 +529,7 @@
   </section>
 
   <dialog id="allocation-dialog" closedby="any" aria-labelledby="allocation-dialog-title">
-    <form id="allocation-form">
+    <form id="allocation-form" novalidate>
       <div class="allocation-heading">
         <h2 id="allocation-dialog-title" tabindex="-1" autofocus>组合定投与回测</h2>
         <div class="strategy-status-switch" role="group" aria-label="组合定投方案">
@@ -533,7 +543,7 @@
           <input id="allocation-total" type="number" min="0.01" step="any" value="2000" inputmode="decimal" aria-describedby="allocation-summary allocation-message">
         </label>
         <label>每月定投日<input id="allocation-buy-day" type="number" min="1" max="31" step="1" inputmode="numeric"></label>
-        <label>KD 分档系数 (1–3)<input id="allocation-kd-tier-factor" type="number" min="1" max="3" step="any" inputmode="decimal" aria-describedby="allocation-kd-factor-error"></label>
+        <label>KD 分档系数 (1–3)<input id="allocation-kd-tier-factor" type="number" min="1" max="3" step="0.05" inputmode="decimal" aria-describedby="allocation-kd-factor-error"></label>
         <label>恐慌指数加投阈值<input id="allocation-fear-threshold" type="number" min="0" max="95" step="any" inputmode="decimal"></label>
         <div class="allocation-bulk-fear">
           <label>统一恐慌加投倍数<input id="allocation-bulk-fear-count" type="text" inputmode="numeric" placeholder="输入倍数"></label>
