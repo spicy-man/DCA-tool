@@ -2,6 +2,7 @@ import { getKDOptions } from '../features/strategy/kd.mjs';
 import { signalSettings } from '../features/strategy/overlay.mjs';
 import { kdMultiple } from '../domain/kd-strategy.mjs';
 import { appEvents, events } from '../services/events.mjs';
+import { bindDialogExitFallback, enableDialogLightDismiss } from './dialog-utils.mjs';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format;
 
@@ -85,24 +86,12 @@ export function initStrategyDialog() {
     renderActive();
     strategyDialog.showModal();
     tabs[activeIndex].panel.scrollTop = 0;
-    document.body.classList.add('strategy-dialog-open');
   }
 
   $('strategy-help').addEventListener('click', open);
 
-  $('strategy-dialog-close').addEventListener('click', () => strategyDialog.close());
-
-  strategyDialog.addEventListener('close', () => {
-    document.body.classList.remove('strategy-dialog-open');
-  });
-
-  strategyDialog.addEventListener('click', event => {
-    if (event.target !== strategyDialog) return;
-    const r = strategyDialog.getBoundingClientRect();
-    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) {
-      strategyDialog.close();
-    }
-  });
+  bindDialogExitFallback(strategyDialog);
+  enableDialogLightDismiss(strategyDialog);
 
   strategyDialog.querySelectorAll('.strategy-diagram-original').forEach(button => {
     button.addEventListener('click', () => {

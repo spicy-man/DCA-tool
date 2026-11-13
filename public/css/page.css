@@ -57,8 +57,8 @@
 .allocation-bulk-fear label { flex: 0 1 calc((100% - 12px) / 2); }
 .allocation-bulk-fear button { height: 36px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
 .allocation-summary { font-size: 12px; color: #4a5c68; margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
-#allocation-dialog { width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; }
-#allocation-dialog[open] { display: flex; flex-direction: column; }
+#allocation-dialog { flex-direction: column; width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; }
+#allocation-dialog[open] { display: flex; }
 #allocation-form { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px; }
 .allocation-estimate { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; font-variant-numeric: tabular-nums; }
 .allocation-estimate-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; color: #35434e; }

@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.17.6">
+  <link rel="stylesheet" href="./style.css?v=1.17.7">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.17.6">v1.17.6</span>
+        <span class="version-badge" aria-label="版本 1.17.7">v1.17.7</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -512,7 +512,7 @@
     <div id="floating-charts-body" class="floating-charts-body"></div>
   </section>
 
-  <dialog id="allocation-dialog" aria-labelledby="allocation-dialog-title">
+  <dialog id="allocation-dialog" closedby="any" aria-labelledby="allocation-dialog-title">
     <form id="allocation-form">
       <div class="allocation-heading">
         <h2 id="allocation-dialog-title" tabindex="-1" autofocus>组合定投与回测</h2>
@@ -631,16 +631,16 @@
       <input id="custom-symbol" name="symbol" required maxlength="15" placeholder="例如 VOO" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="symbol-help symbol-message">
       <p id="symbol-message" role="status" aria-live="polite"></p>
       <div class="symbol-dialog-actions">
-        <button id="symbol-cancel" type="button">关闭</button>
+        <button id="symbol-cancel" type="button" commandfor="symbol-dialog" command="close">关闭</button>
         <button id="symbol-submit" type="submit">添加并获取行情</button>
       </div>
     </form>
   </dialog>
 
-  <dialog id="welcome-dialog" class="welcome-dialog" aria-labelledby="welcome-title">
+  <dialog id="welcome-dialog" class="welcome-dialog" closedby="any" aria-labelledby="welcome-title">
     <div class="welcome-heading">
       <span class="welcome-eyebrow">写在开始之前</span>
-      <button id="welcome-close" class="welcome-close" type="button" aria-label="关闭开场引导">×</button>
+      <button id="welcome-close" class="welcome-close" type="button" commandfor="welcome-dialog" command="close" aria-label="关闭开场引导">×</button>
     </div>
     <div class="welcome-body">
       <h2 id="welcome-title" tabindex="-1" autofocus>与时间同行</h2>
@@ -667,16 +667,16 @@
       <label class="welcome-preference"><input id="welcome-show-again" type="checkbox">每次打开时，读一读这段话</label>
       <div class="welcome-actions">
         <button id="welcome-strategy" type="button">策略说明</button>
-        <button id="welcome-start" class="primary" type="button">开始查看</button>
+        <button id="welcome-start" class="primary" type="button" commandfor="welcome-dialog" command="close">开始查看</button>
       </div>
     </div>
   </dialog>
 
-  <dialog id="strategy-dialog" class="strategy-dialog" aria-labelledby="strategy-dialog-title" aria-describedby="strategy-diagram-note">
+  <dialog id="strategy-dialog" class="strategy-dialog" closedby="any" aria-labelledby="strategy-dialog-title" aria-describedby="strategy-diagram-note">
     <div class="strategy-dialog-heading">
       <h2 id="strategy-dialog-title">定投策略 · 逻辑说明</h2>
       <div class="strategy-dialog-actions">
-        <button type="button" id="strategy-dialog-close" aria-label="关闭策略说明">关闭</button>
+        <button type="button" id="strategy-dialog-close" commandfor="strategy-dialog" command="close" aria-label="关闭策略说明">关闭</button>
       </div>
     </div>
     <div class="strategy-explanation-tabs" role="tablist" aria-label="定投策略说明类型">

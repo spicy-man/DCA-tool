@@ -1,6 +1,7 @@
 import { getDeploymentMode } from '../services/data-client.mjs';
 import { appEvents, events } from '../services/events.mjs';
 import { SYMBOLS } from '../domain/market.mjs';
+import { bindDialogExitFallback } from './dialog-utils.mjs';
 
 export async function initSymbolDialog() {
   const $ = id => document.getElementById(id);
@@ -96,7 +97,7 @@ export async function initSymbolDialog() {
     message.textContent = '自定义标的列表读取失败，请刷新页面后重试。';
   }
   $('add-symbol').addEventListener('click', () => dialog.showModal());
-  $('symbol-cancel').addEventListener('click', () => dialog.close());
+  bindDialogExitFallback(dialog);
   $('symbol-form').addEventListener('submit', async event => {
     event.preventDefault();
     if (busy) return;

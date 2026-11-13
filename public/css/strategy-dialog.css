@@ -1,14 +1,13 @@
 .strategy-help{height:30px;padding:0 10px;font-size:11px;white-space:nowrap;background:var(--navy);border-color:var(--navy);color:#fff}
 .strategy-help:hover{background:#254d65;border-color:#254d65}
-.strategy-dialog{width:min(1100px,calc(100% - 32px));max-width:none;height:90dvh;max-height:90dvh;box-sizing:border-box;padding:0;border:1px solid var(--border);border-radius:10px;background:#fff;color:#20333f;box-shadow:0 20px 70px #19374a30;overflow:hidden}
-.strategy-dialog[open]{display:flex;flex-direction:column}
+.strategy-dialog{flex-direction:column;width:min(1100px,calc(100% - 32px));max-width:none;height:90dvh;max-height:90dvh;box-sizing:border-box;padding:0;border:1px solid var(--border);border-radius:10px;background:#fff;color:#20333f;box-shadow:0 20px 70px #19374a30;overflow:hidden}
+.strategy-dialog[open]{display:flex}
 .strategy-dialog::backdrop{background:#19374a66}
 .strategy-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
 .strategy-dialog-heading h2{margin:0;font-size:16px}
 .strategy-dialog-actions{display:flex;gap:8px;flex-shrink:0}
 .strategy-dialog-actions button{height:30px;font-size:11px;padding:0 10px}
 .strategy-diagram-note{margin:0;padding:10px 18px;font-size:11px;line-height:1.7;color:#70818e;background:#f5f6fa;flex-shrink:0}
-body.strategy-dialog-open{overflow:hidden}
 @media(max-width:800px){.chart-controls>.strategy-row{grid-template-columns:auto 1fr}.chart-controls .strategy-row .signal-toggle{grid-column:1;margin-left:0}.strategy-help{justify-self:end;margin-left:auto}}
 @media(max-width:520px){.strategy-dialog-heading{padding:12px;gap:8px;align-items:flex-start}.strategy-dialog-heading h2{font-size:13px;line-height:30px}.strategy-dialog-actions{gap:5px}.strategy-dialog-actions button{padding:0 7px}.strategy-diagram-note{padding:10px 12px}}
 

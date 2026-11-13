@@ -15,6 +15,7 @@
 }
 
 .welcome-dialog {
+  flex-direction: column;
   width: min(680px, calc(100% - 32px));
   max-width: none;
   max-height: calc(100dvh - 48px);
@@ -27,9 +28,8 @@
   box-shadow: 0 24px 90px #19374a30;
 }
 
-.welcome-dialog[open] { display: flex; flex-direction: column; }
+.welcome-dialog[open] { display: flex; }
 .welcome-dialog::backdrop { background: #19374a75; }
-body.welcome-dialog-open { overflow: hidden; }
 
 .welcome-heading {
   display: flex;

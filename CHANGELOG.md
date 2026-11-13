@@ -1,6 +1,11 @@
 # 更新记录
 
-目前系统版本为 **v1.17.6** (更新日期: 2026-11-13)。
+目前系统版本为 **v1.17.7** (更新日期: 2026-11-13)。
+
+## 🔧 v1.17.7 现代 Web 弹窗优化与平滑动效 [FIX]
+
+- **弹窗原生优化**：统一弹窗轻触关闭与关闭命令逻辑，采用 `<dialog closedby="any">` 与声明式 `commandfor`/`command="close"`（附本地特性检测兜底）；使用 CSS `overscroll-behavior: contain` 替代弹窗打开时修改 `body` 溢出隐藏，避免根滚动条消失引起的页面横向抖动。
+- **平滑过渡动效**：为弹窗及遮罩层新增 `@starting-style` 淡入与淡出过渡（保留 `flex-direction: column` 布局并在关闭期间固定视口居中，适配 `prefers-reduced-motion` 及 Firefox/Safari 退场兜底），并为 `<details>` 折叠面板与交互控件补充轻量平滑过渡。
 
 ## 🔧 v1.17.6 主推 KD 定投并默认停用恐慌加投 [FIX]
 

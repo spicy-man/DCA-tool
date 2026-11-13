@@ -1,0 +1,86 @@
+/* Modern Web Platform enhancements & subtle motion. */
+
+/* Modern modal scroll containment avoids toggling body overflow and root scrollbar shifts. */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* Smooth top-layer dialog fade-in/fade-out with @starting-style & discrete transitions. */
+dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  opacity: 0;
+  transition-property: opacity, display, overlay;
+  transition-duration: 0.18s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+dialog[open]:where(:not([data-closing])) {
+  opacity: 1;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+dialog::backdrop {
+  transition-property: background-color, display, overlay;
+  transition-duration: 0.18s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+:is(#symbol-dialog, #allocation-dialog, dialog):where(:not([open]), [data-closing])::backdrop {
+  background-color: transparent;
+}
+
+dialog[open]:where(:not([data-closing]))::backdrop {
+  @starting-style {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog,
+  dialog::backdrop {
+    transition-duration: 0.1s;
+  }
+}
+
+/* Smooth intrinsic height transition for native <details> accordions/disclosures. */
+details::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+details:not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  details::details-content {
+    transition: block-size, content-visibility, display;
+    transition-duration: 0.26s;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    transition-behavior: allow-discrete;
+  }
+}
+
+/* Subtle color/border transitions for interactive controls without layout shift. */
+:is(
+  button,
+  select,
+  .strategy-status-switch button,
+  .strategy-explanation-tabs button,
+  .backtest-chart-tab
+) {
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}

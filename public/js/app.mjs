@@ -9,8 +9,10 @@ import {initChartVisibility} from './ui/chart-visibility.mjs';
 import {initSymbolDialog} from './ui/symbol-dialog.mjs';
 import {initFundNavigation} from './ui/fund-navigation.mjs';
 import {initPlanEstimateHelp} from './ui/plan-estimate-help.mjs';
+import {bindDialogCommands} from './ui/dialog-utils.mjs';
 
 // Composition root: initialize feature controls before starting data loading.
+bindDialogCommands();
 await initSymbolDialog();
 initPlanEstimateHelp();
 initKDControls();

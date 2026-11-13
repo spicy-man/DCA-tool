@@ -11,6 +11,7 @@ import { estimateMonthlyBuy, nextMonthlyPlan, summarizePortfolioFunding } from '
 import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
 import { downloadCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
+import { bindDialogExitFallback, closeDialog, enableDialogLightDismiss } from '../../ui/dialog-utils.mjs';
 
 const $ = id => document.getElementById(id);
 const storageKey = 'seeker.pyramid.v1';
@@ -963,15 +964,9 @@ function initAllocationDialog() {
     dialog.showModal?.();
   });
 
-  cancelBtn.addEventListener('click', () => dialog.close?.());
-
-  dialog.addEventListener('click', event => {
-    if (event.target !== dialog || !dialog.getBoundingClientRect) return;
-    const r = dialog.getBoundingClientRect();
-    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) {
-      dialog.close?.();
-    }
-  });
+  cancelBtn.addEventListener('click', () => closeDialog(dialog));
+  bindDialogExitFallback(dialog);
+  enableDialogLightDismiss(dialog);
 
   totalInput.addEventListener('input', () => {
     message.textContent = '';
@@ -1103,7 +1098,7 @@ function initAllocationDialog() {
     state = { ...state, buyDay, fearThreshold };
     syncControlsForSymbol(activeSymbol());
     saveStorage();
-    dialog.close?.();
+    closeDialog(dialog);
     setKDTierFactor(tierFactor);
   });
 }

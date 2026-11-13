@@ -1,3 +1,5 @@
+import { bindDialogExitFallback, closeDialog, enableDialogLightDismiss } from './dialog-utils.mjs';
+
 const storageKey = 'seeker.welcome.v1';
 
 export function initWelcomeDialog({ openStrategyDialog }) {
@@ -10,7 +12,6 @@ export function initWelcomeDialog({ openStrategyDialog }) {
 
   function open() {
     dialog.showModal();
-    document.body.classList.add('welcome-dialog-open');
     dialog.querySelector('.welcome-body').scrollTop = 0;
   }
 
@@ -21,24 +22,15 @@ export function initWelcomeDialog({ openStrategyDialog }) {
   preference.addEventListener('change', savePreference);
 
   $('welcome-help').addEventListener('click', open);
-  $('welcome-close').addEventListener('click', () => dialog.close());
-  $('welcome-start').addEventListener('click', () => dialog.close());
-  $('welcome-strategy').addEventListener('click', () => {
-    dialog.close();
+  $('welcome-strategy').addEventListener('click', async () => {
+    await closeDialog(dialog);
     openStrategyDialog();
   });
 
-  dialog.addEventListener('close', () => {
-    document.body.classList.remove('welcome-dialog-open');
-    savePreference();
-  });
+  dialog.addEventListener('close', savePreference);
 
-  dialog.addEventListener('click', event => {
-    if (event.target !== dialog) return;
-    const rect = dialog.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right ||
-        event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
-  });
+  bindDialogExitFallback(dialog);
+  enableDialogLightDismiss(dialog);
 
   if (saved !== 'seen') open();
 }
