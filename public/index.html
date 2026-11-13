@@ -12,7 +12,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=1.17.0">
+  <link rel="stylesheet" href="./style.css?v=1.17.1">
 </head>
 <body>
   <div class="shell">
@@ -21,7 +21,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 1.17.0">v1.17.0</span>
+        <span class="version-badge" aria-label="版本 1.17.1">v1.17.1</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -278,7 +278,7 @@
                 <li>加权K = 月K × 月权重 + 季度K × 季度权重，默认80% / 20%。投入 = N × 分档系数的档位次方，档位从0到9；分档系数可设1至3，默认1.5。分档下界包含、上界不含，100归入顶档。使用完整精度的K值分档，分档倍率四舍五入到小数点后1位再计算投入。</li>
                 <li>使用Yahoo原始源High/Low/Close（拆股调整、未作现金分红前复权）合成周线，周时间戳取首个实际交易日；只采用已确认收盘的周线。周五或节假日缩短周的最后一日收盘后可以更新本周K；未结束周绝不使用未来高低价。成立以来历史预热，周期不足按脚本4周／13周回退，无已完成周线时按1N。</li>
                 <li>KD与普通定投共用上方每月定投日和N，每月计划日收盘确认，统一在下一可用交易日开盘成交。休市顺延、月底对齐采用模板日历规则；若上月顺延至本月，两个月计划分别保留。区间末尾未成交信号只展示、不计投入。</li>
-                <li>KD月度买入仅按K值分档，不卖出，不使用金叉、SMA5或恐慌指数过滤；选择“KD 定投＋恐慌加投”时，恐慌信号另外触发独立买入。账户使用模板分红再投资前复权价格估值。模板从区间起点零持仓开始；之前设置的初始投入、年度追加模式仍可在“旧版研究”中使用。</li>
+                <li>KD月度买入仅按K值分档，不卖出，不使用金叉、SMA5或恐慌指数过滤；选择“KD 定投＋恐慌加投”时，恐慌信号另外触发独立买入。账户使用模板分红再投资前复权价格估值。模板从区间起点零持仓开始。</li>
                 <li>“各自投入”比较不同资金投入下的资产、收益和XIRR；“同一供资计划”每日给五策略注入相同金额，金额取各策略当天所需资金的最大值，闲置现金按模板3%年化假设计息。模型按需注入外部资金，不设个人现金储备上限，须自行核验可负担性。</li>
               </ul>
               <p id="kd-risk" class="kd-warning">分档倍率四舍五入到小数点后1位，默认系数1.5时每笔最高为38.4N。同月如有两个顺延月度计划，合计可能更高。更多本金不是择时超额收益，历史回测不保证未来表现。</p>

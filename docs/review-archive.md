@@ -8,6 +8,10 @@
 
 - **范围**：全仓库代码、`.github/workflows/pages.yml` 与全部 8 份文档（环境无 `node` / `npm`，静态核查）。
 - **结果**：确认 9 项待修 Bug（1 High / 2 Medium / 6 Low，均已登记至 [代码审查台账](./code-review.md)），并统一同步了 `README.md`、`docs/architecture.md`、`docs/deployment.md`，将技术债拆入 [技术债清单](./tech-debt.md)。
+- **后续修复（#1–#3，2026-11-13，待 Node.js 环境运行测试验证）**：
+  - `#1 [High]` [fund-performance.mjs](../server/fund-performance.mjs#L42-L44)：在计算 `endDate` 前增加 `if (!availableDates.length) throw Error('没有可用的基金历史行情');`，并在 [fund-performance.test.mjs](../test/fund-performance.test.mjs#L167-L179) 补充本地 `loadBenchmarkSnapshot` + 全基金抓取失败回归用例。
+  - `#2 [Medium]` [overlay.mjs](../public/js/features/strategy/overlay.mjs#L401-L426)：`apply()` 对 `#base-amount` 与 `#fear-buy-count` 的 `.value.trim() === ''` 进行空值拦截，避免退格清空时覆盖已保存配置。
+  - `#3 [Medium]` [overlay.mjs](../public/js/features/strategy/overlay.mjs#L67-L102)：抽取 `allocateWeightedAmounts`（整数美分最大余数法），统一用于组合配比预览与保存；在 [frontend-regressions.test.mjs](../test/frontend-regressions.test.mjs#L1019-L1052) 补充 #2 与 #3 回归用例。
 
 ---
 

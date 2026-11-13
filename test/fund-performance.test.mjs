@@ -164,4 +164,16 @@ test('基准最新报价独立于收益共同截止日，历史失败仍更新�
   assert.equal(failed.benchmark.quoteDate, '2026-10-26');
   assert.equal(failed.benchmark.price, 4.4);
   assert.deepEqual(failed.benchmark.periods, result.benchmark.periods);
+  const allFundsFailed = await fetchFundPerformance({
+    now: opts.now,
+    quoteDate: opts.quoteDate,
+    previous: result,
+    loadBenchmarkSnapshot: async () => benchmarkSnapshot,
+    fetchText: async () => { throw Error('all funds failed'); }
+  });
+  assert.equal(allFundsFailed.ok, false);
+  assert.equal(allFundsFailed.endDate, result.endDate);
+  assert.deepEqual(allFundsFailed.rows, result.rows);
+  assert.equal(allFundsFailed.benchmark.quoteDate, '2026-10-26');
+  assert.equal(allFundsFailed.benchmark.price, 4.4);
 });

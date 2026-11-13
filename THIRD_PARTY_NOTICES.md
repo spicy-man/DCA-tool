@@ -1,6 +1,6 @@
 # 第三方项目、参考资料与授权范围
 
-本文件记录运行工具、数据来源和实现参考，不替代各上游的许可证，也不授予其数据或素材使用权。核对日期：2026-10-17。本仓库尚未正式选定自身许可证，README 中的 MIT 为建议方案。
+本文件记录运行工具、数据来源和实现参考，不替代各上游的许可证，也不授予其数据或素材使用权。核对日期：2026-11-13。本仓库尚未正式选定自身许可证。
 
 ## 运行工具与开发验证
 
@@ -14,11 +14,11 @@
 
 当前使用其 CSV 数据，并未将上游采集程序引入本项目。MIT 对软件的授权不能自动证明原始 CNN 指数及历史数据可自由再分发；保留来源说明，原始数据使用条件需另行核对。
 
-Yahoo Finance Chart API 与 CNN 历史接口是外部数据服务。数据快照、日期、数值和导出文件的权利归原权利人；不纳入拟议的本项目 MIT 授权。
+Yahoo Finance Chart API 与 CNN 历史接口是外部数据服务。数据快照、日期、数值和导出文件的权利归原权利人；不纳入本项目授权范围。
 
 ## 国内基金数据
 
-历史涨幅对比使用 Yahoo Finance Chart API 的国内 ETF（`.SZ` / `.SS`）与 QQQ、VOO 复权行情日线，不从最新价推算历史复权价格。仅将计算后的区间收益及日期写入基金快照，不额外发布整份历史行情；数据权利仍归原权利人。
+历史涨幅对比使用 Yahoo Finance Chart API 的国内 ETF（`.SZ` / `.SS`）与 QQQ、SPY 复权行情日线，不从最新价推算历史复权价格。仅将计算后的区间收益及日期写入基金快照，不额外发布整份历史行情；数据权利仍归原权利人。
 
 国内 ETF 行情优先使用[东方财富](https://quote.eastmoney.com/center/gridlist.html#fund_etf)公开行情接口，备用为[腾讯财经](https://gu.qq.com/)。净资产规模及管理、托管费率来自[天天基金](https://fund.eastmoney.com/)基金概况。东财字段含义参考 [AKShare 的接口文档](https://akshare.akfamily.xyz/data/fund/fund_public.html)；未引入 AKShare 运行依赖。这些网站接口可能延迟、变更或不可用，公开可访问不代表授予再分发许可；数据权利归上游权利人。
 
@@ -50,4 +50,4 @@ Yahoo Finance Chart API 与 CNN 历史接口是外部数据服务。数据快照
 
 页面的巴菲特、彼得·林奇、约翰·博格、霍华德·马克斯与查理·芒格等名家理念整理及书籍引述均保留各自来源链接；作品版权、人物名称、第三方商标及数据品牌不因本项目代码许可证发生转移。
 
-QQQ 与 VOO 的基准费率分别以 [Invesco](https://www.invesco.com/qqq-etf/en/home.html) 与 [Vanguard](https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf) 官方总费用率为准；配置中保留核对日期，非行情接口自动更新的字段。
+QQQ 与 SPY 的基准费率分别以 [Invesco](https://www.invesco.com/qqq-etf/en/home.html) 与 [State Street](https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy) 官方总费用率为准；配置中保留核对日期，非行情接口自动更新的字段。

@@ -11,9 +11,6 @@
 
 | 编号 | 优先级 | 模块 | 问题摘要 |
 | --- | --- | --- | --- |
-| [#1](#1-high-国内-etf-历史全失败时破坏并覆盖有效收益快照) | **High** | [fund-performance.mjs](../server/fund-performance.mjs#L42-L48) | 国内 ETF 历史全部抓取失败时，`.every()` 空数组恒真覆盖此前有效快照 |
-| [#2](#2-medium-清空定投金额或恐慌倍数输入框立即保存为-0--关闭) | **Medium** | [overlay.mjs](../public/js/features/strategy/overlay.mjs#L363-L394) | 编辑时退格清空 `#base-amount` / `#fear-buy-count` 立即将 `0`/停投写入 `localStorage` |
-| [#3](#3-medium-组合配比独立舍入可能导致分摊金额之和超过-totalamount) | **Medium** | [overlay.mjs](../public/js/features/strategy/overlay.mjs#L681) | 各标的独立 `Math.round(total * weight) / 100`，合计 100% 时仍可能超出总金额 |
 | [#4](#4-low-回测复盘每帧新建-rows-数组导致-weakmap-缓存失效) | **Low** | [chart.mjs](../public/js/features/market/chart.mjs#L84) | `replay` 播放每帧切片创建新数组引用，Pyramid 与 KD 缓存每次 miss |
 | [#5](#5-low-kd-月度信号未保留-buyday导致导出-csv-列为空) | **Low** | [kd-strategy.mjs](../public/js/domain/kd-strategy.mjs#L186-L191) | KD 月度信号对象缺少 `buyDay`，导出主图 CSV 时 `BuyDay` 列为空 |
 | [#6](#6-low-组合回测缺少数值溢出保护单标的-trades-缺少精度取整) | **Low** | [backtest.mjs](../public/js/domain/backtest.mjs#L135) | `comparePortfolioStrategies` 缺 `Number.isFinite` 校验；`simulate` 的 `trades` 存在浮点尾差 |
@@ -24,26 +21,6 @@
 ---
 
 ## 二、问题详细定位与修复建议
-
-### #1 [High] 国内 ETF 历史全失败时破坏并覆盖有效收益快照
-- **位置**：[server/fund-performance.mjs](../server/fund-performance.mjs#L42-L48)（测试盲区：[test/fund-performance.test.mjs](../test/fund-performance.test.mjs#L87-L93)）
-- **触发条件**：生产中 `server/updater.mjs:32-35` 传入 `loadBenchmarkSnapshot`，从本地磁盘读取 `qqq.json`/`spy.json`（不走网络），此时所有国内 ETF（`.SS`/`.SZ`）的 Yahoo Finance 历史请求全部失败。
-- **实际影响**：`histories.filter(row => row.ok)` 为空，`availableDates` 为 `[]`，`availableDates.every(dates => dates.has(date))` 发生空集合恒真（vacuous truth），导致 `endDate` 取 `cutoff` 而不会抛出异常进入保留 `previous` 的 `catch` 分支（L56-L60）。结果返回 `ok: true, complete: false, endDate: cutoff` 且全行 `ok: false`，覆盖掉原先有效的 1/3/5 年收益快照。
-- **依据**：`server/fund-performance.mjs:42-48` 未检查 `availableDates.length > 0`；`test/fund-performance.test.mjs:87-92` 的全失败用例未传 `loadBenchmarkSnapshot`，网络先在 `QQQ` 报错，未覆盖生产路径。
-- **建议修复**：在计算 `endDate` 前增加 `if (!availableDates.length) throw Error('没有可用的基金历史行情');`，并补充传入 `loadBenchmarkSnapshot` 且所有基金抓取失败的回归测试。
-
-### #2 [Medium] 清空定投金额或恐慌倍数输入框立即保存为 `0` / 关闭
-- **位置**：[public/js/features/strategy/overlay.mjs](../public/js/features/strategy/overlay.mjs#L363-L394)（事件绑定：[L1174-L1177](../public/js/features/strategy/overlay.mjs#L1174-L1177)）
-- **触发条件**：用户在 `#base-amount` 或 `#fear-buy-count` 输入框退格清空内容（准备输入新数字），触发 `input` 事件且 `value === ''`。
-- **实际影响**：`Number('') === 0`。`validBaseAmount(0)` 返回 `true` 且 `rawFearCount !== 0` 为 `false`，`apply()` 会立刻将 `baseAmount = 0` 或 `fearEnabled = false` 写入 `state`、`bySymbol[symbol]`、`allocation.fearEnabled[symbol]` 及 `localStorage`。
-- **依据**：`overlay.mjs:365-383` 直接 `Number($(...).value)` 而未检查 `.value.trim() === ''`（对比 [kd.mjs](../public/js/features/strategy/kd.mjs#L99) 已显式拦截 `!input.value.trim()`）。
-- **建议修复**：在 `apply()` 中对 `base-amount` 与 `fear-buy-count` 的 `.value.trim() === ''` 做空值拦截（提示输入有效数值并提前 `return`，不覆盖已保存配置）。
-
-### #3 [Medium] 组合配比独立舍入可能导致分摊金额之和超过 `totalAmount`
-- **位置**：[public/js/features/strategy/overlay.mjs](../public/js/features/strategy/overlay.mjs#L681)（预览）与 [L1031](../public/js/features/strategy/overlay.mjs#L1031)（保存）
-- **触发条件**：总定投金额按各标的百分比独立计算，且乘积存在向上四舍五入（例如 `total = 100.01`，两只标的各 `50%`）。
-- **实际影响**：两只标的各自计算 `Math.round(total * weight) / 100` 均得 `50.01`，合计 `100.02 > 100.01`，预览与实际保存金额之和超出总金额。
-- **建议修复**：抽取共用纯函数供预览与保存调用，按整数美分（最大余数法）在 `weight > 0` 的已选标的间分配舍入余数，确保 `sumWeight === 100` 时分摊之和精确等于 `total`。
 
 ### #4 [Low] 回测复盘每帧新建 `rows` 数组导致 `WeakMap` 缓存失效
 - **位置**：[public/js/features/market/chart.mjs](../public/js/features/market/chart.mjs#L84)、[overlay.mjs](../public/js/features/strategy/overlay.mjs#L152-L160)、[kd-strategy.mjs](../public/js/domain/kd-strategy.mjs#L120-L124)

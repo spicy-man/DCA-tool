@@ -64,6 +64,44 @@ function validWeight(value) {
   return Number.isFinite(value) && value >= 0 && value <= 10000;
 }
 
+export function allocateWeightedAmounts(total, entries) {
+  const amounts = new Map();
+  if (!validTotalAmount(total)) return amounts;
+  const positive = entries.filter(entry => entry.weight > 0 && validWeight(entry.weight));
+  if (!positive.length) return amounts;
+  const sumWeight = positive.reduce((sum, entry) => sum + entry.weight, 0);
+  const targetCents = Math.abs(sumWeight - 100) < 1e-6
+    ? Math.round(total * 100)
+    : Math.round(total * sumWeight);
+  if (!Number.isSafeInteger(targetCents)) {
+    for (const entry of positive) {
+      amounts.set(entry.symbol, Math.round(total * entry.weight) / 100);
+    }
+    return amounts;
+  }
+  const parts = positive.map((entry, index) => {
+    const exactCents = total * entry.weight;
+    const floorCents = Math.floor(exactCents);
+    return {
+      symbol: entry.symbol,
+      index,
+      cents: floorCents,
+      remainder: exactCents - floorCents
+    };
+  });
+  const remainderCents = targetCents - parts.reduce((sum, part) => sum + part.cents, 0);
+  if (remainderCents > 0) {
+    const ranked = [...parts].sort((a, b) => (b.remainder - a.remainder) || (a.index - b.index));
+    for (let i = 0; i < remainderCents && i < ranked.length; i++) {
+      ranked[i].cents += 1;
+    }
+  }
+  for (const part of parts) {
+    amounts.set(part.symbol, part.cents / 100);
+  }
+  return amounts;
+}
+
 function activeSymbol() {
   return $('symbol')?.value || market?.symbol || 'SPY';
 }
@@ -361,15 +399,17 @@ function renderSignalTable() {
 }
 
 function apply() {
+  const rawBaseAmount = $('base-amount').value.trim();
+  const rawFearInput = $('fear-buy-count').value.trim();
   const buyDay = Number($('buy-day').value);
-  const baseAmount = Number($('base-amount').value);
+  const baseAmount = Number(rawBaseAmount);
   const fearThreshold = Number($('fear-threshold').value);
-  const rawFearCount = Number($('fear-buy-count').value);
+  const rawFearCount = Number(rawFearInput);
   if (!Number.isInteger(buyDay) || buyDay < 1 || buyDay > 31) {
     $('signal-error').textContent = '定投日须为 1–31 的整数';
     return;
   }
-  if (!validBaseAmount(baseAmount)) {
+  if (!rawBaseAmount || !validBaseAmount(baseAmount)) {
     $('signal-error').textContent = 'N 请输入 0 或不小于 0.01 的有效金额';
     return;
   }
@@ -377,7 +417,7 @@ function apply() {
     $('signal-error').textContent = 'F&G 阈值请输入大于 0 且不超过 95 的数值';
     return;
   }
-  if (rawFearCount !== 0 && !validFearBuyCount(rawFearCount, baseAmount)) {
+  if (!rawFearInput || (rawFearCount !== 0 && !validFearBuyCount(rawFearCount, baseAmount))) {
     $('signal-error').textContent = '恐慌加投倍数须为 0（不启用）或不小于 1 的整数，且加投金额须在可计算范围内';
     return;
   }
@@ -664,12 +704,17 @@ function initAllocationDialog() {
     let sumWeight = 0;
     let hasInvalid = false;
     const activeItems = [];
+    const parsedEntries = [];
     for (const [symbol, info] of inputs) {
       const raw = info.input.value.trim();
       const weight = raw === '' ? 0 : Number(raw);
       const fearRaw = info.fearCountInput.value;
       const fearCount = Number(fearRaw);
       if (!validAllocationFearCount(fearRaw, 0)) hasInvalid = true;
+      parsedEntries.push({ symbol, info, raw, weight, fearRaw, fearCount });
+    }
+    const allocatedAmounts = totalValid ? allocateWeightedAmounts(total, parsedEntries) : new Map();
+    for (const { symbol, info, raw, weight, fearRaw, fearCount } of parsedEntries) {
       if (raw === '' || weight === 0) {
         info.preview.textContent = totalValid ? '1N = 0.00' : '等待总金额';
       } else if (!validWeight(weight)) {
@@ -678,7 +723,7 @@ function initAllocationDialog() {
       } else {
         sumWeight += weight;
         if (totalValid) {
-          const computed = Math.round(total * weight) / 100;
+          const computed = allocatedAmounts.get(symbol) ?? 0;
           if (validBaseAmount(computed) && validAllocationFearCount(fearRaw, computed)) {
             info.preview.textContent = '1N = ' + formatMoney(computed);
             if (computed >= 0.01) {
@@ -1020,7 +1065,7 @@ function initAllocationDialog() {
     }
     const nextWeights = { ...allocation.weights };
     const nextFearEnabled = { ...allocation.fearEnabled };
-    const updates = [];
+    const parsedEntries = [];
     for (const [symbol, { input, fearCountInput }] of inputs) {
       const raw = input.value.trim();
       const weight = raw === '' ? 0 : Number(raw);
@@ -1028,8 +1073,12 @@ function initAllocationDialog() {
         message.textContent = symbol + ' 配比请输入 0 至 10000 之间的有效百分比';
         return;
       }
-      const computed = weight === 0 ? 0 : Math.round(total * weight) / 100;
-      const fearRaw = fearCountInput.value;
+      parsedEntries.push({ symbol, weight, fearRaw: fearCountInput.value });
+    }
+    const allocatedAmounts = allocateWeightedAmounts(total, parsedEntries);
+    const updates = [];
+    for (const { symbol, weight, fearRaw } of parsedEntries) {
+      const computed = weight === 0 ? 0 : (allocatedAmounts.get(symbol) ?? 0);
       const fearCount = Number(fearRaw);
       if (!validAllocationFearCount(fearRaw, computed)) {
         message.textContent = symbol + ' 恐慌加投倍数须为不小于 0 的整数，且不能超出有效计算范围';

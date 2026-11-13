@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { drawSentiment } from '../public/js/charts/sentiment.mjs';
-import { setSignalSentiment, updateSignals, drawSignalMarkers, initStrategyOverlay, signalSettings, getVisibleSignals, getSignalStrategy, signalTooltipRows } from '../public/js/features/strategy/overlay.mjs';
+import { setSignalSentiment, updateSignals, drawSignalMarkers, initStrategyOverlay, signalSettings, getVisibleSignals, getSignalStrategy, signalTooltipRows, allocateWeightedAmounts } from '../public/js/features/strategy/overlay.mjs';
 import { appEvents, events } from '../public/js/services/events.mjs';
 import { loadMarket, invalidateMarket, initMarketChart, renderMarket } from '../public/js/features/market/chart.mjs';
 import { initStrategyDialog } from '../public/js/ui/strategy-dialog.mjs';
@@ -1014,4 +1014,40 @@ test('状态只保留两种组合策略，切换和刷新恢复选择',async t=>
  saved.set('seeker.strategyView.v1','kd');initStrategyOverlay();assert.equal(getSignalStrategy(),'kdFear');
  saved.set('seeker.strategyView.v1','regular');initStrategyOverlay();assert.equal(getSignalStrategy(),'combined');
  saved.set('seeker.strategyView.v1','invalid');initStrategyOverlay();assert.equal(getSignalStrategy(),'combined');
+});
+
+test('清空定投金额或恐慌倍数输入框不覆盖已保存配置；组合配比最大余数法精确分摊', t => {
+ const $ = dom(t), oldStorage = globalThis.localStorage, oldResize = globalThis.ResizeObserver, saved = new Map();
+ globalThis.localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, String(value)) };
+ globalThis.ResizeObserver = class { observe() {} };
+ t.after(() => { globalThis.localStorage = oldStorage; globalThis.ResizeObserver = oldResize; });
+ $('symbol').value = 'SPY';
+ $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }];
+ initStrategyOverlay();
+ $('base-amount').value = '1500';
+ $('base-amount').listeners.input();
+ $('fear-buy-count').value = '2';
+ $('fear-buy-count').listeners.input();
+ const before = signalSettings();
+ const beforeRaw = saved.get('seeker.pyramid.v1');
+ $('base-amount').value = '';
+ $('base-amount').listeners.input();
+ assert.notEqual($('signal-error').textContent, '');
+ assert.equal(signalSettings().baseAmount, before.baseAmount);
+ assert.equal(saved.get('seeker.pyramid.v1'), beforeRaw);
+ $('base-amount').value = String(before.baseAmount);
+ $('fear-buy-count').value = '   ';
+ $('fear-buy-count').listeners.input();
+ assert.notEqual($('signal-error').textContent, '');
+ assert.equal(signalSettings().fearEnabled, true);
+ assert.equal(signalSettings().fearBuyCount, 2);
+ assert.equal(saved.get('seeker.pyramid.v1'), beforeRaw);
+
+ const even = allocateWeightedAmounts(100.01, [{ symbol: 'SPY', weight: 50 }, { symbol: 'QQQ', weight: 50 }]);
+ assert.equal(even.get('SPY'), 50.01);
+ assert.equal(even.get('QQQ'), 50);
+ const thirds = allocateWeightedAmounts(10, [{ symbol: 'SPY', weight: 33.33 }, { symbol: 'QQQ', weight: 33.33 }, { symbol: 'VGT', weight: 33.34 }]);
+ assert.equal(thirds.get('SPY'), 3.33);
+ assert.equal(thirds.get('QQQ'), 3.33);
+ assert.equal(thirds.get('VGT'), 3.34);
 });

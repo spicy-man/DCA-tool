@@ -41,6 +41,7 @@ export async function fetchFundPerformance({ fetchText, now, previous, quoteDate
     // in every available history; failed downloads remain excluded per fund.
     const availableDates = histories.filter(row => row.ok)
       .map(row => new Set(row.history.rows.map(price => price.date)));
+    if (!availableDates.length) throw Error('没有可用的基金历史行情');
     const endDate = qqq.rows.map(row => row.date).filter(date => date <= cutoff &&
       availableDates.every(dates => dates.has(date))).at(-1);
     if (!endDate || now - Date.parse(endDate) > 15 * 86400000 || (previous?.endDate && endDate < previous.endDate)) {
