@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.0** (更新日期: 2026-11-14)。
+目前系统版本为 **v2.2.1** (更新日期: 2026-11-14)。
+
+## 🔧 v2.2.1 补充独立 PWA 版本探测与构建期模块缓存参数 [FIX]
+
+- **前景恢复与启动版本探测**：在 [build-site.mjs](./scripts/build-site.mjs) 与 [http-server.mjs](./server/http-server.mjs) 返回的 `deployment.json` 中补充当前应用 `version` 字段，并在首页与基金对比页通过 `meta[name="app-version"]`（由 [version.mjs](./scripts/version.mjs) 统一校验与同步）在启动及 `visibilitychange` 切回前台时检测新版本。
+- **页头更新提示条**：发现更高版本时在页头下方展示非阻断更新横幅，支持点击「立即更新」刷新页面或点击「稍后」在本会话内忽略当前版本提示，解决 iPadOS / iOS 独立 PWA 长期挂起保活且无刷新按钮导致滞留旧版本的问题。
+- **构建期 JS 模块缓存破坏**：静态构建生成 `dist/` 时自动为 HTML 中的模块脚本与 `dist/js/**/*.mjs` 相对导入追加 `?v=<version>` 参数，配合既有样式缓存参数确保 10 分钟 CDN 缓存窗口内 HTML、CSS 与 ES Module 版本一致。
 
 ## ✨ v2.2.0 加权K交互图表重构与策略命名统一 [NEW]
 

@@ -23,8 +23,12 @@ test('拒绝版本漂移，同步脚本修复生成字段并保留人工版本�
  for(const page of ['public/index.html','public/nasdaq-funds.html','public/sp500-funds.html']){
   const pageHtml=await readFile(path.join(root,page),'utf8');
   assert.ok(pageHtml.includes('style.css?v=99.8.7'),page);
+  assert.ok(pageHtml.includes('<meta name="app-version" content="99.8.7">'),page);
  }
  const nasdaqFile=path.join(root,'public/nasdaq-funds.html');
+ await writeFile(nasdaqFile,(await readFile(nasdaqFile,'utf8')).replace('<meta name="app-version" content="99.8.7">','<meta name="app-version" content="1.0.0">'));
+ await assert.rejects(checkVersion(root),/应用版本元数据/);
+ await syncVersion({root,date:'2026-10-17'});assert.equal(await checkVersion(root),'99.8.7');
  await writeFile(nasdaqFile,(await readFile(nasdaqFile,'utf8')).replace('?v=99.8.7',''));
  await assert.rejects(checkVersion(root),/CSS 缓存版本/);
  await syncVersion({root,date:'2026-10-17'});assert.equal(await checkVersion(root),'99.8.7');

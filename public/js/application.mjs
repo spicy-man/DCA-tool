@@ -3,9 +3,10 @@ import { appEvents, events } from './services/events.mjs';
 import {
   loadSentimentRows,
   loadSourceHealth,
-  getDeploymentMode,
+  getDeploymentInfo,
   requestSourceRefresh
 } from './services/data-client.mjs';
+import { createAppUpdateWatcher } from './ui/app-update.mjs';
 import { healthSummary } from './domain/data-health.mjs';
 import { sentimentLabel, sourceLabel } from './ui/labels.mjs';
 import { downloadCSV } from './ui/download.mjs';
@@ -395,7 +396,8 @@ export function initApplication() {
 
   $('chart').addEventListener('pointerleave', hideHover);
 
-  const deploymentReady = getDeploymentMode();
+  const appUpdates = createAppUpdateWatcher();
+  const deploymentReady = getDeploymentInfo();
   let loadedHealthKey = null;
   let lastResumeCheck = 0;
   let resumeChecking = false;
@@ -413,17 +415,19 @@ export function initApplication() {
     }
   }
 
-  deploymentReady.then(mode => {
+  deploymentReady.then(info => {
+    const mode = info.mode;
     const button = $('refresh');
     button.disabled = mode !== 'local';
     button.title = mode === 'local' ? '更新数据' : '仅本地部署可更新数据';
     $('refresh-hint').title = button.title;
     $('refresh-hint').tabIndex = mode === 'local' ? -1 : 0;
+    void appUpdates.checkForUpdate(info);
   });
 
   $('refresh').addEventListener('click', async () => {
     const button = $('refresh');
-    const mode = await deploymentReady;
+    const { mode } = await deploymentReady;
     if (mode !== 'local' || button.disabled) return;
     button.disabled = true;
     button.querySelector('span').textContent = '检查中…';
@@ -552,7 +556,10 @@ export function initApplication() {
     lastResumeCheck = Date.now();
     const expectedID = sentimentRequestID;
     try {
-      const health = await loadSourceHealth();
+      const [health] = await Promise.all([
+        loadSourceHealth(),
+        appUpdates.checkForUpdate()
+      ]);
       if (expectedID !== sentimentRequestID) return;
       const nextKey = healthKey(health);
       const healthChanged = Boolean(nextKey && nextKey !== loadedHealthKey);

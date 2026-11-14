@@ -1,5 +1,6 @@
 import { loadFundSnapshot } from '../../services/data-client.mjs';
 import { appEvents, events } from '../../services/events.mjs';
+import { createAppUpdateWatcher } from '../../ui/app-update.mjs';
 import { sortFunds, FUND_SORT_FIELDS } from '../../domain/nasdaq-funds.mjs';
 import { getFundGroup } from '../../domain/fund-groups.mjs';
 import { performanceRows } from '../../domain/fund-performance.mjs';
@@ -136,6 +137,7 @@ export function initFundComparison() {
   let lastResumeCheck = 0;
   let resumeChecking = false;
   let initialLoadSettled = false;
+  const appUpdates = createAppUpdateWatcher();
   let requestID = 0;
   const snapshotKey = value => (value ? JSON.stringify([
     value.checkedAt,
@@ -166,7 +168,7 @@ export function initFundComparison() {
     if (globalThis.navigator?.onLine === false || Date.now() - lastResumeCheck < 60000) return;
     resumeChecking = true;
     lastResumeCheck = Date.now();
-    try { await load({ silentOnError: true }); }
+    try { await Promise.all([load({ silentOnError: true }), appUpdates.checkForUpdate()]); }
     finally { resumeChecking = false; }
   });
   for (const button of headers) button.addEventListener('click', event => {
@@ -179,6 +181,7 @@ export function initFundComparison() {
   primaryControl.addEventListener('change', render);
   secondaryControl.addEventListener('change', render);
   appEvents.addEventListener(events.fundsUpdated, () => load());
+  void appUpdates.checkForUpdate();
   void load().finally(() => {
     initialLoadSettled = true;
     if (!lastResumeCheck) lastResumeCheck = Date.now();

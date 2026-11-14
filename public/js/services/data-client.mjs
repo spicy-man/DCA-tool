@@ -28,14 +28,25 @@ export async function loadMarketSnapshot(symbol) {
   return data;
 }
 
-export async function getDeploymentMode() {
+export async function getDeploymentInfo() {
   try {
     const response = await fetch('./deployment.json', { cache: 'no-store' });
-    if (!response.ok) return 'static';
-    return (await response.json()).mode === 'local' ? 'local' : 'static';
+    if (!response.ok) return { mode: 'static', version: null };
+    const payload = await response.json();
+    const version = typeof payload?.version === 'string' && payload.version.trim()
+      ? payload.version.trim()
+      : null;
+    return {
+      mode: payload?.mode === 'local' ? 'local' : 'static',
+      version
+    };
   } catch {
-    return 'static';
+    return { mode: 'static', version: null };
   }
+}
+
+export async function getDeploymentMode() {
+  return (await getDeploymentInfo()).mode;
 }
 
 export async function loadSourceHealth() {

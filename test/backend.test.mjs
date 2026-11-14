@@ -268,7 +268,9 @@ test('本地 HTTP：部署模式、快照、跨站保护、方法及冷却防重
  const server=createServer({dataDir:d,refresh:async()=>{calls++;return {complete:true,results:[{symbol:'SPY',ok:true,fresh:true,date:'2025-01-06'}]};}});
  server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(r=>server.close(r)));
  const base='http://127.0.0.1:'+server.address().port;
- assert.equal((await (await fetch(base+'/deployment.json')).json()).mode,'local');
+ const deployment=await (await fetch(base+'/deployment.json')).json();
+ assert.equal(deployment.mode,'local');
+ assert.equal(deployment.version,JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8')).version);
  assert.equal((await fetch(base+'/data/spy.json')).status,200);
  assert.equal((await fetch(base+'/api/refresh')).status,405);
  assert.equal((await fetch(base+'/api/refresh',{method:'POST',headers:{Origin:'https://untrusted.example'}})).status,403);

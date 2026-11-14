@@ -1,11 +1,19 @@
 import http from 'node:http';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { refreshAll, addCustomSymbol } from './updater.mjs';
 import { readCustomSymbols, removeCustomSymbol } from './symbols.mjs';
 
 const root = fileURLToPath(new URL('../public/', import.meta.url));
+const defaultAppVersion = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version || null;
+  } catch {
+    return null;
+  }
+})();
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -22,7 +30,8 @@ export function createServer({
   dataDir = path.join(publicDir, 'data'),
   refresh = refreshAll,
   addSymbol = addCustomSymbol,
-  cooldownMs = 60000
+  cooldownMs = 60000,
+  appVersion = defaultAppVersion
 } = {}) {
   let active;
   let lastResult;
@@ -50,7 +59,7 @@ export function createServer({
     try {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname === '/deployment.json') {
-        send(200, { mode: 'local' });
+        send(200, appVersion ? { mode: 'local', version: appVersion } : { mode: 'local' });
         return;
       }
 
