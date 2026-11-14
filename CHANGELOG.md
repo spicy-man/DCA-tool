@@ -1,6 +1,11 @@
 # 更新记录
 
-目前系统版本为 **v2.2.2** (更新日期: 2026-11-14)。
+目前系统版本为 **v2.2.3** (更新日期: 2026-11-14)。
+
+## 🔧 v2.2.3 统一欢迎弹窗宋体子集与引言加粗跨端渲染 [FIX]
+
+- **欢迎弹窗自托管 `Noto Serif SC` 子集**：从 Google Fonts `NotoSerifSC[wght].ttf`（v36）裁切生成约 23 KB 的可变字体子集 [noto-serif-sc-quote-wght.woff2](./public/fonts/noto-serif-sc-quote-wght.woff2)（`wght` `400..700`，含欢迎标题、中文引文及其中数字/标点）与许可文件 [NOTO-SERIF-SC-LICENSE.txt](./public/fonts/NOTO-SERIF-SC-LICENSE.txt)，在 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 登记说明并在 [index.html](./public/index.html) 预加载；在 [welcome-dialog.css](./public/css/welcome-dialog.css) 中优先使用 `"Noto Serif SC Quote"`、禁用伪粗合成并将 `.welcome-quote strong` 统一至 `700` 与 `var(--navy)`，解决 iOS / Android 缺宋体导致回退黑体及字重跳档的问题。
+- **底部引言字重与移动端排版收敛**：在 [page.css](./public/css/page.css) 中为 `:root` 补充 `text-size-adjust: 100%` 防止移动端文本自动放大，将 `.investment-note strong` 从 `600` 统一到原生支持更稳定的 `700` 与 `var(--navy)`，并在 `max-width: 800px` 下将 `.investment-note p` 字号保持为 `12px`，同步在 [backend.test.mjs](./test/backend.test.mjs) 补充字体资源响应测试。
 
 ## 🔧 v2.2.2 统一跨设备字体与字重渲染并自托管 Inter 数字子集 [FIX]
 

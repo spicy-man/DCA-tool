@@ -14,6 +14,8 @@
   color: #20333f;
   background: #f5f6fa;
   font-synthesis: weight style;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   font-size: 14px;
   --navy: #19374a;
   --muted: #7d8994;
@@ -1279,8 +1281,8 @@ footer {
 }
 
 .investment-note strong {
-  font-weight: 600;
-  color: #263e4b;
+  font-weight: 700;
+  color: var(--navy);
 }
 
 .note-attribution {
@@ -1316,8 +1318,8 @@ footer {
   }
 
   .investment-note p {
-    font-size: 11px;
-    line-height: 1.8;
+    font-size: 12px;
+    line-height: 1.85;
     margin-bottom: 5px;
   }
 

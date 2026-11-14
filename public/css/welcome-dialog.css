@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Noto Serif SC Quote";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/noto-serif-sc-quote-wght.woff2") format("woff2");
+}
+
 .brand-divider {
   width: 1px;
   height: 18px;
@@ -43,17 +51,17 @@
 .welcome-close { width: 30px; height: 30px; padding: 0; border: 0; background: transparent; font-size: 23px; color: #607487; }
 .welcome-close:hover { color: var(--navy); }
 .welcome-body { min-height: 0; padding: 6px 36px 14px; overflow-y: auto; overscroll-behavior: contain; }
-.welcome-body h2 { margin: 0 0 10px; color: var(--navy); font-family: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", STSong, SimSun, serif; font-size: 30px; font-weight: 700; letter-spacing: 3px; }
+.welcome-body h2 { margin: 0 0 10px; color: var(--navy); font-family: "Noto Serif SC Quote", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", STSong, SimSun, serif; font-size: 30px; font-weight: 700; font-synthesis: none; letter-spacing: 3px; }
 .welcome-body h2:focus { outline: none; }
 .welcome-body p { margin: 12px 0; font-size: 13px; line-height: 1.95; }
 .welcome-body .welcome-lead { margin-top: 0; color: #607487; }
 .welcome-quote { margin: 20px 0; padding: 17px 20px; border-left: 3px solid #a7b8b7; background: #f3f6f8; }
-.welcome-quote blockquote { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", STSong, SimSun, serif; font-size: 18px; line-height: 1.8; color: #20333f; }
+.welcome-quote blockquote { margin: 0; font-family: "Noto Serif SC Quote", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", STSong, SimSun, serif; font-size: 18px; line-height: 1.8; color: #20333f; }
 .welcome-quote figcaption { margin-top: 9px; color: #607487; font-size: 10px; line-height: 1.8; }
 .welcome-quote a { margin-left: 5px; color: inherit; text-underline-offset: 3px; }
 .welcome-quote .welcome-quote-en { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 13px; font-style: italic; line-height: 1.75; }
-.welcome-quote .welcome-quote-zh { margin: 12px 0 0; color: #4a5c64; font-size: 14px; line-height: 1.9; }
-.welcome-quote strong { font-weight: 600; color: #20333f; }
+.welcome-quote .welcome-quote-zh { margin: 12px 0 0; color: #4a5c64; font-size: 14px; font-synthesis: none; line-height: 1.9; }
+.welcome-quote strong { font-weight: 700; color: var(--navy); }
 .welcome-rules { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .welcome-rules h3 { margin: 0; color: var(--navy); font-size: 13px; font-weight: 600; }
 .welcome-body .welcome-ending { color: #607487; }

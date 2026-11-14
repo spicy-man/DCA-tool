@@ -442,4 +442,7 @@ test('本地 HTTP：非法 URI 编码返回 400，目录路径返回 404，PWA �
   const fontRes = await fetch(base + '/fonts/inter-latin-wght-normal.woff2');
   assert.equal(fontRes.status, 200);
   assert.equal(fontRes.headers.get('content-type'), 'font/woff2');
+  const quoteFontRes = await fetch(base + '/fonts/noto-serif-sc-quote-wght.woff2');
+  assert.equal(quoteFontRes.status, 200);
+  assert.equal(quoteFontRes.headers.get('content-type'), 'font/woff2');
 });
