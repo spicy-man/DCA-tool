@@ -1,6 +1,11 @@
 # 更新记录
 
-目前系统版本为 **v2.2.3** (更新日期: 2026-11-14)。
+目前系统版本为 **v2.2.4** (更新日期: 2026-11-14)。
+
+## 🔧 v2.2.4 修复卡片头部文字基线错位与极窄屏标的选择器挤压 [FIX]
+
+- **指标卡与恐慌卡头部基线对齐**：在 [page.css](./public/css/page.css) 中将 `.chart-card:not(.price-card) > .chart-heading` 调整为 `2×2` CSS Grid（`align-items: baseline`），通过 `display: contents` 将左右标题与副标题/指标状态按行归位并统一显式 `line-height`，同时在移动端（`<= 800px`）将 `.score-block > span` 统一为 `9px`，解决自托管 `Inter Variable` 引入后第 1、2 行左右基线偏移问题。
+- **主行情卡基线对齐与极窄屏防挤压**：保留 `#price-quote` 独立盒模型以确保隐藏收益时 `filter: blur(6px)` 正常生效，在 `@supports (grid-template-rows: subgrid)` 下通过 `subgrid` 让第 1 行垂直居中、第 2 行 `#price-asof` 与 `#price-change` 按 `baseline` 对齐；补充 `.price-card .score-block { flex-shrink: 0; }` 防止非 `subgrid` 回退下右列溢出，并在 `@media (max-width: 465px)` 下令 `.price-title-row` 自动折行（`.symbol-control` 占满首行、按钮置于第二行）及限制 `#price-quote > span` 折行宽度，避免 `320px–465px` 窄屏下 `#symbol` 下拉框被截断。
 
 ## 🔧 v2.2.3 统一欢迎弹窗宋体子集与引言加粗跨端渲染 [FIX]
 

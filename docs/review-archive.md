@@ -4,6 +4,18 @@
 
 ---
 
+## 卡片头部基线对齐与窄屏布局修复闭环（2026-11-14）
+
+- **范围与轮次**：
+  1. **「加权K指标」与「恐慌与贪婪指数」卡片**：经首轮只读双人独立分析与用户确认后修复，并通过第二轮双人独立复审闭环，两方均无未解决的有效发现。
+  2. **顶部行情主卡（`.price-card`）**：经首轮只读定位、两轮修复间复审识别窄屏 `#symbol` 挤压及非 `subgrid` 回退溢出风险后调整方案，并在第 3 轮双人独立复审中两方均无待修有效发现（96 组视口 / 场景 / 字体 / 支持态矩阵全部通过）。
+- **已修复项**：
+  1. [page.css](../public/css/page.css#L1744-L1797)：将 `.chart-card:not(.price-card) > .chart-heading` 改为 `2×2` CSS Grid（`align-items: baseline`），通过 `display: contents` 将 `h2` / `.score-block > div` 与 `p` / `.score-block > span` 按行归位并补充显式 `line-height`，同时在 `@media (max-width: 800px)` 下将 `.score-block > span` 统一为 `9px`。
+  2. [page.css](../public/css/page.css#L1799-L1882)：在不破坏 `#price-quote.is-concealed` 独立模糊盒模型的前提下，为 `.price-card .score-block` 补充 `flex-shrink: 0`；在 `@supports (grid-template-rows: subgrid)` 内将 `.price-card > .chart-heading` 设为两行两列 Grid、`> div:first-child` 设为 `display: contents`、`#price-quote` 跨两行采用 `grid-template-rows: subgrid`，使第 1 行垂直居中（`align-self: center`）、第 2 行 `#price-asof` 与 `#price-change` 按文本基线对齐（`align-self: baseline; line-height: 1.6`）；在 `@supports` 外补充 `@media (max-width: 465px)` 窄屏规则，令 `.price-title-row` 自动折行（`.symbol-control` 占满首行、`#add-symbol` 与 `#allocation-open` 置第二行）并限制 `#price-quote > span` 折行宽度（`max-width: 86px`）。
+- **验证与限制**：`git diff --check` 无异常；[ui-modernization.test.mjs](../test/ui-modernization.test.mjs)、[frontend-regressions.test.mjs](../test/frontend-regressions.test.mjs)、[build-site.test.mjs](../test/build-site.test.mjs) 与 [signal-view.test.mjs](../test/signal-view.test.mjs) `22 / 22` 通过，全量 `npm test` **202 / 202 全部通过**；Linux Chromium 覆盖 `1200–320px`（含 `466px / 465px` 断点、5 位整数 `12345.67`、长 stale 提示、禁用/启用 `Inter Variable`、隐藏/展开切换及模拟非 `subgrid` 回退），主路径全视口第 1 行垂直居中差与第 2 行首行基线差均为 `0px` 且无截断、重叠或溢出。非 `subgrid` 浏览器仅作降级保底（无溢出、无重叠，第 2 行不跨列对齐基线）；真实 macOS / iOS / Android 设备视觉渲染待发布后在实机复核。
+
+---
+
 ## 跨设备字体与字重一致性修复闭环（2026-11-14）
 
 - **范围与轮次**：针对 Android / Windows / macOS 跨设备字体与字重不一致问题，经首轮只读双人独立分析（定位 `font-synthesis: none`、非标准字重 `550/650/750`、缺少 Android 字体栈回退、欢迎弹窗衬线回退与 Canvas 硬编码字体等根因）后，按用户确认的「方案 B」完成修复并经第二轮双人独立复审闭环，最终两方均无未解决的有效发现。

@@ -1741,6 +1741,146 @@ footer {
   margin-right: 0;
 }
 
+/* Align non-price card headings row-by-row by text baseline instead of centering two stacked columns. */
+.chart-card:not(.price-card) > .chart-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 4px;
+  align-items: baseline;
+}
+
+.chart-card:not(.price-card) > .chart-heading > div:first-child,
+.chart-card:not(.price-card) > .chart-heading > .score-block {
+  display: contents;
+}
+
+.chart-card:not(.price-card) > .chart-heading h2:not(.eyebrow) {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.chart-card:not(.price-card) > .chart-heading .score-block > div {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  text-align: right;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.chart-card:not(.price-card) > .chart-heading p {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.chart-card:not(.price-card) > .chart-heading .score-block > span {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  text-align: right;
+  margin-top: 0;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+@media (max-width: 800px) {
+  .chart-card:not(.price-card) > .chart-heading .score-block > span {
+    font-size: 9px;
+  }
+}
+
+/* Keep #price-quote as a real box for blur concealment while aligning row 2 (#price-asof / #price-change) by baseline. */
+.price-card .score-block {
+  flex-shrink: 0;
+}
+
+@supports (grid-template-rows: subgrid) {
+  .price-card > .chart-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 24px;
+    row-gap: 7px;
+    align-items: center;
+  }
+
+  .price-card > .chart-heading > div:first-child {
+    display: contents;
+  }
+
+  .price-card .price-title-row {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    min-width: 0;
+    margin-bottom: 0;
+  }
+
+  .price-card > .chart-heading p {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: baseline;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .price-card #price-quote {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    display: grid;
+    grid-template-rows: subgrid;
+    justify-items: end;
+    align-items: center;
+  }
+
+  .price-card #price-quote > div {
+    grid-row: 1;
+    align-self: center;
+    line-height: 1.15;
+  }
+
+  .price-card #price-quote > span {
+    grid-row: 2;
+    align-self: baseline;
+    margin-top: 0;
+    white-space: nowrap;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 800px) {
+    .price-card > .chart-heading {
+      column-gap: 12px;
+      row-gap: 5px;
+    }
+  }
+}
+
+@media (max-width: 465px) {
+  .price-card .price-title-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .price-card .price-title-row .symbol-control {
+    flex: 1 1 100%;
+  }
+
+  .price-card .price-title-row .symbol-control select {
+    padding: 0 22px 0 8px;
+  }
+
+  .price-card #price-quote > span {
+    white-space: normal;
+    max-width: 86px;
+  }
+}
+
 .buy-marker.is-fear {
   background: #2563eb;
 }
