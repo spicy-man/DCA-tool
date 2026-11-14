@@ -2,6 +2,7 @@
 .price-card-footer { position: relative; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
 .price-card-footer>.accessible-data { margin: 0; line-height: 1.7; }
 .price-card-footer summary { min-height: 34px; padding: 7px 180px 7px 0; }
+.price-card-footer:has(.fund-entry[hidden]) summary { min-height: 0; padding-right: 0; }
 .fund-entry { position: absolute; top: 8px; right: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; padding: 0 14px; border-radius: 5px; background: var(--navy); border: 1px solid var(--navy); color: #fff; font-size: 12px; text-decoration: none; white-space: nowrap; }
 .fund-entry:hover { background: #264e62; border-color: #264e62; }
 .fund-entry[hidden] { display: none; }

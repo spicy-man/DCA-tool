@@ -120,8 +120,8 @@
 
 ---
 
-## 三、最近一轮审查摘要（2026-11-13 · PWA 与切回前台工作区改动闭环）
+## 三、最近一轮审查摘要（2026-11-14 · KD Canvas 图表重构与工作区改动修复闭环）
 
-- **审查范围**：工作区 14 个已修改文件、5 个未跟踪 PWA 资源及关联模块与测试，经两轮双人独立审查闭环（两方审查前均未预读台账与技术债文档）。
-- **发现与处置**：首轮确认并修复 3 项问题（[application-calendar.test.mjs](../test/application-calendar.test.mjs#L196-L430) 死锁与监听隔离、[application.mjs](../public/js/application.mjs#L383-L432) `sentimentRequestID` 抢先递增竞态，以及未加载行情重试、单次重绘与 [page.css](../public/css/page.css#L121) 双重底部安全区留白），详见 [历史审查归档](./review-archive.md)。本轮无新增未解决待修项，保留原 `#9–#22`。
-- **测试验证**：修复后运行 `npm test`（`node --test test/*.test.mjs`），**197 / 197 全部通过**（`0 fail`、`0 skipped`）；真机 iOS/Android Standalone PWA 安全区渲染未在 CLI 环境中实测。
+- **审查范围**：当前工作区修改的 [index.html](../public/index.html)、[page.css](../public/css/page.css)、[funds.css](../public/css/funds.css)、[kd.css](../public/css/kd.css)、[modern.css](../public/css/modern.css)、[backtest.css](../public/css/backtest.css)、[application.mjs](../public/js/application.mjs)、[kd.mjs](../public/js/features/strategy/kd.mjs)、[backtest.mjs](../public/js/features/strategy/backtest.mjs)、`public/js/services/events.mjs`、`public/data/*` 及测试（[application-calendar.test.mjs](../test/application-calendar.test.mjs)、[frontend-regressions.test.mjs](../test/frontend-regressions.test.mjs)）；经两轮双人只读独立审查/复审闭环（两方审查前均未预读台账与技术债文档）。
+- **发现与处置**：修复 `#kd-plot` 缺失 `touch-action` / `user-select` / `.is-dragging` / `.mouse-focused` 样式与内联 `style.cursor` 覆盖、清理 [modern.css](../public/css/modern.css#L76-L78) 失效选择器 `.kd-summary-action svg` 并补回 [kd.css](../public/css/kd.css#L21-L24) `input[aria-invalid="true"]` 边框、消除回测复盘 KD 副图双次重绘及采样口径文案滞后、补充折叠过渡期 `inert` / `isCollapsed()` 悬浮拦截与单点 KD 圆点绘制，并从 [status.json](../public/data/status.json) 剥离个人自选股 `GOOGL`、移除未跟踪 `public/data/googl.json`、补充对应回归测试（详见 [历史审查归档](./review-archive.md)）。本轮无新增未解决待修项，保留原 `#9–#22`。
+- **测试验证**：最终代码运行 `node --test test/frontend-regressions.test.mjs test/application-calendar.test.mjs test/kd-strategy.test.mjs test/backtest.test.mjs test/ui-modernization.test.mjs test/signal-view.test.mjs test/strategy-summary.test.mjs test/version.test.mjs`，**65 / 65 全部通过**；全量 `npm test` **198 / 199 通过**，唯一失败为与本次改动无关的 macOS `/var` 软链路径导致 [build-site.test.mjs](../test/build-site.test.mjs#L9-L37) 找不到 `dist/nasdaq-funds.html`。真机触控手势与视觉动画仍需在设备上进一步确认。

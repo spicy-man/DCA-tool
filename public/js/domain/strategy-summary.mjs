@@ -95,7 +95,7 @@ export function summarizeFunding(signals, rows, { start, end }) {
 export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearThreshold = 10, mode = 'equal', totalBaseAmount = 0, kdOptions = null, plan = 'pyramidFear' }) {
   if (!sentiment?.length || !items?.length) return null;
   if (!['pyramidFear', 'kdFear'].includes(plan)) throw Error('组合定投方案无效');
-  if (plan === 'kdFear' && kdOptions === null) throw Error('KD组合缺少有效参数');
+  if (plan === 'kdFear' && kdOptions === null) throw Error('加权K组合缺少有效参数');
   const fngStart = sentiment[0].date;
   let start = null;
   let end = null;

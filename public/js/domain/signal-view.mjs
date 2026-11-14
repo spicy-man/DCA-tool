@@ -1,9 +1,9 @@
 export const SIGNAL_STRATEGIES = Object.freeze({
   regular: '普通定投（每月1N）',
-  pyramid: '回撤金字塔',
-  combined: '金字塔＋恐慌加投',
-  kd: 'KD 定投',
-  kdFear: 'KD 定投＋恐慌加投'
+  pyramid: '月跌幅金字塔',
+  combined: '月跌幅金字塔＋恐慌加投',
+  kd: '加权K定投',
+  kdFear: '加权K定投＋恐慌加投'
 });
 
 export const normalizeSignalStrategy = value => Object.hasOwn(SIGNAL_STRATEGIES, value) ? value : 'kdFear';
@@ -12,7 +12,7 @@ export const formatMultiple = value => value.toLocaleString('en-US', { maximumFr
 
 export function signalName(signal) {
   if (signal.type === 'fear') return '恐慌加投';
-  if (signal.strategy === 'kd') return 'KD定投';
+  if (signal.strategy === 'kd') return '加权K定投';
   if (signal.strategy === 'regular') return '普通定投';
   return '月度定投';
 }

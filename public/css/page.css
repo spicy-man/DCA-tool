@@ -49,6 +49,7 @@
 #allocation-message:empty { display: none; }
 .allocation-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; }
 #allocation-dialog .allocation-heading h2 { margin: 0; }
+#allocation-dialog-title:focus { outline: none; }
 .allocation-parameters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; }
 .allocation-parameters label { display: grid; gap: 5px; min-width: 0; font-size: 12px; font-weight: 550; }
 .allocation-parameters input, .allocation-fear-count input { border: 1px solid var(--border); border-radius: 4px; color: inherit; font: inherit; }
@@ -292,11 +293,21 @@ select {
   min-width: 0;
 }
 
-.chart-heading-side {
+.sentiment-chart-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.subchart-legend-row {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.subchart-legend-row .sentiment-chart-toggle {
+  margin-left: auto;
 }
 
 .sentiment-chart-toggle {
@@ -514,7 +525,6 @@ footer {
 
 summary {
   cursor: pointer;
-  display: inline-block;
 }
 
 .table-scroll {
@@ -665,13 +675,13 @@ th {
 }
 
 
-#price-chart,#chart {
+#price-chart,#kd-plot,#chart {
   cursor: crosshair;
   touch-action: none;
   user-select: none;
 }
 
-#price-chart.is-dragging,#chart.is-dragging {
+#price-chart.is-dragging,#kd-plot.is-dragging,#chart.is-dragging {
   cursor: grabbing;
 }
 
@@ -703,7 +713,7 @@ canvas:focus-visible {
   box-shadow: 0 0 0 1px #9aa6ad;
 }
 
-#price-chart.mouse-focused,#chart.mouse-focused {
+#price-chart.mouse-focused,#kd-plot.mouse-focused,#chart.mouse-focused {
   outline: none;
 }
 
@@ -1339,17 +1349,18 @@ footer {
   overflow: hidden;
 }
 
-.sentiment-chart-collapse #chart-wrap {
+.sentiment-chart-collapse .chart-wrap {
   margin-top: 0;
 }
 
 .sentiment-chart-collapse[hidden],
-#chart-wrap[hidden] {
+#chart-wrap[hidden],
+#kd-wrap[hidden] {
   display: none;
 }
 
 .chart-card:has(.sentiment-chart-collapse:is([hidden], [data-closing])) .navigator {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 #chart-wrap.expanded {
@@ -1674,6 +1685,11 @@ footer {
 
   .chart-controls .strategy-row #base-amount {
     margin-left: auto;
+  }
+
+  .chart-controls .strategy-row :is(#buy-day, #base-amount, #fear-threshold, #fear-buy-count, #main-kd-tier-factor) {
+    width: 90px;
+    min-width: 90px;
   }
 }
 

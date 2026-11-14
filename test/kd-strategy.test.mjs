@@ -101,7 +101,7 @@ test('KD＋恐慌叠加独立恐慌买入，同日合并需求，未成交KD信�
  near(combo.invested,kd.invested+6000);
  near(combo.maxMonthly,kd.maxMonthly+6000);
  near(combo.trades,kd.trades+6);
- assert.equal(combo.name,'KD 定投＋恐慌加投');
+ assert.equal(combo.name,'加权K定投＋恐慌加投');
  assert.equal(new Set(equal.results.map(r=>r.invested)).size,1);
  const kdFill=actual.kdOrders.find(r=>r.date===fearDate);
  assert.ok(kdFill);

@@ -130,13 +130,6 @@ body {
   padding-left: env(safe-area-inset-left, 0px);
 }
 
-/* iOS standalone PWAs paint a progressive top edge blur past safe-area-inset-top. */
-@media (display-mode: standalone) {
-  body {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 36px);
-  }
-}
-
 dialog:is(#symbol-dialog, #allocation-dialog, #strategy-dialog, #welcome-dialog) {
   inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   max-width: calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));

@@ -15,6 +15,7 @@ import { drawSentiment, drawOverview } from './charts/sentiment.mjs';
 import { periodKey } from './charts/geometry.mjs';
 import { attachChartNavigation, constrainWindow, navigatorState } from './charts/navigation.mjs';
 import { loadMarket, renderMarket, drawPrice, setMarketHover, invalidateMarket, hasLoadedMarket } from './features/market/chart.mjs';
+import { drawKDChart, setKDHover, getKDOptions } from './features/strategy/kd.mjs';
 import { aggregate, selectRange, rating } from './domain/sentiment.mjs';
 
 export function initApplication() {
@@ -65,67 +66,119 @@ export function initApplication() {
     const { fearEnabled, fearBuyCount } = signalSettings();
     return Boolean(fearEnabled && fearBuyCount > 0);
   };
+  const isKDEnabled = () => getKDOptions().tierFactor > 1;
+
+  function createChartCollapse({
+    collapseId,
+    wrapId,
+    toggleId,
+    labelId,
+    tooltipId,
+    initialCollapsed = false,
+    onExpand = () => {},
+    onCollapse = () => {}
+  }) {
+    let collapsed = initialCollapsed;
+    let visibilityToken = 0;
+
+    function apply({ animate = true } = {}) {
+      const token = ++visibilityToken;
+      const collapse = $(collapseId);
+      const wrap = $(wrapId);
+      const toggle = $(toggleId);
+      const label = $(labelId);
+      if (label) label.textContent = collapsed ? '展开图表' : '折叠图表';
+      toggle?.setAttribute?.('aria-expanded', String(!collapsed));
+      if (!collapse || !wrap) {
+        if (collapsed) onCollapse();
+        else onExpand();
+        return;
+      }
+
+      if (!collapsed) {
+        collapse.removeAttribute?.('data-closing');
+        collapse.inert = false;
+        wrap.hidden = false;
+        collapse.hidden = false;
+        onExpand();
+        return;
+      }
+
+      if ($(tooltipId)) $(tooltipId).hidden = true;
+      const inFlow = !wrap.parentElement || (collapse.contains ? collapse.contains(wrap) : wrap.parentElement === collapse);
+      const finishCollapse = () => {
+        if (token !== visibilityToken || !collapsed) return;
+        collapse.removeAttribute?.('data-closing');
+        collapse.inert = true;
+        collapse.hidden = true;
+        wrap.hidden = true;
+        onCollapse();
+      };
+
+      if (!animate || !inFlow || !collapse.getAnimations) {
+        finishCollapse();
+        return;
+      }
+
+      collapse.inert = true;
+      if (canTransitionDisplay()) {
+        collapse.hidden = true;
+      } else {
+        collapse.setAttribute?.('data-closing', '');
+      }
+
+      const animations = collapse.getAnimations();
+      if (!animations.length) {
+        finishCollapse();
+        return;
+      }
+
+      let timer;
+      Promise.race([
+        Promise.allSettled(animations.map(animation => animation.finished)),
+        new Promise(resolve => { timer = setTimeout(resolve, 400); })
+      ]).then(() => {
+        clearTimeout(timer);
+        finishCollapse();
+      });
+    }
+
+    return {
+      isCollapsed: () => collapsed,
+      setCollapsed(next, options) {
+        collapsed = Boolean(next);
+        apply(options);
+      },
+      toggle() {
+        collapsed = !collapsed;
+        apply();
+      },
+      apply
+    };
+  }
 
   let lastFearEnabled = isFearEnabled();
-  let sentimentCollapsed = !lastFearEnabled;
-  let sentimentVisibilityToken = 0;
-
-  function applySentimentChartVisibility({ animate = true } = {}) {
-    const token = ++sentimentVisibilityToken;
-    const collapse = $('sentiment-chart-collapse');
-    const wrap = $('chart-wrap');
-    const toggle = $('sentiment-chart-toggle');
-    const label = $('sentiment-chart-toggle-label');
-    if (label) label.textContent = sentimentCollapsed ? '展开图表' : '折叠图表';
-    toggle.setAttribute('aria-expanded', String(!sentimentCollapsed));
-
-    if (!sentimentCollapsed) {
-      collapse.removeAttribute?.('data-closing');
-      collapse.inert = false;
-      wrap.hidden = false;
-      collapse.hidden = false;
-      if (rows.length && windowRange) draw();
-      return;
-    }
-
-    $('tooltip').hidden = true;
-    const inFlow = !wrap.parentElement || wrap.parentElement === collapse;
-    const finishCollapse = () => {
-      if (token !== sentimentVisibilityToken || !sentimentCollapsed) return;
-      collapse.removeAttribute?.('data-closing');
-      collapse.inert = true;
-      collapse.hidden = true;
-      wrap.hidden = true;
-      plot = null;
-    };
-
-    if (!animate || !inFlow || !collapse.getAnimations) {
-      finishCollapse();
-      return;
-    }
-
-    collapse.inert = true;
-    if (canTransitionDisplay()) {
-      collapse.hidden = true;
-    } else {
-      collapse.setAttribute?.('data-closing', '');
-    }
-
-    const animations = collapse.getAnimations();
-    if (!animations.length) {
-      finishCollapse();
-      return;
-    }
-
-    let timer;
-    Promise.race([
-      Promise.allSettled(animations.map(animation => animation.finished)),
-      new Promise(resolve => { timer = setTimeout(resolve, 400); })
-    ]).then(() => {
-      clearTimeout(timer);
-      finishCollapse();
-    });
-  }
+  let lastKDEnabled = isKDEnabled();
+  const sentimentCollapse = createChartCollapse({
+    collapseId: 'sentiment-chart-collapse',
+    wrapId: 'chart-wrap',
+    toggleId: 'sentiment-chart-toggle',
+    labelId: 'sentiment-chart-toggle-label',
+    tooltipId: 'tooltip',
+    initialCollapsed: !lastFearEnabled,
+    onExpand: () => { if (rows.length && windowRange) draw(); },
+    onCollapse: () => { plot = null; }
+  });
+  const kdCollapse = createChartCollapse({
+    collapseId: 'kd-chart-collapse',
+    wrapId: 'kd-wrap',
+    toggleId: 'kd-chart-toggle',
+    labelId: 'kd-chart-toggle-label',
+    tooltipId: 'kd-tooltip',
+    initialCollapsed: !lastKDEnabled,
+    onExpand: () => { drawKDChart(); },
+    onCollapse: () => { setKDHover(null); }
+  });
 
   function draw() {
     if ($('chart-wrap').hidden) {
@@ -257,17 +310,18 @@ export function initApplication() {
     const expanded = $('layout').value === 'expanded';
     $('chart-wrap').classList.toggle('expanded', expanded);
     $('price-wrap').classList.toggle('expanded', expanded);
+    $('kd-wrap')?.classList.toggle('expanded', expanded);
     draw();
     drawPrice();
+    drawKDChart();
   }
 
   $('layout').addEventListener('change', applyLayout);
   applyLayout();
-  applySentimentChartVisibility({ animate: false });
-  $('sentiment-chart-toggle').addEventListener('click', () => {
-    sentimentCollapsed = !sentimentCollapsed;
-    applySentimentChartVisibility();
-  });
+  sentimentCollapse.apply({ animate: false });
+  kdCollapse.apply({ animate: false });
+  $('sentiment-chart-toggle').addEventListener('click', () => sentimentCollapse.toggle());
+  $('kd-chart-toggle')?.addEventListener('click', () => kdCollapse.toggle());
 
   $('latest').addEventListener('click', () => {
     if (!calendar.length) return;
@@ -289,7 +343,7 @@ export function initApplication() {
   }
 
   function showSentimentHover(date, pointer = null) {
-    if (sentimentCollapsed || $('chart-wrap').hidden) {
+    if (sentimentCollapse.isCollapsed() || $('chart-wrap').hidden) {
       $('tooltip').hidden = true;
       return;
     }
@@ -330,11 +384,13 @@ export function initApplication() {
     const date = plot.scale.dateAt(mx);
     showSentimentHover(date, { x: mx, y: my });
     setMarketHover(date);
+    setKDHover(date);
   });
 
   function hideHover() {
     showSentimentHover(null);
     setMarketHover(null);
+    setKDHover(null);
   }
 
   $('chart').addEventListener('pointerleave', hideHover);
@@ -421,6 +477,16 @@ export function initApplication() {
 
   appEvents.addEventListener(events.marketHover, event => {
     showSentimentHover(event.detail);
+    if (kdCollapse.isCollapsed() || $('kd-wrap').hidden) {
+      if ($('kd-tooltip')) $('kd-tooltip').hidden = true;
+    } else {
+      setKDHover(event.detail);
+    }
+  });
+
+  appEvents.addEventListener(events.kdHover, event => {
+    showSentimentHover(event.detail);
+    setMarketHover(event.detail);
   });
 
   function applyWindow(view) {
@@ -437,7 +503,7 @@ export function initApplication() {
     render();
   }
 
-  for (const id of ['price-chart', 'chart']) {
+  for (const id of ['price-chart', 'kd-plot', 'chart']) {
     attachChartNavigation($(id), {
       getWindow: () =>
         rows.length && windowRange
@@ -459,18 +525,21 @@ export function initApplication() {
     const fearActive = isFearEnabled();
     if (fearActive !== lastFearEnabled) {
       lastFearEnabled = fearActive;
-      sentimentCollapsed = !fearActive;
-      applySentimentChartVisibility();
+      sentimentCollapse.setCollapsed(!fearActive);
     } else if (rows.length) {
       draw();
+    }
+    const kdActive = isKDEnabled();
+    if (kdActive !== lastKDEnabled) {
+      lastKDEnabled = kdActive;
+      kdCollapse.setCollapsed(!kdActive);
     }
   });
 
   appEvents.addEventListener(events.symbolSettings, () => {
     const fearActive = isFearEnabled();
     lastFearEnabled = fearActive;
-    sentimentCollapsed = !fearActive;
-    applySentimentChartVisibility();
+    sentimentCollapse.setCollapsed(!fearActive);
   });
 
   appEvents.addEventListener(events.sourceHealth, loadHealth);

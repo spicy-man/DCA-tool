@@ -12,7 +12,7 @@ function element() {
     textContent: '', dataset: {}, style: { setProperty() {} }, children: [], value: '', checked: true,
     listeners: {}, open: true, clientWidth: 600, clientHeight: 300,
     replaceChildren(...children) { this.children = children; },
-    append(child) { this.children = this.children.filter(existing => existing !== child); this.children.push(child); },
+    append(...children) { for (const child of children) { this.children = this.children.filter(existing => existing !== child); this.children.push(child); } },
     setAttribute(name, value) { attrs[name] = String(value); },
     getAttribute(name) { return attrs[name]; },
     closest() { return this; },
@@ -597,43 +597,119 @@ test('配比弹窗支持按权重填入、草稿校验与取消隔离、0倍数�
   assert.equal($('allocation-plan-pyramidFear').getAttribute('aria-pressed'), 'true');
 });
 
-test('KD行情失效时清空旧指标、明细及曲线，并禁止导出旧结果',async t=>{
+test('KD行情失效时清空旧指标、明细及画布，隐藏tooltip并禁止导出旧结果',async t=>{
   const $=dom(t),{renderKDReview}=await import('../public/js/features/strategy/kd.mjs');
-  for(const id of ['kd-latest','kd-largest','kd-spent','kd-ratio','kd-components','kd-note'])$(id).textContent='旧结果';
-  $('kd-orders').append(element());$('kd-plot').append(element());$('kd-download').disabled=false;
+  const calls=[];
+  $('kd-plot').clientWidth=960;$('kd-plot').clientHeight=224;
+  $('kd-plot').getContext=()=>new Proxy({},{get:(_,k)=>k==='measureText'?()=>({width:20}):(...a)=>calls.push([k,...a]),set:()=>true});
+  $('kd-orders').append(element());$('kd-download').disabled=false;$('kd-tooltip').hidden=false;
+  $('kd-latest').textContent='80.00';$('kd-rating').textContent='第 1 档';$('kd-observations').textContent='10 条记录';
   renderKDReview(null,null);
-  for(const id of ['kd-latest','kd-largest','kd-spent','kd-ratio'])assert.equal($(id).textContent,'—');
-  assert.equal($('kd-orders').children.length,0);assert.equal($('kd-plot').children.length,0);assert.equal($('kd-download').disabled,true);assert.equal($('kd-status').textContent,'等待行情');
+  assert.equal($('kd-orders').children.length,0);assert.equal($('kd-download').disabled,true);assert.equal($('kd-status').textContent,'等待行情');
+  assert.equal($('kd-latest').textContent,'—');assert.equal($('kd-rating').textContent,'—');assert.equal($('kd-observations').textContent,'—');
+  assert.equal($('kd-tooltip').hidden,true);assert.ok(calls.some(c=>c[0]==='clearRect'));
 });
 
-test('KD旧默认值迁移80/20及1.5，保留自定义，输入校验及重置恢复新默认',async t=>{
- const $=dom(t),{initKDControls,getKDOptions}=await import('../public/js/features/strategy/kd.mjs');
+test('KD独立Canvas曲线与主图对齐，月K/季K细实线、加权K粗实线及悬浮tooltip与联动准线',async t=>{
+ const $=dom(t),{initKDControls,getKDOptions,renderKDReview,setKDHover}=await import('../public/js/features/strategy/kd.mjs');
  const previous=globalThis.localStorage;let saved=JSON.stringify({monthWeight:40,quarterWeight:60,period:9,signal:3});
  globalThis.localStorage={getItem:()=>saved,setItem:(_key,value)=>{saved=value;}};
  t.after(()=>{globalThis.localStorage=previous;});
- initKDControls();assert.equal(getKDOptions().tierFactor,1.5);assert.equal(Number($('kd-month-weight').value),80);assert.equal(Number($('kd-quarter-weight').value),20);
- saved=JSON.stringify({monthWeight:70,quarterWeight:30,period:9,signal:3,tierFactor:2});initKDControls();assert.equal(getKDOptions().monthWeight,70);assert.equal(getKDOptions().tierFactor,2);
- for(const id of ['kd-month-weight','kd-period','kd-signal'])$(id).value=String($(id).value);
- $('kd-tier-factor').value='1.5';$('kd-tier-factor').listeners.input();
+ initKDControls();assert.deepEqual(getKDOptions(),{monthWeight:80,quarterWeight:20,period:9,signal:3,tierFactor:1.5});assert.equal($('main-kd-tier-factor').value,'1.5');
+ saved=JSON.stringify({monthWeight:70,quarterWeight:30,period:9,signal:3,tierFactor:2});initKDControls();assert.deepEqual(getKDOptions(),{monthWeight:80,quarterWeight:20,period:9,signal:3,tierFactor:2});
+ assert.equal($('main-kd-tier-factor').value,'2');
+ $('main-kd-tier-factor').value='1.5';$('main-kd-tier-factor').listeners.input();
  assert.equal(getKDOptions().tierFactor,1.5);assert.equal(JSON.parse(saved).tierFactor,1.5);
- assert.equal($('main-kd-tier-factor').value,'1.5');
  assert.equal($('kd-tier-row').children[3].textContent,'2.3N');assert.match($('kd-risk').textContent,/38.4N/);
- for(const value of ['','0.9','3.1','NaN']){$('kd-tier-factor').value=value;$('kd-tier-factor').listeners.input();assert.equal(getKDOptions().tierFactor,1.5);assert.match($('kd-error').textContent,/上一次有效参数/);}
- $('kd-period').value='';$('kd-period').listeners.input();
+ for(const value of ['','0.9','3.1','NaN']){$('main-kd-tier-factor').value=value;$('main-kd-tier-factor').listeners.input();assert.equal(getKDOptions().tierFactor,1.5);assert.equal($('main-kd-tier-factor').getAttribute('aria-invalid'),'true');assert.match($('main-kd-factor-error').textContent,/上一次有效参数/);}
  $('main-kd-tier-factor').value='1.3';$('main-kd-tier-factor').listeners.input();
- assert.equal($('kd-tier-factor').value,'1.3');assert.equal(JSON.parse(saved).tierFactor,1.3);
- assert.equal($('kd-period').value,'');assert.equal(getKDOptions().period,9);
- assert.equal($('kd-error').textContent,'');assert.match($('kd-parameter-error').textContent,/上一次有效参数/);
- $('main-kd-tier-factor').value='3.1';$('main-kd-tier-factor').listeners.input();
- assert.equal($('kd-tier-factor').value,'1.3');assert.match($('main-kd-factor-error').textContent,/上一次有效参数/);
- initKDControls();assert.equal($('main-kd-tier-factor').value,'1.3');assert.equal($('kd-tier-factor').value,'1.3');
- $('kd-month-weight').value='40';$('kd-month-weight').listeners.input();
- $('main-kd-tier-factor').value='2';$('main-kd-tier-factor').listeners.input();
- initKDControls();
- assert.deepEqual(getKDOptions(),{monthWeight:40,quarterWeight:60,period:9,signal:3,tierFactor:2});
- assert.equal($('main-kd-tier-factor').value,'2');assert.equal($('kd-tier-factor').value,'2');
- $('kd-reset').listeners.click();assert.deepEqual(getKDOptions(),{monthWeight:80,quarterWeight:20,period:9,signal:3,tierFactor:1.5});assert.equal($('kd-tier-row').children[10].textContent,'38.4N');assert.equal($('kd-error').textContent,'');assert.equal(JSON.parse(saved).tierFactor,1.5);
- assert.equal($('main-kd-tier-factor').value,'1.5');assert.equal($('kd-tier-factor').value,'1.5');
+ assert.equal($('main-kd-tier-factor').getAttribute('aria-invalid'),'false');
+ initKDControls();assert.equal(getKDOptions().tierFactor,1.3);assert.equal($('main-kd-tier-factor').value,'1.3');
+ $('main-kd-tier-factor').value='1.5';$('main-kd-tier-factor').listeners.input();
+
+ const plot=$('kd-plot'),tip=$('kd-tooltip'),calls=[];
+ plot.clientWidth=960;plot.clientHeight=224;
+ plot.getBoundingClientRect=()=>({left:0,top:0,width:960,height:224});
+ plot.getContext=()=>new Proxy({},{
+   get:(_,k)=>k==='measureText'?()=>({width:20}):(...a)=>calls.push([k,...a]),
+   set:(target,k,v)=>{calls.push(['set',k,v]);target[k]=v;return true;}
+ });
+ tip.closest=()=>null;tip.offsetWidth=160;tip.offsetHeight=120;
+ const kdRows=[
+   ['2025-01-02',100,104,98,101],['2025-01-03',101,106,100,105],
+   ['2025-01-06',105,107,101,102],['2025-01-10',102,108,99,107],
+   ['2025-01-13',107,112,104,110],['2025-01-17',110,115,106,113]
+ ].map(([date,open,high,low,close])=>({date,open,high,low,close}));
+ const kdRange={start:'2025-01-02',end:'2025-01-17',frequency:'daily',calendar:kdRows.map(r=>r.date)};
+ renderKDReview({symbol:'QQQ',baseAmount:1000,rows:kdRows,kdSignals:[],range:kdRange},{start:'2025-01-02',end:'2025-01-17',kdOrders:[],deferredKD:0});
+ assert.notEqual($('kd-latest').textContent,'—');
+ assert.match($('kd-rating').textContent,/第 \d 档 · /);
+ assert.equal($('kd-observations').textContent,'5 条记录');
+ const dashes=calls.filter(c=>c[0]==='setLineDash').map(c=>JSON.stringify(c[1]));
+ const widths=calls.filter(c=>c[0]==='set'&&c[1]==='lineWidth').map(c=>c[2]);
+ const curves=calls.filter(c=>c[0]==='bezierCurveTo');
+ assert.ok(!dashes.includes('[5,4]'));assert.ok(dashes.includes('[]'));
+ assert.equal(widths.filter(w=>w===1).length,3);assert.ok(widths.includes(2.2));
+ assert.equal(curves.length,6);
+ assert.ok(curves.every(([, , y1, , y2, , y3]) => [y1, y2, y3].every(v => v >= 10 - 1e-6 && v <= 192 + 1e-6)));
+ assert.equal(tip.hidden,true);
+
+ const hovered=[];
+ const onKdHover=e=>hovered.push(e.detail);
+ appEvents.addEventListener(events.kdHover,onKdHover);
+ t.after(()=>appEvents.removeEventListener(events.kdHover,onKdHover));
+
+ calls.length=0;
+ plot.listeners.pointermove({clientX:500,clientY:100});
+ assert.equal(tip.hidden,false);
+ assert.match(tip.children[1].children.map(c=>c.textContent).join(' '),/加权K .*月K .*季度K .*分档倍率 .*周收盘 /);
+ assert.equal(hovered.at(-1),tip.children[0].textContent);
+ assert.equal(calls.filter(c=>c[0]==='arc').length,3);
+
+ // 右侧Y轴区域外应隐藏tooltip并通知取消联动
+ plot.listeners.pointermove({clientX:920,clientY:100});
+ assert.equal(tip.hidden,true);
+ assert.equal(hovered.at(-1),null);
+
+ // 外部图表联动触发setKDHover（含周中沿用上周指标日）
+ calls.length=0;
+ setKDHover('2025-01-13');
+ assert.equal(tip.hidden,false);
+ assert.equal(tip.children[0].textContent,'2025-01-13');
+ assert.match(tip.children[1].children.map(c=>c.textContent).join(' '),/周收盘 2025-01-10/);
+ assert.equal(calls.filter(c=>c[0]==='arc').length,3);
+ setKDHover('2025-01-17');
+ assert.equal(tip.hidden,false);
+ assert.equal(tip.children[0].textContent,'2025-01-17');
+ plot.listeners.pointerleave();
+ assert.equal(tip.hidden,true);
+ assert.equal(hovered.at(-1),null);
+
+ // 窗口右端落在周中非交易日（如休市日）时，曲线仍补齐至最后可用交易日并同步口径与条数
+ calls.length=0;
+ appEvents.dispatchEvent(new CustomEvent(events.replayRange,{
+   detail:{start:'2025-01-02',end:'2025-01-09',frequency:'daily',calendar:['2025-01-02','2025-01-03','2025-01-06']}
+ }));
+ assert.equal(calls.filter(c=>c[0]==='bezierCurveTo').length,3);
+ assert.match($('kd-sample-note').textContent,/日线视图/);
+ assert.equal($('kd-observations').textContent,'2 条记录');
+
+ // 仅1个有效采样点时也应绘制3条曲线圆点，不出现空白画布
+ calls.length=0;
+ appEvents.dispatchEvent(new CustomEvent(events.replayRange,{
+   detail:{start:'2025-01-03',end:'2025-01-03',frequency:'daily',calendar:['2025-01-03']}
+ }));
+ assert.equal(calls.filter(c=>c[0]==='bezierCurveTo').length,0);
+ assert.equal(calls.filter(c=>c[0]==='arc').length,3);
+ assert.equal($('kd-observations').textContent,'1 条记录');
+
+ // 周线视图下按周聚合统计并刷新示例文案，复盘事件再切回日线视角
+ renderKDReview(
+   {symbol:'QQQ',baseAmount:1000,rows:kdRows,kdSignals:[],range:{start:'2025-01-02',end:'2025-01-17',frequency:'weekly',calendar:kdRows.map(r=>r.date)}},
+   {start:'2025-01-02',end:'2025-01-17',kdOrders:[],deferredKD:0}
+ );
+ assert.match($('kd-sample-note').textContent,/周线视图/);
+ assert.equal($('kd-observations').textContent,'3 条记录');
 });
 
 test('组合 KD 系数草稿同时用于计划和回测，关闭后放弃、确认后同步保存', async t => {
@@ -692,7 +768,6 @@ test('组合 KD 系数草稿同时用于计划和回测，关闭后放弃、确�
   submit();
   assert.equal($('allocation-dialog').open, false);
   assert.equal($('main-kd-tier-factor').value, '1.3');
-  assert.equal($('kd-tier-factor').value, '1.3');
   assert.equal(JSON.parse(saved.get('seeker.kd.v1')).tierFactor, 1.3);
 });
 
@@ -719,7 +794,7 @@ test('策略说明在三个页签间切换，KD 十档金额和示例同步当�
  initStrategyDialog();
  assertSelected(0);
  assert.equal($('strategy-kd-tiers').children.length,10);
- $('kd-tier-factor').value='3';$('kd-tier-factor').listeners.input();
+ $('main-kd-tier-factor').value='3';$('main-kd-tier-factor').listeners.input();
  assert.match($('strategy-kd-tiers').children[9].children.map(c=>c.textContent).join(' '), /19,683N/);
  tabs[1].listeners.click();
  assertSelected(1);
@@ -728,7 +803,7 @@ test('策略说明在三个页签间切换，KD 十档金额和示例同步当�
  $('base-amount').value='50';$('fear-buy-count').value='0';$('fear-buy-count').listeners.input();
  assert.match($('strategy-fear-parameters').textContent,/\$50\.00/);
  tabs[2].listeners.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(focused,0);assertSelected(0);
- $('kd-reset').listeners.click();
+ $('main-kd-tier-factor').value='1.5';$('main-kd-tier-factor').listeners.input();
  diagrams.forEach(button=>button.listeners.click());
  assert.deepEqual(opened,diagrams.map(b=>[new URL('../public/diagram.html?image='+b.dataset.image,import.meta.url).href,'_blank','noopener,noreferrer']));
  assert.equal($('strategy-dialog').open,true);
@@ -754,7 +829,7 @@ test('状态只保留两种组合策略，切换和刷新恢复选择',async t=>
    assert.equal($('status-strategy-'+strategy).getAttribute('aria-pressed'),'true');
    assert.equal($('backtest-results').children,backtest);assert.equal($('backtest-period').textContent,period);
    const visible=getVisibleSignals();assert.ok(visible.every(s=>s.date<=range.end));
-   if(strategy==='kdFear')assert.match($('funding-split').textContent,/KD额外投入/);
+   if(strategy==='kdFear')assert.match($('funding-split').textContent,/加权K额外投入/);
    drawSignalMarkers({...frame,x:date=>daily.findIndex(r=>r.date===date)*70,y:()=>90});assert.equal($('signal-layer').children.length,visible.length);
  }
  initStrategyOverlay();assert.equal(getSignalStrategy(),'kdFear');

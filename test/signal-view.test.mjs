@@ -35,13 +35,13 @@ test('策略摘要随策略、区间与待确认状态更新，数据失效时�
      assert.ok(text('next-plan-estimate').includes(kdMultiple(state.weightedK,1.5)+'N'));
      assert.match(text('next-plan-estimate-note'),new RegExp(`^加权K ${state.weightedK.toFixed(2)}，第 ${kdTierLevel(state.weightedK)} 档（\\d+–\\d+）\\n自 ATH 回撤 \\d+\\.\\d{2}%$`));
      assert.doesNotMatch(text('next-plan-estimate-note'),/金额可能变化|未计未来/);
-     assert.match(text('funding-split'),/KD额外投入/);assert.doesNotMatch(text('funding-split'),/金字塔|恐慌/);
+     assert.match(text('funding-split'),/加权K额外投入/);assert.doesNotMatch(text('funding-split'),/金字塔|恐慌/);
    }
    if(strategy==='combined'||strategy==='kdFear')assert.match(text('fear-state'),/9\.00/);
    if(strategy==='kdFear'){
      const expected=(kdSignals.reduce((sum,s)=>sum+s.amount,3000)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
      assert.ok(text('funding-total').startsWith(expected));
-     assert.match(text('funding-split'),/KD额外投入/);assert.match(text('funding-split'),/恐慌加投/);
+     assert.match(text('funding-split'),/加权K额外投入/);assert.match(text('funding-split'),/恐慌加投/);
    }
  }
  renderStrategySummary(data,{start:'2024-01-01',end:'2024-01-31'},settings,selectSignalHistory('combined',input),fear,{strategy:'combined'});

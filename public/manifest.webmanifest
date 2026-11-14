@@ -2,7 +2,7 @@
   "id": "./",
   "name": "定投助手",
   "short_name": "定投助手",
-  "description": "美股指数与国内场内 ETF 定投信号、KD 周线分档、回撤金字塔与策略回测工具。",
+  "description": "美股指数与国内场内 ETF 定投信号、加权K周线分档、月跌幅金字塔与策略回测工具。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

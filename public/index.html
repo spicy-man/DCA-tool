@@ -9,7 +9,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="定投助手">
-  <meta name="description" content="查看 SPY / QQQ / VGT / SMH / BRK-B 前复权行情、恐慌与贪婪指数及近月回撤金字塔定投信号。">
+  <meta name="description" content="查看 SPY / QQQ / VGT / SMH / BRK-B 前复权行情、恐慌与贪婪指数及月跌幅金字塔定投信号。">
   <title>定投助手</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
@@ -18,7 +18,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=2.1.0">
+  <link rel="stylesheet" href="./style.css?v=2.2.0">
 </head>
 <body>
   <div class="shell">
@@ -27,7 +27,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 2.1.0">v2.1.0</span>
+        <span class="version-badge" aria-label="版本 2.2.0">v2.2.0</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -137,8 +137,8 @@
             <label>恐慌加投倍数
               <input id="fear-buy-count" aria-label="恐慌加投倍数" title="每次触发投入的 N 数；默认 0 表示不启用恐慌加投，填正整数（如 3）表示一次加投 3N（按当前标的独立保存）" type="number" min="0" step="1" value="0" inputmode="numeric">
             </label>
-            <label>KD 分档系数
-              <input id="main-kd-tier-factor" type="number" min="1" max="3" step="0.05" value="1.5" inputmode="decimal" aria-describedby="kd-factor-help main-kd-factor-error">
+            <label>加权K分档系数
+              <input id="main-kd-tier-factor" type="number" min="1" max="3" step="0.05" value="1.5" inputmode="decimal" title="每降低10分，投入乘以分档系数。系数1为每月固定1N，系数2为原翻倍规则；支持小数。" aria-describedby="main-kd-factor-error">
             </label>
             <label class="signal-toggle">
               <input id="signals-enabled" type="checkbox" checked>买入信号
@@ -152,8 +152,8 @@
           <div class="summary-heading strategy-status-heading">
             <h3 id="strategy-status-heading">当前策略状态</h3>
             <div class="strategy-status-switch" role="group" aria-label="当前策略状态：选择策略">
-              <button id="status-strategy-kdFear" type="button" aria-pressed="true">KD 定投＋恐慌加投</button>
-              <button id="status-strategy-combined" type="button" aria-pressed="false">金字塔＋恐慌加投</button>
+              <button id="status-strategy-kdFear" type="button" aria-pressed="true">加权K定投</button>
+              <button id="status-strategy-combined" type="button" aria-pressed="false">月跌幅金字塔</button>
             </div>
           </div>
           <div class="summary-grid status-grid">
@@ -232,7 +232,7 @@
           <a id="price-source" class="price-source" href="https://finance.yahoo.com/quote/SPY/history/" target="_blank" rel="noreferrer">Yahoo Finance ↗</a>
 
           <section class="strategy-details" aria-labelledby="strategy-heading">
-            <h3 id="strategy-heading">KD 定投＋恐慌加投买入信号</h3>
+            <h3 id="strategy-heading">加权K定投＋恐慌加投买入信号</h3>
             <p id="signal-strategy-rule"></p>
             <div id="signal-pyramid-explanation">
             <p>回看前一个日历月（包含当天、月底对齐）的最高价，以当日收盘价计算回撤。不足 5% 投入 N；5% 为 2N；10% 为 4N；15% 为 6N，之后每多 5% 增加 2N，最多 38N。</p>
@@ -253,45 +253,59 @@
         </details>
           <a id="fund-entry" class="fund-entry" href="./nasdaq-funds.html" hidden>纳指100 场内 ETF 对比 <span aria-hidden="true">↗</span></a>
         </div>
-        <details class="kd-panel" id="kd-panel">
-          <summary>KD 定投 · 月K与季度K加权</summary>
-          <div class="kd-content">
-            <p id="kd-status">正在读取指标…</p>
-            <div class="kd-controls">
-              <label>月K权重 (%)<input id="kd-month-weight" type="number" min="0" max="100" step="any" value="80" aria-describedby="kd-parameter-error"></label>
-              <label>季度K权重 (%)<input id="kd-quarter-weight" type="number" value="20" readonly aria-readonly="true"></label>
-              <label>Period · 日历回看<input id="kd-period" type="number" min="1" max="200" step="1" value="9" aria-describedby="kd-parameter-error"></label>
-              <label>Signal · 日历平滑<input id="kd-signal" type="number" min="1" max="200" step="1" value="3" aria-describedby="kd-parameter-error"></label>
-              <label>分档系数 (1–3)<input id="kd-tier-factor" type="number" min="1" max="3" step="0.05" value="1.5" inputmode="decimal" aria-describedby="kd-factor-help kd-error"></label>
-              <button id="kd-reset" type="button">恢复默认参数</button>
-            </div>
-            <p id="kd-factor-help" class="backtest-note">每降低10分，投入乘以分档系数。系数1为每月固定1N，系数2为原翻倍规则；支持小数。</p>
-            <p id="kd-error" class="kd-error" role="status" aria-live="polite"></p>
-            <p id="kd-parameter-error" class="kd-error kd-inline-error" role="status"></p>
-            <div class="summary-grid kd-metrics">
-              <div><h4>最新可用加权K</h4><strong id="kd-latest">—</strong><p id="kd-components"></p></div>
-              <div><h4>KD实际买入总额 (USD)</h4><strong id="kd-spent">—</strong><p>不含同供资计划下未买入的现金</p></div>
-              <div><h4>KD最大单月买入 (USD)</h4><strong id="kd-largest">—</strong><p>按实际成交月份合计</p></div>
-              <div><h4>KD买入额 / 普通1N买入额</h4><strong id="kd-ratio">—</strong><p>账户收益对比见下方五策略回测</p></div>
-            </div>
-            <p id="kd-note" class="backtest-note"></p>
-            <div class="backtest-legend kd-legend"><span>月K</span><span>季度K</span><span class="is-kd">加权K</span></div>
-            <svg id="kd-plot" class="backtest-plot" viewBox="0 0 960 260" role="img" aria-label="已收盘周线计算的月周期K、季度周期K与加权K曲线"></svg>
-            <details class="backtest-method"><summary>KD分档与计算口径</summary>
-              <div class="table-scroll"><table class="backtest-table"><thead><tr><th>加权K</th><th>90–100</th><th>80–90</th><th>70–80</th><th>60–70</th><th>50–60</th><th>40–50</th><th>30–40</th><th>20–30</th><th>10–20</th><th>0–10</th></tr></thead><tbody><tr id="kd-tier-row"><th>投入金额</th><td>1N</td><td>1.5N</td><td>2.3N</td><td>3.4N</td><td>5.1N</td><td>7.6N</td><td>11.4N</td><td>17.1N</td><td>25.6N</td><td>38.4N</td></tr></tbody></table></div>
-              <ul>
-                <li>沿用你提供的 Liang KDJ V6.2 周线基准：分别映射9个日历月／9个日历季度的实际周K线数计算RSV，按3个月／3个季度实际周K线数递归平滑K；参数可改。不是普通9根月线或季线KDJ。</li>
-                <li>加权K = 月K × 月权重 + 季度K × 季度权重，默认80% / 20%。投入 = N × 分档系数的档位次方，档位从0到9；分档系数可设1至3，默认1.5。分档下界包含、上界不含，100归入顶档。使用完整精度的K值分档，分档倍率四舍五入到小数点后1位再计算投入。</li>
-                <li>使用Yahoo原始源High/Low/Close（拆股调整、未作现金分红前复权）合成周线，周时间戳取首个实际交易日；只采用已确认收盘的周线。周五或节假日缩短周的最后一日收盘后可以更新本周K；未结束周绝不使用未来高低价。成立以来历史预热，周期不足按脚本4周／13周回退，无已完成周线时按1N。</li>
-                <li>KD与普通定投共用上方每月定投日和N，每月计划日收盘确认，统一在下一可用交易日开盘成交。休市顺延、月底对齐采用模板日历规则；若上月顺延至本月，两个月计划分别保留。区间末尾未成交信号只展示、不计投入。</li>
-                <li>KD月度买入仅按K值分档，不卖出，不使用金叉、SMA5或恐慌指数过滤；选择“KD 定投＋恐慌加投”时，恐慌信号另外触发独立买入。账户使用模板分红再投资前复权价格估值。模板从区间起点零持仓开始。</li>
-                <li>“各自投入”比较不同资金投入下的资产、收益和XIRR；“同一供资计划”每日给五策略注入相同金额，金额取各策略当天所需资金的最大值，闲置现金按模板3%年化假设计息。模型按需注入外部资金，不设个人现金储备上限，须自行核验可负担性。</li>
-              </ul>
-              <p id="kd-risk" class="kd-warning">分档倍率四舍五入到小数点后1位，默认系数1.5时每笔最高为38.4N。同月如有两个顺延月度计划，合计可能更高。更多本金不是择时超额收益，历史回测不保证未来表现。</p>
-            </details>
-            <details class="backtest-method"><summary>逐月K值、档位与买入明细</summary><div class="table-scroll"><table class="backtest-table kd-orders-table"><thead><tr><th>信号日</th><th>计划所属月</th><th>使用的周收盘</th><th>月K</th><th>季度K</th><th>加权K</th><th>倍率</th><th>KD金额</th><th>普通1N</th><th>成交日</th></tr></thead><tbody id="kd-orders"></tbody></table></div></details>
-            <div class="kd-export"><button id="kd-download" type="button" disabled>导出KD逐月明细 CSV</button></div>
+      </section>
+
+      <section class="chart-card kd-chart-card" id="kd-panel" aria-labelledby="kd-chart-title">
+        <div class="chart-heading">
+          <div>
+            <div class="eyebrow">策略指标</div>
+            <h2 id="kd-chart-title">加权K指标</h2>
+            <p id="kd-status">指标范围 0–100，数值越低对应买入档位越高</p>
           </div>
+          <div class="score-block">
+            <div><strong id="kd-latest">—</strong><span> / 100</span></div>
+            <span id="kd-rating">—</span>
+          </div>
+        </div>
+        <div class="sentiment-chart-actions subchart-legend-row">
+          <div class="backtest-legend kd-legend"><span>月K</span><span>季度K</span><span class="is-kd">加权K</span></div>
+          <button id="kd-chart-toggle" class="sentiment-chart-toggle" type="button" aria-expanded="true" aria-controls="kd-chart-collapse">
+            <span id="kd-chart-toggle-label">折叠图表</span>
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+        </div>
+
+        <div class="sentiment-chart-collapse" id="kd-chart-collapse">
+          <div class="sentiment-chart-collapse-inner">
+            <div class="chart-wrap expanded" id="kd-wrap">
+              <canvas id="kd-plot" aria-label="已收盘周线计算的月周期K、季度周期K与加权K曲线" role="img"></canvas>
+              <div id="kd-tooltip" class="tooltip" hidden></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-caption">
+          <span id="kd-sample-note">按已收盘周线更新 · 月K 80% / 季度K 20%</span>
+          <span id="kd-observations">—</span>
+        </div>
+
+        <details class="accessible-data kd-accessible-data">
+          <summary>加权K分档与计算口径</summary>
+          <div class="table-scroll"><table class="backtest-table"><thead><tr><th>加权K</th><th>90–100</th><th>80–90</th><th>70–80</th><th>60–70</th><th>50–60</th><th>40–50</th><th>30–40</th><th>20–30</th><th>10–20</th><th>0–10</th></tr></thead><tbody><tr id="kd-tier-row"><th>投入金额</th><td>1N</td><td>1.5N</td><td>2.3N</td><td>3.4N</td><td>5.1N</td><td>7.6N</td><td>11.4N</td><td>17.1N</td><td>25.6N</td><td>38.4N</td></tr></tbody></table></div>
+          <ul>
+            <li>沿用你提供的 Liang KDJ V6.2 周线基准：分别映射9个日历月／9个日历季度的实际周K线数计算RSV，按3个月／3个季度实际周K线数递归平滑K。不是普通9根月线或季线KDJ。</li>
+            <li>加权K = 月K × 月权重 + 季度K × 季度权重，默认80% / 20%。投入 = N × 分档系数的档位次方，档位从0到9；分档系数可设1至3，默认1.5。分档下界包含、上界不含，100归入顶档。使用完整精度的K值分档，分档倍率四舍五入到小数点后1位再计算投入。</li>
+            <li>使用Yahoo原始源High/Low/Close（拆股调整、未作现金分红前复权）合成周线，周时间戳取首个实际交易日；只采用已确认收盘的周线。周五或节假日缩短周的最后一日收盘后可以更新本周K；未结束周绝不使用未来高低价。成立以来历史预热，周期不足按脚本4周／13周回退，无已完成周线时按1N。</li>
+            <li>加权K定投与普通定投共用上方每月定投日和N，每月计划日收盘确认，统一在下一可用交易日开盘成交。休市顺延、月底对齐采用模板日历规则；若上月顺延至本月，两个月计划分别保留。区间末尾未成交信号只展示、不计投入。</li>
+            <li>加权K月度买入仅按加权K分档，不卖出，不使用金叉、SMA5或恐慌指数过滤；选择“加权K定投＋恐慌加投”时，恐慌信号另外触发独立买入。账户使用模板分红再投资前复权价格估值。模板从区间起点零持仓开始。</li>
+            <li>“各自投入”比较不同资金投入下的资产、收益和XIRR；“同一供资计划”每日给五策略注入相同金额，金额取各策略当天所需资金的最大值，闲置现金按模板3%年化假设计息。模型按需注入外部资金，不设个人现金储备上限，须自行核验可负担性。</li>
+          </ul>
+          <p id="kd-risk" class="kd-warning">分档倍率四舍五入到小数点后1位，默认系数1.5时每笔最高为38.4N。同月如有两个顺延月度计划，合计可能更高。更多本金不是择时超额收益，历史回测不保证未来表现。</p>
+        </details>
+        <details class="accessible-data kd-accessible-data">
+          <summary>逐月K值、档位与买入明细</summary>
+          <div class="table-scroll"><table class="backtest-table kd-orders-table"><thead><tr><th>信号日</th><th>计划所属月</th><th>使用的周收盘</th><th>月K</th><th>季度K</th><th>加权K</th><th>倍率</th><th>加权K金额</th><th>普通1N</th><th>成交日</th></tr></thead><tbody id="kd-orders"></tbody></table></div>
+          <div class="kd-export"><button id="kd-download" type="button" disabled>导出加权K逐月明细 CSV</button></div>
         </details>
       </section>
 
@@ -302,16 +316,17 @@
             <h2 id="chart-title">恐慌与贪婪指数</h2>
             <p>指数范围 0–100，数值越高代表越贪婪</p>
           </div>
-          <div class="chart-heading-side">
-            <button id="sentiment-chart-toggle" class="sentiment-chart-toggle" type="button" aria-expanded="false" aria-controls="sentiment-chart-collapse">
-              <span id="sentiment-chart-toggle-label">展开图表</span>
-              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4"/></svg>
-            </button>
-            <div class="score-block">
-              <div><strong id="score">—</strong><span> / 100</span></div>
-              <span id="rating">—</span>
-            </div>
+          <div class="score-block">
+            <div><strong id="score">—</strong><span> / 100</span></div>
+            <span id="rating">—</span>
           </div>
+        </div>
+        <div class="sentiment-chart-actions subchart-legend-row">
+          <div class="backtest-legend sentiment-legend"><span class="is-score">情绪指数</span><span class="is-threshold">加投阈值</span><span class="is-official">CNN 官方数据</span></div>
+          <button id="sentiment-chart-toggle" class="sentiment-chart-toggle" type="button" aria-expanded="false" aria-controls="sentiment-chart-collapse">
+            <span id="sentiment-chart-toggle-label">展开图表</span>
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
         </div>
 
         <div class="sentiment-chart-collapse" id="sentiment-chart-collapse" hidden>
@@ -387,7 +402,7 @@
               <button type="button" id="backtest-tab-equity" class="backtest-chart-tab" role="tab" aria-selected="true" data-series="equity">累计资产曲线</button>
               <button type="button" id="backtest-tab-profit" class="backtest-chart-tab" role="tab" aria-selected="false" data-series="profit">累计盈亏曲线</button>
             </div>
-            <div class="backtest-legend"><span>普通定投</span><span>回撤金字塔</span><span>金字塔＋恐慌加投</span><span class="is-kd">KD 定投</span><span class="is-kd-fear">KD 定投＋恐慌加投</span><span id="backtest-principal-legend" class="is-principal">投入本金</span></div>
+            <div class="backtest-legend"><span>普通定投</span><span>月跌幅金字塔</span><span>月跌幅金字塔＋恐慌加投</span><span class="is-kd">加权K定投</span><span class="is-kd-fear">加权K定投＋恐慌加投</span><span id="backtest-principal-legend" class="is-principal">投入本金</span></div>
           </div>
           <div class="backtest-replay">
             <label>复盘起始日 <input id="backtest-replay-start" type="date" aria-label="复盘起始日"></label>
@@ -414,13 +429,13 @@
             <summary>成交与收益计算口径</summary>
             <ul>
               <li>跟随图表标的、区间和策略参数，使用完整日线计算，不受日／周／月显示周期或信号显隐影响。区间起点不继承历史持仓，但保留此前已形成、在区间内成交的信号。</li>
-              <li>普通定投、金字塔和KD使用相同月度日期；为避免使用未来信息，月度信号收盘确认后，统一在下一可用交易日开盘买入。恐慌加投在指数信号后的首个可用交易日开盘买入；缺少后续行情的信号不计成交。因此回测日期可能与图上月度信号日期相差一个交易日。</li>
+              <li>普通定投、月跌幅金字塔和加权K定投使用相同月度日期；为避免使用未来信息，月度信号收盘确认后，统一在下一可用交易日开盘买入。恐慌加投在指数信号后的首个可用交易日开盘买入；缺少后续行情的信号不计成交。因此回测日期可能与图上月度信号日期相差一个交易日。</li>
               <li>按前复权开盘价与收盘价模拟，分红再投资效果已包含在复权收益序列内，不再重复加分红；允许模拟碎股份额。未计交易费用、税费、滑点及汇率影响，不执行真实下单。</li>
-              <li>同一供资计划：取普通、金字塔、金字塔＋恐慌、KD、KD＋恐慌五策略每日所需金额的最大值，为五组同时注入相同资金，各组按自身规则买入，剩余现金按 3% 年化收益率、实际日数／365 复利计息，含周末与休市日；当日新增余额当日不计息。利息留在现金中继续计息，并计入期末资产、盈亏及收益率，不计为外部投入；“闲置现金”仅列未投入股票的本金，不含单列的“现金收益”；“股权收益”为股票部分盈亏，加上“现金收益”等于“累计盈亏”。各自投入口径则仅在买入时注入所需金额。</li>
+              <li>同一供资计划：取普通、月跌幅金字塔、月跌幅金字塔＋恐慌、加权K、加权K＋恐慌五策略每日所需金额的最大值，为五组同时注入相同资金，各组按自身规则买入，剩余现金按 3% 年化收益率、实际日数／365 复利计息，含周末与休市日；当日新增余额当日不计息。利息留在现金中继续计息，并计入期末资产、盈亏及收益率，不计为外部投入；“闲置现金”仅列未投入股票的本金，不含单列的“现金收益”；“股权收益”为股票部分盈亏，加上“现金收益”等于“累计盈亏”。各自投入口径则仅在买入时注入所需金额。</li>
               <li>资金加权年化采用 XIRR，以买入时入金及期末资产为现金流，按实际间隔天数／365 年化。无投入、仅同日现金流或无有效解时显示“—”；短区间年化可能明显放大波动。<a href="https://support.microsoft.com/en-us/excel/functions/xirr-function?nochrome=true" target="_blank" rel="noreferrer">XIRR 定义 ↗</a></li>
               <li>最大净值回撤按日收盘单位净值计算，入金按当日开盘前资产净值折算份额，剔除外部入金影响；同一供资模式包含闲置现金。累计盈亏曲线为资产减累计本金，不将入金视为盈利；累计资产曲线展示期末资产，并在同一供资计划下叠加投入本金虚线。历史结果不代表未来表现。</li>
               <li>夏普和索提诺使用剔除外部入金影响的每日单位净值收益，零风险利率／最低目标收益均设为0%，按每年252个交易观察日年化；索提诺仅计低于0%的下行波动。MAR＝单位净值年化复合收益÷最大净值回撤，从首笔入金到区间末日按实际日数年化。无投入、样本不足或分母为零时显示“—”；这些比率与资金加权年化 XIRR 的口径不同。</li>
-              <li>选定复盘起始日并播放后，蓝色水平虚线表示“金字塔＋恐慌加投”最近一轮前高修复，随页签分别按累计资产或累计盈亏计算。从回落前最后一次触及前高之日，计至首次收盘回到该高度之日，按自然日计天数；未修复则计至当前播放日。暂停保留结果，重选起始日或重置后隐藏；复盘按起始日零持仓重新计算，仅展示已播放的行情。当前创新高时保留最近一轮已完成修复，无回落时不画线。累计资产修复包含后续新增投入的影响，不等同于净值修复。</li>
+              <li>选定复盘起始日并播放后，蓝色水平虚线表示“月跌幅金字塔＋恐慌加投”最近一轮前高修复，随页签分别按累计资产或累计盈亏计算。从回落前最后一次触及前高之日，计至首次收盘回到该高度之日，按自然日计天数；未修复则计至当前播放日。暂停保留结果，重选起始日或重置后隐藏；复盘按起始日零持仓重新计算，仅展示已播放的行情。当前创新高时保留最近一轮已完成修复，无回落时不画线。累计资产修复包含后续新增投入的影响，不等同于净值修复。</li>
             </ul>
           </details>
           <div class="navigator backtest-navigator">
@@ -533,8 +548,8 @@
       <div class="allocation-heading">
         <h2 id="allocation-dialog-title" tabindex="-1" autofocus>组合定投与回测</h2>
         <div class="strategy-status-switch" role="group" aria-label="组合定投方案">
-          <button id="allocation-plan-kdFear" type="button" aria-pressed="true">KD 定投＋恐慌加投</button>
-          <button id="allocation-plan-pyramidFear" type="button" aria-pressed="false">金字塔＋恐慌加投</button>
+          <button id="allocation-plan-kdFear" type="button" aria-pressed="true">加权K定投</button>
+          <button id="allocation-plan-pyramidFear" type="button" aria-pressed="false">月跌幅金字塔</button>
         </div>
       </div>
       <p class="allocation-intro">按每期总金额和标的配比，自动计算各标的的定投金额。配比为 0% 时，该标的的 1N 为 0.00。</p>
@@ -543,7 +558,7 @@
           <input id="allocation-total" type="number" min="0.01" step="any" value="2000" inputmode="decimal" aria-describedby="allocation-summary allocation-message">
         </label>
         <label>每月定投日<input id="allocation-buy-day" type="number" min="1" max="31" step="1" inputmode="numeric"></label>
-        <label>KD 分档系数 (1–3)<input id="allocation-kd-tier-factor" type="number" min="1" max="3" step="0.05" inputmode="decimal" aria-describedby="allocation-kd-factor-error"></label>
+        <label>加权K分档系数 (1–3)<input id="allocation-kd-tier-factor" type="number" min="1" max="3" step="0.05" inputmode="decimal" aria-describedby="allocation-kd-factor-error"></label>
         <label>恐慌指数加投阈值<input id="allocation-fear-threshold" type="number" min="0" max="95" step="any" inputmode="decimal"></label>
         <div class="allocation-bulk-fear">
           <label>统一恐慌加投倍数<input id="allocation-bulk-fear-count" type="text" inputmode="numeric" placeholder="输入倍数"></label>
@@ -619,7 +634,7 @@
               <button type="button" id="allocation-tab-equity" class="backtest-chart-tab" role="tab" aria-selected="false" data-series="equity">累计资产曲线</button>
               <button type="button" id="allocation-tab-profit" class="backtest-chart-tab" role="tab" aria-selected="true" data-series="profit">累计盈亏曲线</button>
             </div>
-            <div class="backtest-legend"><span>普通定投</span><span>回撤金字塔</span><span>金字塔＋恐慌加投</span><span class="is-kd">KD 定投</span><span class="is-kd-fear">KD 定投＋恐慌加投</span><span id="allocation-principal-legend" hidden class="is-principal">投入本金</span></div>
+            <div class="backtest-legend"><span>普通定投</span><span>月跌幅金字塔</span><span>月跌幅金字塔＋恐慌加投</span><span class="is-kd">加权K定投</span><span class="is-kd-fear">加权K定投＋恐慌加投</span><span id="allocation-principal-legend" hidden class="is-principal">投入本金</span></div>
           </div>
           <div class="backtest-plot-wrap">
             <svg id="allocation-backtest-plot" class="backtest-plot" viewBox="0 0 820 220" role="img" aria-label="配比组合五种策略回测曲线"></svg>
@@ -674,8 +689,8 @@
       <p>前人的智慧，让我们在犹疑时有所回望；事先想清楚的规则，让每一次行动有所依据。先为生活留好余地，确定能够持续承担的定投金额与备用资金，再从容地开始。</p>
       <section class="welcome-rules" aria-labelledby="welcome-rules-title">
         <h3 id="welcome-rules-title">心中有尺度，行动有章法</h3>
-        <p>默认采用「KD 定投＋0 恐慌加投」：每月依周线月 K 与季 K 加权所处档位从容买入，不随短期情绪噪声折腾；也可按需开启恐慌加投或切换至近月回撤金字塔做对比，具体规则可在「策略说明」中细读。</p>
-        <p>下跌可能持续，加仓之后仍可能亏损，历史回测也无法许诺未来。愿每一笔投入，都在自己理解并能承受的范围之内。</p>
+        <p>默认采用「加权K定投」：每月依周线月 K 与季 K 加权所处档位从容买入，不随短期情绪噪声折腾；也可按需开启恐慌加投或切换至月跌幅金字塔做对比，具体规则可在「策略说明」中细读。</p>
+        <p>下跌可能持续，加仓之后仍可能亏损，愿每一笔投入，都应在自己理解并能承受的范围之内。</p>
       </section>
       <p class="welcome-ending">愿这份小工具，陪你理解自己的选择，然后安心地回到工作与生活。</p>
     </div>
@@ -698,15 +713,15 @@
     <div class="strategy-explanation-tabs" role="tablist" aria-label="定投策略说明类型">
       <div class="strategy-tab-group" role="group" aria-labelledby="strategy-main-label">
         <span id="strategy-main-label">主策略</span>
-        <button type="button" role="tab" id="strategy-tab-kd" aria-controls="strategy-kd-panel" aria-selected="true">KD 定投</button>
-        <button type="button" role="tab" id="strategy-tab-pyramid" aria-controls="strategy-pyramid-panel" aria-selected="false" tabindex="-1">金字塔跌幅定投</button>
+        <button type="button" role="tab" id="strategy-tab-kd" aria-controls="strategy-kd-panel" aria-selected="true">加权K定投</button>
+        <button type="button" role="tab" id="strategy-tab-pyramid" aria-controls="strategy-pyramid-panel" aria-selected="false" tabindex="-1">月跌幅金字塔</button>
       </div>
       <div class="strategy-tab-group" role="group" aria-labelledby="strategy-aux-label">
         <span id="strategy-aux-label">辅策略</span>
         <button type="button" role="tab" id="strategy-tab-fear" aria-controls="strategy-fear-panel" aria-selected="false" tabindex="-1">恐慌加投</button>
       </div>
     </div>
-    <p id="strategy-diagram-note" class="strategy-diagram-note">月度买入可按 KD 或金字塔确定金额。恐慌加投默认倍数为 0（不启用），可按需叠加到任一种主策略。</p>
+    <p id="strategy-diagram-note" class="strategy-diagram-note">月度买入可按加权K或月跌幅金字塔确定金额。恐慌加投默认倍数为 0（不启用），可按需叠加到任一种主策略。</p>
     <section class="strategy-explanation" id="strategy-pyramid-panel" role="tabpanel" aria-labelledby="strategy-tab-pyramid" tabindex="0" hidden>
       <header>
         <h3>近月回撤越深，月度买入越多</h3>
@@ -719,7 +734,7 @@
         <li><span>04 / 月度执行</span><h4>收盘确认，下一交易日开盘买入</h4><p>回测以信号日之后的首个交易日开盘价成交，期末仅计入已成交的订单。</p></li>
       </ol>
       <aside class="strategy-explanation-example"><h4>回撤 12%，买入 4N</h4><p>近月最高价为 $100，判断日收盘价为 $88，回撤为 12%，落在 10% 至低于 15% 的档位。若 N = $50，本次买入 $200。</p></aside>
-      <div class="strategy-diagram-toolbar"><button type="button" class="strategy-diagram-original" data-image="monthly_dca_logic.svg" aria-label="查看金字塔跌幅定投流程图（在新标签页打开）">查看流程图</button></div>
+      <div class="strategy-diagram-toolbar"><button type="button" class="strategy-diagram-original" data-image="monthly_dca_logic.svg" aria-label="查看月跌幅金字塔流程图（在新标签页打开）">查看流程图</button></div>
     </section>
     <section class="strategy-explanation" id="strategy-kd-panel" role="tabpanel" aria-labelledby="strategy-tab-kd" tabindex="0">
       <header><h3>K 越低，按档位增加月度买入金额</h3><p id="strategy-kd-parameters"></p></header>
@@ -728,11 +743,11 @@
         <li><span>02 / 分别计算K</span><h4>周线基准，映射月与季度日历</h4><p id="strategy-kd-calendar"></p><p>RSV 按窗口内高低价求值，再按实际周线根数递归平滑。历史不足时按每月 4 周、每季度 13 周估算，无已完成周线时按 1N 买入。</p></li>
         <li><span>03 / 加权合成</span><h4>月K与季度K合成一个K</h4><p class="strategy-explanation-formula" id="strategy-kd-weighted"></p><p>两项权重合计 100%。分档使用完整精度，界面显示两位小数。</p></li>
         <li><span>04 / 确定投入</span><h4>每降低10分，乘以分档系数</h4><p class="strategy-explanation-formula">本次买入额 = N × round(系数<sup>档位</sup>, 1位小数)</p><p>90–100为第0档，80–90为第1档，依次至0–10为第9档。系数可设1至3，支持小数，系数1等同每月普通1N定投。</p></li>
-        <li><span>05 / 月度执行</span><h4>计划日收盘确认，下一交易日开盘买入</h4><p>KD 和普通定投共用基础金额 N、每月定投日和成交日。遇休市顺延，日期超出当月天数时取月底。跨月顺延的计划分别保留，回测期末仅计入已成交的订单。</p></li>
+        <li><span>05 / 月度执行</span><h4>计划日收盘确认，下一交易日开盘买入</h4><p>加权K定投与普通定投共用基础金额 N、每月定投日和成交日。遇休市顺延，日期超出当月天数时取月底。跨月顺延的计划分别保留，回测期末仅计入已成交的订单。</p></li>
       </ol>
       <section class="strategy-kd-bands" aria-labelledby="strategy-kd-bands-heading"><h4 id="strategy-kd-bands-heading">当前参数对应的10档买入金额</h4><div class="table-scroll"><table class="backtest-table"><thead><tr><th>加权K区间</th><th>档位</th><th>买入倍数</th><th>买入金额</th></tr></thead><tbody id="strategy-kd-tiers"></tbody></table></div><p>每档包含下界、不包含上界，100归入顶档。例如K=80归入80–90档，K=79.999归入70–80档。系数按档位取幂后，倍率四舍五入到小数点后1位，再计算买入金额。</p></section>
       <aside class="strategy-explanation-example"><h4>用一组 K 值算买入金额</h4><p id="strategy-kd-example"></p></aside>
-      <section class="strategy-kd-comparison"><h4>如何与普通定投比较？</h4><p>普通定投每个月买 1N，KD 随 K 值调整金额，KD＋恐慌在月度买入之外叠加独立恐慌信号。「各自按规则投入」允许本金不同。「同一供资计划」按五种策略当天的最高资金需求给各账户等额供资，未买入部分留作现金，按假设年化 3% 计息。期末资产包含股票和现金。</p></section>
+      <section class="strategy-kd-comparison"><h4>如何与普通定投比较？</h4><p>普通定投每个月买 1N，加权K定投随加权K调整金额，加权K＋恐慌在月度买入之外叠加独立恐慌信号。「各自按规则投入」允许本金不同。「同一供资计划」按五种策略当天的最高资金需求给各账户等额供资，未买入部分留作现金，按假设年化 3% 计息。期末资产包含股票和现金。</p></section>
       <p id="strategy-kd-funding"></p>
     </section>
     <section class="strategy-explanation" id="strategy-fear-panel" role="tabpanel" aria-labelledby="strategy-tab-fear" tabindex="0" hidden>
@@ -744,7 +759,7 @@
         <li><span>01 / 确认触发</span><h4>日终指数由达标转为低于阈值</h4><p>比较相邻两条 F&amp;G 日终记录。上一条达到或高于阈值，本次低于阈值，且策略具备触发资格时，加投一次。</p></li>
         <li><span>02 / 确定投入</span><h4>按设定倍数额外买入</h4><p class="strategy-explanation-formula">加投金额 = N × 加投倍数</p><p>信号日之后的首个交易日开盘买入。默认倍数为 0（不启用恐慌加投），如需启用可设为正整数。</p></li>
         <li><span>03 / 恢复触发资格</span><h4>等指数回升到阈值加 5</h4><p>触发后进入冷却。指数达到或超过阈值加 5 时，恢复触发资格，等待下一次下穿。</p></li>
-        <li><span>04 / 叠加主策略</span><h4>与月度买入独立累加</h4><p>可叠加到金字塔跌幅定投或 KD 定投。若两笔订单在同一天成交，当天的买入金额是两笔订单之和。</p></li>
+        <li><span>04 / 叠加主策略</span><h4>与月度买入独立累加</h4><p>可叠加到月跌幅金字塔或加权K定投。若两笔订单在同一天成交，当天的买入金额是两笔订单之和。</p></li>
       </ol>
       <aside class="strategy-explanation-example"><h4>从 12 跌到 9，触发一次加投</h4><p>设阈值为 10、倍数为 3，指数从 12 跌到 9 时触发 3N 加投。回升到 15 后恢复触发资格。如果加投成交当天还有一笔 4N 的月度买入，合计买入 7N。</p></aside>
       <div class="strategy-diagram-toolbar"><button type="button" class="strategy-diagram-original" data-image="fear_dca_logic.svg" aria-label="查看恐慌加投流程图（在新标签页打开）">查看流程图</button></div>

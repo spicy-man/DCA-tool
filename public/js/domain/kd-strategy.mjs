@@ -16,16 +16,16 @@ const cache = new WeakMap();
 export function normalizeKDOptions(input = {}) {
   const options = { ...KD_DEFAULTS, ...input };
   for (const weight of [options.monthWeight, options.quarterWeight]) {
-    if (!Number.isFinite(weight) || weight < 0 || weight > 100) throw Error('KD权重须为0%至100%');
+    if (!Number.isFinite(weight) || weight < 0 || weight > 100) throw Error('加权K权重须为0%至100%');
   }
   if (Math.abs(options.monthWeight + options.quarterWeight - 100) > 1e-8) {
-    throw Error('KD月K与季度K权重合计须为100%');
+    throw Error('月K与季度K权重合计须为100%');
   }
   for (const count of [options.period, options.signal]) {
-    if (!Number.isInteger(count) || count < 1 || count > 200) throw Error('KD周期参数须为1至200的整数');
+    if (!Number.isInteger(count) || count < 1 || count > 200) throw Error('加权K周期参数须为1至200的整数');
   }
   if (!Number.isFinite(options.tierFactor) || options.tierFactor < 1 || options.tierFactor > 3) {
-    throw Error('KD分档系数须为1至3，可填小数');
+    throw Error('加权K分档系数须为1至3，可填小数');
   }
   return options;
 }
@@ -38,7 +38,7 @@ function prepareWeeks(rows) {
     const { date } = row;
     const time = Date.parse(date);
     if (!Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== date || date <= previous) {
-      throw Error('KD日线须按有效日期递增且不重复');
+      throw Error('加权K日线须按有效日期递增且不重复');
     }
     previous = date;
     const high = row.sourceHigh ?? row.high;
@@ -46,7 +46,7 @@ function prepareWeeks(rows) {
     const close = row.sourceClose ?? row.close;
     if (![high, low, close].every(value => Number.isFinite(value) && value > 0) ||
         low > high || low > close + 1e-5 || high < close - 1e-5) {
-      throw Error('KD源High/Low/Close无效：' + date);
+      throw Error('加权K源High/Low/Close无效：' + date);
     }
 
     const key = periodKey(date, 'weekly');
@@ -164,7 +164,7 @@ export function calculateKDSeries(rows, input = {}) {
 
 /** Map weighted K (0–100) to tier level 0 (90–100) through 9 (0–10). */
 export function kdTierLevel(value) {
-  if (!Number.isFinite(value)) throw Error('KD加权K无效');
+  if (!Number.isFinite(value)) throw Error('加权K无效');
   const nearestTier = Math.round(value / 10);
   const tier = Math.abs(value - nearestTier * 10) <= TIER_BOUNDARY_TOLERANCE
     ? nearestTier
@@ -173,7 +173,7 @@ export function kdTierLevel(value) {
 }
 
 export function kdMultiple(value, factor = KD_DEFAULTS.tierFactor) {
-  if (!Number.isFinite(factor) || factor < 1 || factor > 3) throw Error('KD分档系数须为1至3');
+  if (!Number.isFinite(factor) || factor < 1 || factor > 3) throw Error('加权K分档系数须为1至3');
   return Math.round(factor ** kdTierLevel(value) * 10) / 10;
 }
 
@@ -182,13 +182,13 @@ export function calculateKDSignals(rows, monthlySignals, { baseAmount = 1000, ..
   const options = normalizeKDOptions(input);
   if (!Number.isFinite(baseAmount) || (baseAmount !== 0 && baseAmount < 0.01) ||
       !Number.isFinite(baseAmount * kdMultiple(0, options.tierFactor))) {
-    throw Error('KD的N须为0或不低于$0.01的有效金额');
+    throw Error('加权K定投的N须为0或不低于$0.01的有效金额');
   }
   if (baseAmount === 0) return [];
 
   const states = calculateKDSeries(rows, options);
   return monthlySignals.map(({ date, scheduledMonth, scheduledDate, buyDay }) => {
-    if (!states.has(date)) throw Error('KD月度信号缺少对应行情');
+    if (!states.has(date)) throw Error('加权K月度信号缺少对应行情');
     const state = states.get(date);
     const multiple = state ? kdMultiple(state.weightedK, options.tierFactor) : 1;
     return {

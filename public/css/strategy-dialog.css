@@ -8,7 +8,7 @@
 .strategy-dialog-actions{display:flex;gap:8px;flex-shrink:0}
 .strategy-dialog-actions button{height:30px;font-size:11px;padding:0 10px}
 .strategy-diagram-note{margin:0;padding:10px 18px;font-size:11px;line-height:1.7;color:#70818e;background:#f5f6fa;flex-shrink:0}
-@media(max-width:800px){.chart-controls>.strategy-row{grid-template-columns:auto 1fr}.chart-controls .strategy-row .signal-toggle{grid-column:1;margin-left:0}.strategy-help{justify-self:end;margin-left:auto}}
+@media(max-width:800px){.chart-controls>.strategy-row{grid-template-columns:auto 1fr}.chart-controls .strategy-row .signal-toggle{grid-column:1;margin-left:0}.strategy-help{width:90px;justify-self:end;margin-left:auto}}
 @media(max-width:520px){.strategy-dialog-heading{padding:12px;gap:8px;align-items:flex-start}.strategy-dialog-heading h2{font-size:13px;line-height:30px}.strategy-dialog-actions{gap:5px}.strategy-dialog-actions button{padding:0 7px}.strategy-diagram-note{padding:10px 12px}}
 
 .strategy-diagram-toolbar{display:flex;justify-content:flex-end}

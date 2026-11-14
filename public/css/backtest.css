@@ -21,6 +21,9 @@
 .backtest-legend span:nth-child(2)::before { background: #0d9488; }
 .backtest-legend span:nth-child(3)::before { background: #2563eb; }
 .backtest-legend span.is-principal::before { height: 0; border-top: 2px dashed #94a3b8; background: none; }
+.backtest-legend.sentiment-legend span.is-score::before { height: 1.5px; background: #273e46; }
+.backtest-legend.sentiment-legend span.is-threshold::before { height: 1.5px; background: #d05b4b; }
+.backtest-legend.sentiment-legend span.is-official::before { height: 0; border-top: 1.5px dashed #819da8; background: none; }
 .backtest-legend span[hidden] { display: none; }
 .backtest-plot-wrap { position: relative; margin-top: 8px; }
 .backtest-plot { display: block; width: 100%; height: 280px; }

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { initApplication } from '../public/js/application.mjs';
 import { initStrategyOverlay } from '../public/js/features/strategy/overlay.mjs';
 import { initMarketChart, loadMarket } from '../public/js/features/market/chart.mjs';
-import { appEvents } from '../public/js/services/events.mjs';
+import { initKDControls } from '../public/js/features/strategy/kd.mjs';
+import { appEvents, events } from '../public/js/services/events.mjs';
 import { drawOverview } from '../public/js/charts/sentiment.mjs';
 
 function trackAppEvents(t) {
@@ -594,6 +595,140 @@ test('恐慌加投倍数为 0 时自动折叠恐慌图表并保留拖动条，�
   assert.equal(collapse.hasAttribute('data-closing'), true);
   resolveTransition();
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(collapse.hidden, true);
-  assert.equal($('chart-wrap').hidden, true);
+  // 初始化包含 initKDControls，并验证 KD 系数为 1 时自动折叠、手动切换及切回 >1 时自动展开
+  assert.equal($('kd-plot').tabIndex, 0);
+  assert.equal($('kd-plot').getAttribute('aria-keyshortcuts'), 'ArrowLeft ArrowRight + - Home');
+  assert.equal($('kd-chart-collapse').hidden, false);
+  assert.equal($('kd-wrap').hidden, false);
+  assert.equal($('kd-chart-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal($('kd-chart-toggle-label').textContent, '折叠图表');
+
+  // KD -> 恐慌图跨图悬浮联动
+  $('sentiment-chart-toggle').listeners.click();
+  assert.equal($('chart-wrap').hidden, false);
+  $('tooltip').hidden = true;
+  appEvents.dispatchEvent(new CustomEvent(events.kdHover, { detail: '2026-10-16' }));
+  assert.equal($('tooltip').hidden, false);
+  appEvents.dispatchEvent(new CustomEvent(events.kdHover, { detail: null }));
+  assert.equal($('tooltip').hidden, true);
+  delete collapse.getAnimations;
+  $('sentiment-chart-toggle').listeners.click();
+
+  // KD 折叠过渡期间（inert=true 但 kd-wrap.hidden 尚未变为 true），外部 marketHover 不得重新显示 kd-tooltip
+  const kdCollapseNode = $('kd-chart-collapse');
+  const kdAttrs = {};
+  let resolveKdTransition;
+  kdCollapseNode.setAttribute = (k, v) => { kdAttrs[k] = String(v); };
+  kdCollapseNode.getAttribute = k => kdAttrs[k];
+  kdCollapseNode.hasAttribute = k => Object.hasOwn(kdAttrs, k);
+  kdCollapseNode.removeAttribute = k => { delete kdAttrs[k]; };
+  kdCollapseNode.getAnimations = () => [{ finished: new Promise(resolve => { resolveKdTransition = resolve; }) }];
+  $('kd-chart-toggle').listeners.click();
+  assert.equal(kdCollapseNode.inert, true);
+  assert.equal($('kd-wrap').hidden, false);
+  $('kd-tooltip').hidden = false;
+  appEvents.dispatchEvent(new CustomEvent(events.marketHover, { detail: '2026-10-16' }));
+  assert.equal($('kd-tooltip').hidden, true);
+  resolveKdTransition();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal($('kd-wrap').hidden, true);
+  delete kdCollapseNode.getAnimations;
+  $('kd-chart-toggle').listeners.click();
+
+  initKDControls();
+  $('main-kd-tier-factor').value = '1';
+  $('kd-tooltip').hidden = false;
+  $('main-kd-tier-factor').listeners.input();
+  assert.equal($('kd-chart-collapse').hidden, true);
+  assert.equal($('kd-wrap').hidden, true);
+  assert.equal($('kd-tooltip').hidden, true);
+  assert.equal($('kd-chart-toggle').getAttribute('aria-expanded'), 'false');
+  assert.equal($('kd-chart-toggle-label').textContent, '展开图表');
+
+  // 手动点击展开按钮后可查看图表，修改其他恐慌设置不会意外收起 KD 图表
+  $('kd-chart-toggle').listeners.click();
+  assert.equal($('kd-chart-collapse').hidden, false);
+  assert.equal($('kd-wrap').hidden, false);
+  assert.equal($('kd-chart-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal($('kd-chart-toggle-label').textContent, '折叠图表');
+  $('fear-threshold').value = '12';
+  $('fear-threshold').listeners.input();
+  assert.equal($('kd-wrap').hidden, false);
+
+  // 再次手动折叠，然后把 KD 系数调回 1.5 -> 自动展开
+  $('kd-chart-toggle').listeners.click();
+  assert.equal($('kd-wrap').hidden, true);
+  $('main-kd-tier-factor').value = '1.5';
+  $('main-kd-tier-factor').listeners.input();
+  assert.equal($('kd-chart-collapse').hidden, false);
+  assert.equal($('kd-wrap').hidden, false);
+  assert.equal($('kd-chart-toggle').getAttribute('aria-expanded'), 'true');
+});
+
+test('启动时若缓存的 KD 参数为 1，KD 图表默认折叠', async t => {
+  trackAppEvents(t);
+  const nodes = new Map();
+  const ctx = canvasContext();
+  const element = () => {
+    const attrs = {};
+    return {
+      textContent: '', value: '', dataset: {}, hidden: false, open: false,
+      clientWidth: 600, clientHeight: 300, children: [], listeners: {},
+      style: { setProperty() {} }, classList: { toggle() {}, add() {}, remove() {} },
+      setAttribute(name, value) { attrs[name] = String(value); },
+      getAttribute(name) { return attrs[name]; },
+      replaceChildren(...values) { this.children = values; },
+      append(value) { this.children.push(value); },
+      addEventListener(key, fn) { this.listeners[key] = fn; },
+      closest(selector) { return selector === 'details' ? this : null; },
+      querySelector() { return element(); },
+      getContext() { return ctx; }
+    };
+  };
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, element());
+    return nodes.get(id);
+  };
+  const doc = {
+    getElementById: $,
+    createElement: element,
+    createElementNS: element,
+    querySelector: () => null
+  };
+  for (const [key, value] of Object.entries({
+    document: doc,
+    window: { devicePixelRatio: 1 }, devicePixelRatio: 1,
+    ResizeObserver: class { observe() {} },
+    localStorage: {
+      getItem: key => key === 'seeker.kd.v1' ? JSON.stringify({ version: 2, monthWeight: 80, quarterWeight: 20, period: 9, signal: 3, tierFactor: 1 }) : null,
+      setItem() {}
+    },
+    requestAnimationFrame: fn => { fn(); return 1; }
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  $('symbol').value = 'SPY';
+  $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }];
+  $('range').value = '12';
+  $('frequency').value = 'daily';
+  $('layout').value = 'expanded';
+  t.mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({ symbol: 'SPY', anchorDate: '2026-10-19', fetchedAt: '2026-10-20T00:00:00Z', rows: [] }),
+    text: async () => 'Date,Fear Greed,Rating\n'
+  }));
+
+  initKDControls();
+  initStrategyOverlay();
+  initMarketChart();
+  initApplication();
+
+  assert.equal($('kd-chart-collapse').hidden, true);
+  assert.equal($('kd-wrap').hidden, true);
+  assert.equal($('kd-chart-toggle').getAttribute('aria-expanded'), 'false');
+  assert.equal($('kd-chart-toggle-label').textContent, '展开图表');
+  $('main-kd-tier-factor').value = '1.5';
+  $('main-kd-tier-factor').listeners.input();
 });

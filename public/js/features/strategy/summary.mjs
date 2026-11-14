@@ -119,7 +119,7 @@ export function renderStrategySummary(data, range, settings, signals = [], fear 
   set('funding-annual-peak', fundingMoney(funding.annualPeak));
   set('funding-split', [
     '基础定投 ' + fundingMoney(funding.regularAmount) + ' · ' + funding.monthlyCount + ' 笔',
-    strategy==='regular'?null:(usesKD?'KD额外投入 ':'金字塔加投 ') + fundingMoney(funding.pyramidExtraAmount) + ' · ' + funding.pyramidCount + ' 笔',
+    strategy==='regular'?null:(usesKD?'加权K额外投入 ':'月跌幅金字塔加投 ') + fundingMoney(funding.pyramidExtraAmount) + ' · ' + funding.pyramidCount + ' 笔',
     !['combined','kdFear'].includes(strategy)?null:missingFearData ? '恐慌加投 暂无指数数据，无法统计' : '恐慌加投 ' + fundingMoney(funding.fearAmount) + ' · ' + funding.fearCount + ' 笔'
   ].filter(Boolean).join('\n'));
   set('funding-average-note', '覆盖 ' + funding.months + ' 个自然月，包含零投入月份');

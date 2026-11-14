@@ -241,8 +241,8 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
   $('strategy-heading').textContent = SIGNAL_STRATEGIES[viewStrategy] + '买入信号';
   $('signal-pyramid-explanation').hidden = usesKD;
   $('signal-strategy-rule').textContent = usesKD
-    ? 'KD按已收盘周线加权K分档，恐慌信号独立加投。月度信号收盘确认后，在下一可用交易日开盘成交。'
-    : '月度金字塔与恐慌加投独立累加。月度按信号日展示，在下一可用交易日开盘成交。';
+    ? '按已收盘周线加权K分档，恐慌信号独立加投。月度信号收盘确认后，在下一可用交易日开盘成交。'
+    : '月跌幅金字塔与恐慌加投独立累加。月度按信号日展示，在下一可用交易日开盘成交。';
   renderSignalTable();
 }
 
@@ -264,7 +264,7 @@ export function signalTooltipRows(signal) {
     ];
   }
   if(signal.strategy==='regular')return[['信号类型','普通定投'],['定投所属月份',signal.scheduledMonth],['计划定投日',signal.scheduledDate],['买入（N）','1N'],['投入金额',amountFormatted],['成交口径','信号收盘后，下一交易日开盘']];
-  if(signal.strategy==='kd')return[['信号类型','KD定投'],['定投所属月份',signal.scheduledMonth],['计划定投日',signal.scheduledDate],['使用的周收盘',signal.signalWeek??'无已完成周线'],['月K',signal.monthK?.toFixed(2)??'—'],['季度K',signal.quarterK?.toFixed(2)??'—'],['加权K',signal.weightedK?.toFixed(2)??'—'],['买入（N）',formatMultiple(signal.multiple)+'N'],['投入金额',amountFormatted],['成交口径','信号收盘后，下一交易日开盘']];
+  if(signal.strategy==='kd')return[['信号类型','加权K定投'],['定投所属月份',signal.scheduledMonth],['计划定投日',signal.scheduledDate],['使用的周收盘',signal.signalWeek??'无已完成周线'],['月K',signal.monthK?.toFixed(2)??'—'],['季度K',signal.quarterK?.toFixed(2)??'—'],['加权K',signal.weightedK?.toFixed(2)??'—'],['买入（N）',formatMultiple(signal.multiple)+'N'],['投入金额',amountFormatted],['成交口径','信号收盘后，下一交易日开盘']];
   return [
     ['信号类型', '月度定投'],
     ['定投所属月份', signal.scheduledMonth],
@@ -689,6 +689,7 @@ function initAllocationDialog() {
   }
 
   let selectedPlan = allocation.plan;
+  const planName = plan => plan === 'kdFear' ? '加权K定投' : '月跌幅金字塔';
   function selectPlan(plan) {
     selectedPlan = plan;
     for (const [value, button] of Object.entries(planButtons)) {
@@ -698,7 +699,7 @@ function initAllocationDialog() {
 
   function updatePreview() {
     const kdOptions = { ...getKDOptions(), tierFactor: previewTierFactor };
-    $('allocation-status-heading').textContent='组合策略状态 · '+(selectedPlan==='kdFear'?'KD＋恐慌':'跌幅＋恐慌');
+    $('allocation-status-heading').textContent = '组合策略状态 · ' + planName(selectedPlan);
     if($('allocation-kd-funding'))$('allocation-kd-funding').textContent='另一方案资金需求待有效组合参数与行情就绪后显示。';
     const total = Number(totalInput.value);
     const totalValid = validTotalAmount(total);
@@ -852,7 +853,7 @@ function initAllocationDialog() {
     }
     const comparePyramid = selectedPlan === 'kdFear';
     const otherId = comparePyramid ? 'combined' : 'kdFear';
-    const otherName = comparePyramid ? '跌幅＋恐慌' : 'KD＋恐慌';
+    const otherName = planName(comparePyramid ? 'pyramidFear' : 'kdFear');
     const other = funding.backtest?.results.find(strategy => strategy.id === otherId);
     if (other) {
       const shared = mode === 'equal'
@@ -874,7 +875,7 @@ function initAllocationDialog() {
         peakText,
         annualPeakText,
         '峰值月份 ' + monthLabel + '（' + breakdown + '）\n' +
-        '测算方案 '+(selectedPlan==='kdFear'?'KD＋恐慌':'跌幅＋恐慌')+' · 区间 ' + funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + '（' + funding.months + ' 个月）· 累计买入 ' + formatMoney(funding.total),
+        '测算方案 ' + planName(selectedPlan) + ' · 区间 ' + funding.start.slice(0, 7) + ' — ' + funding.end.slice(0, 7) + '（' + funding.months + ' 个月）· 累计买入 ' + formatMoney(funding.total),
         funding.backtest
       );
     } else {

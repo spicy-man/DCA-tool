@@ -137,6 +137,14 @@ function render() {
   try {
     const mode = $('backtest-mode').value || 'equal';
     const range = replay ? { ...context.range, start: replay.start, end: replay.dates[replay.index] } : context.range;
+    const replayWindow = replay
+      ? (() => {
+          // Keep individual candles legible even when entry is decades in the past.
+          const first = Math.max(0, replay.index - 79);
+          const calendar = replay.dates.slice(first, Math.max(80, replay.index + 1));
+          return { start: replay.dates[first], end: replay.dates[replay.index], calendar, frequency: 'daily', replay: true };
+        })()
+      : null;
     const result = compareStrategies({ ...context, range, mode });
     if (!result) {
       renderKDReview(null,null);
@@ -144,7 +152,7 @@ function render() {
       $('backtest-note').textContent = '';
       return;
     }
-    renderKDReview({...context,range},result);
+    renderKDReview({ ...context, range: replayWindow || range }, result);
     $('backtest-period').textContent = context.symbol + ' · ' + result.start + ' — ' + result.end + ' · ' + ((Date.parse(result.end) - Date.parse(result.start)) / (365.25 * 86400000)).toFixed(1) + '年 · 区间开始时持仓为零';
     for (const [i, strategy] of result.results.entries()) {
       const tr = document.createElement('tr');
@@ -162,14 +170,11 @@ function render() {
     const funding = mode === 'equal'
       ? '五组按每日各策略所需金额的最大值获得相同资金；未使用资金按 3% 年化、实际天数／365 复利计息（含周末休市），利息计入资产与收益。'
       : '各策略投入金额不同，期末资产更高不代表收益率更高。';
-    $('backtest-note').textContent = funding + ' 买入 N 数＝累计买入金额 ÷ 定投金额 N，包含该策略实际买入；KD 定投不叠加恐慌，KD 定投＋恐慌加投则在KD月度买入之外独立叠加恐慌买入。' + ' ' + (result.deferredMonthly ? result.deferredMonthly + ' 笔区间内月度信号尚未在本区间成交。' : '') + ' ' + coverage;
+    $('backtest-note').textContent = funding + ' 买入 N 数＝累计买入金额 ÷ 定投金额 N，包含该策略实际买入；加权K定投不叠加恐慌，加权K定投＋恐慌加投则在加权K月度买入之外独立叠加恐慌买入。' + ' ' + (result.deferredMonthly ? result.deferredMonthly + ' 笔区间内月度信号尚未在本区间成交。' : '') + ' ' + coverage;
     shownResult = result;
     drawProfitChart(result);
-    if (replay) {
-      // Keep individual candles legible even when entry is decades in the past.
-      const first = Math.max(0, replay.index - 79);
-      const calendar = replay.dates.slice(first, Math.max(80, replay.index + 1));
-      appEvents.dispatchEvent(new CustomEvent(events.replayRange, { detail: { start: replay.dates[first], end: replay.dates[replay.index], calendar, frequency: 'daily', replay: true } }));
+    if (replayWindow) {
+      appEvents.dispatchEvent(new CustomEvent(events.replayRange, { detail: replayWindow }));
     }
   } catch (error) {
     renderKDReview(null,null);

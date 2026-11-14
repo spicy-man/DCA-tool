@@ -193,7 +193,7 @@ export function compareStrategies({ rows, monthlySignals, fearSignals, kdSignals
   let deferredKD = 0;
   for (const signal of kdSignals ?? []) {
     const i = index.get(signal.date);
-    if (i === undefined) throw Error('KD信号缺少对应行情');
+    if (i === undefined) throw Error('加权K信号缺少对应行情');
     const fill = rows[i + 1];
     if (fill && inRange(fill.date)) kd.push({ ...signal, signalDate: signal.date, date: fill.date });
     else if (inRange(signal.date)) deferredKD++;
@@ -204,13 +204,13 @@ export function compareStrategies({ rows, monthlySignals, fearSignals, kdSignals
   const combined = [...monthly, ...fear].sort((a, b) => a.date.localeCompare(b.date));
   const strategies = [
     { id: 'regular', name: '普通定投', orders: monthly.map(order => ({ ...order, amount: baseAmount })) },
-    { id: 'pyramid', name: '回撤金字塔', orders: monthly },
-    { id: 'combined', name: '金字塔＋恐慌加投', orders: combined }
+    { id: 'pyramid', name: '月跌幅金字塔', orders: monthly },
+    { id: 'combined', name: '月跌幅金字塔＋恐慌加投', orders: combined }
   ];
   if (kdSignals !== null) {
     strategies.push(
-      { id: 'kd', name: 'KD 定投', orders: kd },
-      { id: 'kdFear', name: 'KD 定投＋恐慌加投', orders: [...kd, ...fear] }
+      { id: 'kd', name: '加权K定投', orders: kd },
+      { id: 'kdFear', name: '加权K定投＋恐慌加投', orders: [...kd, ...fear] }
     );
   }
   const commonDeposits = mode === 'equal' ? sharedFunding(strategies.map(strategy => strategy.orders)) : null;
@@ -284,11 +284,11 @@ export function comparePortfolioStrategies({ items, startDate, mode = 'equal', t
 
   const strategies = [
     { id: 'regular', name: '普通定投' },
-    { id: 'pyramid', name: '回撤金字塔' },
-    { id: 'combined', name: '金字塔＋恐慌加投' }
+    { id: 'pyramid', name: '月跌幅金字塔' },
+    { id: 'combined', name: '月跌幅金字塔＋恐慌加投' }
   ];
   if (active.every(item => item.ordersByStrategy.kd !== null)) {
-    strategies.push({ id: 'kd', name: 'KD 定投' }, { id: 'kdFear', name: 'KD 定投＋恐慌加投' });
+    strategies.push({ id: 'kd', name: '加权K定投' }, { id: 'kdFear', name: '加权K定投＋恐慌加投' });
   }
   const orderLists = strategies.map(({ id }) => active.flatMap(item => item.ordersByStrategy[id]));
   const commonDeposits = mode === 'equal' ? sharedFunding(orderLists) : null;

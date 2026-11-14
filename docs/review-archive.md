@@ -4,6 +4,33 @@
 
 ---
 
+## KD Canvas 图表重构与工作区改动修复闭环（2026-11-14）
+
+- **范围与轮次**：在 `v2.1.0` Standalone 顶部留白回滚与恐慌卡片布局调整（含 `createChartCollapse` 与 `#kd-panel` `<section>` + `<canvas id="kd-plot">` 重构及 `2026-11-13` 行情/情绪数据刷新）后的完整工作区改动，经只读首轮 + 修复后第二轮双人独立复审闭环，最终两方均无未解决的有效发现。
+- **已核实与修复项**：
+  1. [page.css](../public/css/page.css#L677-L685)、[page.css](../public/css/page.css#L715-L717)、[kd.mjs](../public/js/features/strategy/kd.mjs#L428-L519)：为 `#kd-plot` 补齐 `cursor: crosshair`、`touch-action: none`、`user-select: none`、`.is-dragging` 与 `.mouse-focused` 规则，并移除 `kd.mjs` 内联 `style.cursor` 赋值以配合 `attachChartNavigation`。
+  2. [status.json](../public/data/status.json#L5-L83)：从 `requestedSources` 与 `results` 剥离本地自选股 `GOOGL`，并清理未跟踪的 `public/data/googl.json`（内置 `Fear & Greed`、`SPY`、`QQQ`、`VGT`、`SMH`、`BRK-B` 保留至 `2026-11-13`）。
+  3. [backtest.mjs](../public/js/features/strategy/backtest.mjs#L139-L178)、[kd.mjs](../public/js/features/strategy/kd.mjs#L140-L150)：复盘渲染构造共享 `replayWindow` 传入 `renderKDReview` 并在 `events.replayRange` 跳过同引用重复重绘；抽取 `updateChartMeta` 同步 `#kd-sample-note` 与 `#kd-observations` 视图口径。
+  4. [application.mjs](../public/js/application.mjs#L478-L485)、[kd.mjs](../public/js/features/strategy/kd.mjs#L432)：在 `events.marketHover`（通过 `kdCollapse.isCollapsed()`）与 `setKDHover`（增加 `$('kd-chart-collapse')?.inert` 判断）阻止 KD 折叠动画期间重显 `#kd-tooltip`。
+  5. [kd.mjs](../public/js/features/strategy/kd.mjs#L233-L239)、[modern.css](../public/css/modern.css#L76-L78)、[kd.css](../public/css/kd.css#L21-L24)：单点 KD 序列绘制 3 曲线圆点；移除失效 `.kd-summary-action svg` 选择器并补回 `input[aria-invalid="true"]` 边框样式（同时保留 `modern.css` 对 `@media (display-mode: standalone)` 顶部 `+36px` 留白的回滚）。
+  6. [frontend-regressions.test.mjs](../test/frontend-regressions.test.mjs#L624-L713)、[application-calendar.test.mjs](../test/application-calendar.test.mjs#L599-L637)：补充 `aria-invalid`、单点圆点绘制、周线视图/复盘元数据同步、`events.kdHover` 反向联动、`#kd-plot` 键盘导航属性与 KD 折叠过渡期外部悬浮拦截测试。
+- **验证与限制**：定向 8 份测试文件 **65 / 65 通过**；全量 `npm test` **198 / 199 通过**（唯一失败为既有的 macOS `/var` 软链导致的 `test/build-site.test.mjs` `dist/nasdaq-funds.html` `ENOENT`）。真机浏览器渲染与触控手势未在 CLI 实测。
+
+---
+
+## Standalone 顶部留白回滚与恐慌/KD 面板交互布局修复闭环（2026-11-14）
+
+- **范围与轮次**：`v2.1.0` 顶部安全区留白、恐慌指数卡片折叠按钮与 `#kd-panel` 折叠/展开全套样式与交互逻辑（涉及 `public/index.html`、`public/css/page.css`、`public/css/funds.css`、`public/css/kd.css`、`public/css/modern.css`、`public/js/application.mjs`、`public/js/features/strategy/kd.mjs`），经只读分析 + 2 轮修复闭环双人独立复审，最终两方均无未解决的有效发现。
+- **已修复项**：
+  1. `public/css/modern.css#L125-L133`：回滚 `@media (display-mode: standalone)` 的顶部 `+36px` 额外留白，恢复 `v2.0.0` 标准 `env(safe-area-inset-*, 0px)` 适配。
+  2. `public/index.html#L308-L325`、`public/css/page.css#L284-L327,L1349-L1351`：将 `#sentiment-chart-toggle` 从 `.chart-heading-side` 移至 `.chart-heading` 下方最右侧（`.sentiment-chart-actions`），恢复右上角 `.score-block` 纯读数对齐并保持展开/收起按钮锚点稳定。
+  3. `public/css/page.css#L514-L516`、`public/css/funds.css#L5`、`public/css/kd.css#L1-L60`、`public/css/modern.css#L76-L79`：移除全局 `summary { display: inline-block; }` 恢复全站原生折叠箭头；优化 `.price-card-footer` 在 `#fund-entry[hidden]` 时的右侧留白；将 `#kd-panel > summary` 重构为全宽交互条并动态展示最新加权 K 与倍率摘要；修复 `.kd-metrics` 在 `481px–800px` 断点边框错位、`.kd-controls` 移动端 2×3 网格与防放大 `16px` 字号、`#kd-plot` 移动端留白及 `.backtest-method` 间距。
+  4. `public/js/application.mjs#L92`：将 `inFlow` 判定改为 `collapse.contains ? collapse.contains(wrap) : wrap.parentElement === collapse`，修复真实 DOM 因中间容器 `.sentiment-chart-collapse-inner` 导致收起过渡动画被跳过的缺陷。
+  5. `public/js/features/strategy/kd.mjs#L23-L24,L96-L101,L162-L170,L217,L236-L240,L280-L281`：根据 `window.innerWidth <= 600` 自适应 `#kd-plot` `viewBox` 与轴标签字号，并监听 `matchMedia('(max-width: 600px)')` 跨断点旋转/缩放时自动重绘。
+- **验证与限制**：定向运行 `node --test test/frontend-regressions.test.mjs test/application-calendar.test.mjs test/kd-strategy.test.mjs test/ui-modernization.test.mjs test/signal-view.test.mjs test/strategy-summary.test.mjs`，**50 / 50 全部通过**；真实设备浏览器视觉效果与动画需在真机确认（未改动 `CHANGELOG.md`）。
+
+---
+
 ## PWA 适配与切回前台刷新工作区改动审查闭环（2026-11-13）
 
 - **范围与轮次**：工作区 14 个已修改文件、5 个未跟踪 PWA 文件（`manifest.webmanifest`、`icons/*`）及相关调用链路，共 2 轮双人独立审查闭环；最终代码运行 `npm test` **197 / 197 通过**，两方均无未解决的有效发现。
