@@ -439,4 +439,7 @@ test('本地 HTTP：非法 URI 编码返回 400，目录路径返回 404，PWA �
   const iconRes = await fetch(base + '/icons/apple-touch-icon.png');
   assert.equal(iconRes.status, 200);
   assert.equal(iconRes.headers.get('content-type'), 'image/png');
+  const fontRes = await fetch(base + '/fonts/inter-latin-wght-normal.woff2');
+  assert.equal(fontRes.status, 200);
+  assert.equal(fontRes.headers.get('content-type'), 'font/woff2');
 });

@@ -4,6 +4,18 @@
 
 ---
 
+## 跨设备字体与字重一致性修复闭环（2026-11-14）
+
+- **范围与轮次**：针对 Android / Windows / macOS 跨设备字体与字重不一致问题，经首轮只读双人独立分析（定位 `font-synthesis: none`、非标准字重 `550/650/750`、缺少 Android 字体栈回退、欢迎弹窗衬线回退与 Canvas 硬编码字体等根因）后，按用户确认的「方案 B」完成修复并经第二轮双人独立复审闭环，最终两方均无未解决的有效发现。
+- **已修复项**：
+  1. [public/fonts/inter-latin-wght-normal.woff2](../public/fonts/inter-latin-wght-normal.woff2)、[public/fonts/INTER-LICENSE.txt](../public/fonts/INTER-LICENSE.txt)、[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md#L51)：自托管 `@fontsource-variable/inter` v5.3.0 的 Latin / 数字可变子集（~47 KB，SIL OFL 1.1），并在 [index.html](../public/index.html#L18)、[nasdaq-funds.html](../public/nasdaq-funds.html#L18)、[sp500-funds.html](../public/sp500-funds.html#L18) 补充 `<link rel="preload" ... crossorigin>`。
+  2. [page.css](../public/css/page.css#L2-L16)、[header.css](../public/css/header.css#L216)、[backtest.css](../public/css/backtest.css#L2-L44)、[strategy-summary.css](../public/css/strategy-summary.css#L5-L18)、[funds.css](../public/css/funds.css#L25-L49)、[strategy-dialog.css](../public/css/strategy-dialog.css#L23-L24)、[welcome-dialog.css](../public/css/welcome-dialog.css#L46-L51)：声明 `Inter Variable` `@font-face`（`font-display: swap` 与拉丁/数字 `unicode-range`），将 `:root` 调整为跨平台无衬线栈并改用 `font-synthesis: weight style`；将中文 UI 字重统一收敛为 `400 / 600 / 700`（保留纯数字/ASCII 的 `.score-block strong` 与 `.version-badge` 为 `500`）；修复 `h3/h4` 字重倒挂、`input[type="date"]` 缺失 `font: inherit` 并补全欢迎弹窗衬线回退栈。
+  3. [geometry.mjs](../public/js/charts/geometry.mjs#L5-L9)、[sentiment.mjs](../public/js/charts/sentiment.mjs#L40-L62)、[chart.mjs](../public/js/features/market/chart.mjs#L203-L269)、[kd.mjs](../public/js/features/strategy/kd.mjs#L212-L276)、[application.mjs](../public/js/application.mjs#L606-L613)：抽取共享 `CHART_FONT_STACK` / `chartFont`，在字体加载完成（`document.fonts.ready` / `loadingdone`）时触发三张 Canvas 重绘及 `invalidateKDChart()` 静态缓存失效。
+  4. [http-server.mjs](../server/http-server.mjs#L26-L27)、[backend.test.mjs](../test/backend.test.mjs#L442-L444)：补齐 `.woff2`（`font/woff2`）与 `.txt` MIME 映射及接口回归断言。
+- **验证与限制**：`node --test test/*.test.mjs` **202 / 202 全部通过**，`node scripts/build-site.mjs` 完整构建 `dist/fonts/`，headless Chrome 实测主页面与基金对比页均成功加载 `Inter Variable` 且控制台零错误；Android 真机与 Windows 实机渲染效果待发布后在对应终端确认，外链 `<img>` 加载的静态流程图 [diagrams/*.svg](../public/diagrams/monthly_dca_logic.svg#L8) 仍使用独立系统字体栈。
+
+---
+
 ## KD Canvas 图表重构与工作区改动修复闭环（2026-11-14）
 
 - **范围与轮次**：在 `v2.1.0` Standalone 顶部留白回滚与恐慌卡片布局调整（含 `createChartCollapse` 与 `#kd-panel` `<section>` + `<canvas id="kd-plot">` 重构及 `2026-11-13` 行情/情绪数据刷新）后的完整工作区改动，经只读首轮 + 修复后第二轮双人独立复审闭环，最终两方均无未解决的有效发现。

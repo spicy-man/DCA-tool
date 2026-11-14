@@ -1,5 +1,5 @@
 import { KD_DEFAULTS, normalizeKDOptions, calculateKDSeries, kdMultiple, kdTierLevel } from '../../domain/kd-strategy.mjs';
-import { chartInsets, createTradingScale, periodKey } from '../../charts/geometry.mjs';
+import { chartInsets, createTradingScale, chartFont, periodKey } from '../../charts/geometry.mjs';
 import { appEvents, events } from '../../services/events.mjs';
 import { downloadCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
@@ -209,7 +209,7 @@ function drawStaticKDLayer(c, layout) {
   c.strokeStyle = '#e5eaf0';
   c.lineWidth = 1;
   c.setLineDash([3, 4]);
-  c.font = '11px Segoe UI, sans-serif';
+  c.font = chartFont(11);
   c.fillStyle = '#607487';
   c.textAlign = 'left';
   c.textBaseline = 'middle';
@@ -262,12 +262,17 @@ function drawStaticKDLayer(c, layout) {
   c.restore();
 
   c.fillStyle = '#8b959c';
-  c.font = '10px Segoe UI, sans-serif';
+  c.font = chartFont(10);
   c.textBaseline = 'alphabetic';
   for (const tick of xTicks) {
     c.textAlign = 'center';
     c.fillText(tick.label, Math.max(c.measureText(tick.label).width / 2 + 2, tick.x), h - 9);
   }
+}
+
+export function invalidateKDChart() {
+  cachedLayout = null;
+  plotFrame = null;
 }
 
 export function drawKDChart() {

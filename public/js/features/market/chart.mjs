@@ -12,6 +12,7 @@ import {
   candleMetrics,
   paintCandle,
   chartInsets,
+  chartFont,
   periodKey
 } from '../../charts/geometry.mjs';
 import { aggregateOHLC } from '../../domain/market.mjs';
@@ -199,7 +200,7 @@ export function drawPrice(crossDate) {
   frame = { left, right, top, bottom, pw, ph, start, end, w, h, x, y, scale, logScale };
   canvas.dataset.priceScale = logScale ? 'log' : 'linear';
 
-  c.font = '11px Segoe UI, sans-serif';
+  c.font = chartFont(11);
   c.textAlign = 'left';
   for (const price of priceAxis.ticks()) {
     const py = y(price);
@@ -265,7 +266,7 @@ export function drawPrice(crossDate) {
 
   // Keep extrema labels near their candles and inside the plot.
   c.save();
-  c.font = '11px Segoe UI, Microsoft YaHei, sans-serif';
+  c.font = chartFont(11);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
   c.setLineDash([]);

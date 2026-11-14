@@ -48,6 +48,8 @@ Yahoo Finance Chart API 与 CNN 历史接口是外部数据服务。数据快照
 
 ## 其他内容
 
+- **Inter 可变字体子集（Latin / 数字）**：`public/fonts/inter-latin-wght-normal.woff2` 提取自 [Fontsource `@fontsource-variable/inter`](https://github.com/fontsource/font-files)（v5.3.0，上游字体项目为 [rsms/inter](https://github.com/rsms/inter)），采用 [SIL Open Font License 1.1](https://scripts.sil.org/OFL)；随静态站点同源分发的版权与完整许可文本见 [public/fonts/INTER-LICENSE.txt](./public/fonts/INTER-LICENSE.txt)。
+
 页面的巴菲特、彼得·林奇、约翰·博格、霍华德·马克斯与查理·芒格等名家理念整理及书籍引述均保留各自来源链接；作品版权、人物名称、第三方商标及数据品牌不因本项目代码许可证发生转移。
 
 QQQ 与 SPY 的基准费率分别以 [Invesco](https://www.invesco.com/qqq-etf/en/home.html) 与 [State Street](https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy) 官方总费用率为准；配置中保留核对日期，非行情接口自动更新的字段。

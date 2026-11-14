@@ -16,7 +16,7 @@ import { drawSentiment, drawOverview } from './charts/sentiment.mjs';
 import { periodKey } from './charts/geometry.mjs';
 import { attachChartNavigation, constrainWindow, navigatorState } from './charts/navigation.mjs';
 import { loadMarket, renderMarket, drawPrice, setMarketHover, invalidateMarket, hasLoadedMarket } from './features/market/chart.mjs';
-import { drawKDChart, setKDHover, getKDOptions } from './features/strategy/kd.mjs';
+import { drawKDChart, setKDHover, getKDOptions, invalidateKDChart } from './features/strategy/kd.mjs';
 import { aggregate, selectRange, rating } from './domain/sentiment.mjs';
 
 export function initApplication() {
@@ -602,6 +602,15 @@ export function initApplication() {
       resumeChecking = false;
     }
   });
+
+  const redrawChartsForFonts = () => {
+    if (rows.length && windowRange) draw();
+    if (hasLoadedMarket() && windowRange) drawPrice(crossDate);
+    invalidateKDChart();
+    drawKDChart();
+  };
+  document?.fonts?.ready?.then?.(redrawChartsForFonts)?.catch?.(() => {});
+  document?.fonts?.addEventListener?.('loadingdone', redrawChartsForFonts);
 
   loadMarket();
   load().catch(error => {

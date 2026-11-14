@@ -1,10 +1,19 @@
 /* Page layout. Preserve rule order across responsive breakpoints. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
 :root {
   color-scheme: only light;
-  font-family: Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+  font-family: "Inter Variable",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
   color: #20333f;
   background: #f5f6fa;
-  font-synthesis: none;
+  font-synthesis: weight style;
   font-size: 14px;
   --navy: #19374a;
   --muted: #7d8994;
@@ -51,7 +60,7 @@
 #allocation-dialog .allocation-heading h2 { margin: 0; }
 #allocation-dialog-title:focus { outline: none; }
 .allocation-parameters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; }
-.allocation-parameters label { display: grid; gap: 5px; min-width: 0; font-size: 12px; font-weight: 550; }
+.allocation-parameters label { display: grid; gap: 5px; min-width: 0; font-size: 12px; font-weight: 600; }
 .allocation-parameters input, .allocation-fear-count input { border: 1px solid var(--border); border-radius: 4px; color: inherit; font: inherit; }
 .allocation-parameters input { width: 100%; min-width: 0; height: 36px; padding: 0 8px; }
 .allocation-bulk-fear { grid-column: span 2; display: flex; align-items: end; gap: 8px; }
@@ -64,7 +73,7 @@
 .allocation-estimate { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; font-variant-numeric: tabular-nums; }
 .allocation-estimate-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; color: #35434e; }
 .allocation-estimate-head + .allocation-estimate-head { margin-top: 4px; }
-.allocation-estimate-head strong { font-size: 14px; font-weight: 650; color: var(--navy); }
+.allocation-estimate-head strong { font-size: 14px; font-weight: 700; color: var(--navy); }
 .allocation-estimate-note { margin: 4px 0 0; font-size: 11px; color: #607487; line-height: 1.6; white-space: pre-line; }
 .allocation-backtest-wrap { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
 .allocation-backtest-toolbar { margin-bottom: 8px; }
@@ -76,7 +85,7 @@
 #allocation-list { list-style: none; padding: 0; margin: 12px 0; max-height: 240px; overflow-y: auto; border-top: 1px solid #edf1f4; border-bottom: 1px solid #edf1f4; }
 #allocation-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(88px, auto) auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3f6f8; font-variant-numeric: tabular-nums; }
 #allocation-list li:last-child { border-bottom: 0; }
-.allocation-symbol-label { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.allocation-symbol-label { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .allocation-weight-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #607487; }
 .allocation-weight-wrap::before { content: '配比'; color: #35434e; }
 .allocation-weight-input { width: 68px; height: 30px; padding: 0 7px; border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: 12px; color: #35434e; text-align: right; font-variant-numeric: tabular-nums; }
@@ -112,7 +121,7 @@
   .allocation-symbol-label { grid-area: name; white-space: normal; overflow-wrap: anywhere; }
   .allocation-preview { grid-area: preview; white-space: normal; overflow-wrap: anywhere; }
   .allocation-weight-wrap { grid-area: weight; gap: 4px; color: #35434e; font-size: 12px; white-space: nowrap; }
-  .allocation-weight-wrap::before { content: '配比'; font-weight: 550; }
+  .allocation-weight-wrap::before { content: '配比'; font-weight: 600; }
   .allocation-weight-input { width: 56px; height: 40px; padding: 0 5px; font-size: 16px; background: #fff; }
   .allocation-fear-count { grid-area: count; justify-self: end; font-size: 12px; }
   .allocation-fear-count input { width: 52px; height: 40px; padding: 0 5px; font-size: 16px; background: #fff; }
@@ -152,7 +161,7 @@ body {
 .brand {
   display: flex;
   align-items: center;
-  font-weight: 750;
+  font-weight: 700;
   color: #21333f;
   text-decoration: none;
 }
@@ -187,7 +196,7 @@ body {
 
 h1 {
   margin: 0;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 button,select {
@@ -344,7 +353,7 @@ select {
   gap: 7px;
   font-size: 10px;
   letter-spacing: 1.9px;
-  font-weight: 500;
+  font-weight: 600;
   color: #788690;
   margin: 0 0 15px;
 }
@@ -485,7 +494,7 @@ canvas {
 
 h3 {
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 600;
   margin: 0 0 8px;
 }
 
@@ -1106,7 +1115,7 @@ footer {
 .tooltip-grid dd {
   margin: 0;
   text-align: right;
-  font-weight: 650;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: .1px;
 }
@@ -1270,7 +1279,7 @@ footer {
 }
 
 .investment-note strong {
-  font-weight: 550;
+  font-weight: 600;
   color: #263e4b;
 }
 
@@ -1757,7 +1766,7 @@ footer {
 
 .disclaimer strong {
   margin-right: 6px;
-  font-weight: 550;
+  font-weight: 600;
   color: #607487;
 }
 

@@ -1,4 +1,4 @@
-import { createTradingScale, chartInsets } from './geometry.mjs';
+import { createTradingScale, chartInsets, chartFont } from './geometry.mjs';
 import { OFFICIAL_START } from '../domain/sentiment.mjs';
 
 export function chartContext(canvas) {
@@ -37,7 +37,7 @@ export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossD
   ];
 
   c.save();
-  c.font = '8px Segoe UI, sans-serif';
+  c.font = chartFont(8);
   c.textAlign = 'right';
   c.textBaseline = 'middle';
   for (const [lo, hi, color, label] of bands) {
@@ -47,7 +47,7 @@ export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossD
     c.fillText(label, w - 5, y((lo + hi) / 2));
   }
 
-  c.font = '10px Segoe UI, sans-serif';
+  c.font = chartFont(10);
   c.textAlign = 'left';
   for (const tick of [0, 25, 75, 100]) {
     c.strokeStyle = '#ffffff99';
@@ -59,7 +59,7 @@ export function drawSentiment(canvas, { visible, windowRange, hover = -1, crossD
   }
   c.restore();
 
-  c.font = '10px Segoe UI, sans-serif';
+  c.font = chartFont(10);
   c.save();
   c.strokeStyle = '#d05b4b';
   c.lineWidth = 1.2;

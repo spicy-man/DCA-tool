@@ -120,8 +120,8 @@
 
 ---
 
-## 三、最近一轮审查摘要（2026-11-14 · v2.2.1 独立 PWA 版本探测与构建期模块缓存参数）
+## 三、最近一轮审查摘要（2026-11-14 · 跨设备字体与字重一致性修复闭环）
 
-- **审查范围**：[data-client.mjs](../public/js/services/data-client.mjs)、[app-update.mjs](../public/js/ui/app-update.mjs)、[application.mjs](../public/js/application.mjs)、[comparison.mjs](../public/js/features/funds/comparison.mjs)、[header.css](../public/css/header.css)、[index.html](../public/index.html)、[nasdaq-funds.html](../public/nasdaq-funds.html)、[sp500-funds.html](../public/sp500-funds.html)、[version.mjs](../scripts/version.mjs)、[build-site.mjs](../scripts/build-site.mjs)、[http-server.mjs](../server/http-server.mjs)、[package.json](../package.json)、[CHANGELOG.md](../CHANGELOG.md) 及测试（[app-update.test.mjs](../test/app-update.test.mjs)、[build-site.test.mjs](../test/build-site.test.mjs)、[version.test.mjs](../test/version.test.mjs)、[backend.test.mjs](../test/backend.test.mjs)）与 `dist/` 产物；经两轮独立只读审查（首轮诊断 iPad PWA 未更新原因 + 第二轮完整工作区代码审查，两方审查前均未预读台账与技术债文档）。
-- **发现与处置**：第二轮两方独立审查均未发现未解决的有效缺陷或回归；同时修复了 [build-site.mjs](../scripts/build-site.mjs) 在 macOS `/var` 软链路径下不执行 `buildSite()` 导致 [build-site.test.mjs](../test/build-site.test.mjs) 失败的问题。本轮无新增未解决待修项，保留原 `#9–#22`。
-- **测试验证**：`node --test test/*.test.mjs` **202 / 202 全部通过**，`git diff --check` 无异常，`node scripts/build-site.mjs` 构建产物中全部 HTML/JS 模块引用均附带 `?v=2.2.1` 且通过语法检查；真机 iPadOS standalone PWA 切回前台交互提示需在发布后实机确认。
+- **审查范围**：`public/fonts/`、[index.html](../public/index.html)、[nasdaq-funds.html](../public/nasdaq-funds.html)、[sp500-funds.html](../public/sp500-funds.html)、[style.css](../public/style.css)、`public/css/*.css`、[geometry.mjs](../public/js/charts/geometry.mjs)、[sentiment.mjs](../public/js/charts/sentiment.mjs)、[chart.mjs](../public/js/features/market/chart.mjs)、[kd.mjs](../public/js/features/strategy/kd.mjs)、[application.mjs](../public/js/application.mjs)、[http-server.mjs](../server/http-server.mjs)、[build-site.mjs](../scripts/build-site.mjs)、[version.mjs](../scripts/version.mjs)、[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) 与 [backend.test.mjs](../test/backend.test.mjs)；经首轮只读分析 + 修改后第二轮双人独立复审闭环（两方审查前均未预读台账与技术债文档），完整闭环记录已归档至 [历史审查归档](./review-archive.md)。
+- **发现与处置**：第二轮两方独立复审均未发现未解决的有效缺陷或回归风险，保留原待修台账 `#9–#22` 不变。
+- **测试验证**：`node --test test/*.test.mjs` **202 / 202 全部通过**，`node scripts/build-site.mjs` 已打包 `dist/fonts/`，`git diff --check` 无异常，headless Chrome 实测主页面与基金对比页成功加载 `Inter Variable` 且零控制台报错；Android 与 Windows 真机观感需在实机进一步确认。

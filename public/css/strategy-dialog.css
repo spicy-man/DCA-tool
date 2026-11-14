@@ -20,8 +20,8 @@
 .strategy-explanation-tabs button{min-height:36px;padding:7px 14px;border:1px solid var(--border);border-radius:5px;background:#fff;color:#607487;font-size:12px}
 .strategy-explanation-tabs button[aria-selected=true]{background:#203d50;border-color:#203d50;color:#fff}
 .strategy-explanation { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 22px 24px; background: #f3f6f8; font-size: 13px; line-height: 1.8; }
-.strategy-explanation h3 { font-size: 22px; line-height: 1.5; margin: 3px 0 8px; }
-.strategy-explanation h4 { margin: 3px 0 8px; font-size: 15px; }
+.strategy-explanation h3 { font-size: 22px; font-weight: 700; line-height: 1.5; margin: 3px 0 8px; }
+.strategy-explanation h4 { margin: 3px 0 8px; font-size: 15px; font-weight: 600; }
 .strategy-explanation p { margin: 6px 0; color: #607487; overflow-wrap: anywhere; }
 .strategy-explanation-steps { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; list-style: none; padding: 0; margin: 20px 0; }
 .strategy-explanation-steps li { border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; background: #fff; }

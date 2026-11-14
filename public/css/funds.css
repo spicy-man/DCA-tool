@@ -22,13 +22,13 @@
 #fund-sort-status { color: #315d67; }
 .fund-table th button { height: auto; min-height: 32px; border: 0; background: transparent; padding: 0; color: inherit; font: inherit; white-space: nowrap; }
 .fund-table th button:hover { color: #193f4b; }
-.fund-table th button.fund-sort-active { color: #193f4b; font-weight: 650; }
+.fund-table th button.fund-sort-active { color: #193f4b; font-weight: 700; }
 .fund-sort-indicator { display: inline-block; min-width: 16px; color: #80949c; font-size: 10px; }
 .fund-summary { display: grid; grid-template-columns: repeat(3, 1fr); margin: 22px 0 8px; padding: 18px 0; background: #f6f9f9; border: 1px solid #e6eeee; border-radius: 8px; }
 .fund-summary>div { padding: 0 22px; }
 .fund-summary>div+div { border-left: 1px solid #dfe8e8; }
 .fund-summary span,.fund-summary small { display: block; color: #687a87; font-size: 11px; }
-.fund-summary strong { display: block; margin: 7px 0; color: #193f4b; font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.fund-summary strong { display: block; margin: 7px 0; color: #193f4b; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
 #fund-date { font-size: 19px; min-height: 29px; display: flex; align-items: center; }
 .fund-table-scroll { max-height: none; margin: 14px 0; }
 .fund-table { min-width: 1020px; font-size: 12px; white-space: nowrap; }
@@ -39,14 +39,14 @@
 .fund-benchmark-badge { display: inline-block; margin-top: 5px; padding: 1px 6px; border-radius: 3px; background: #dce9ee; color: #315d67; font-size: 10px; }
 .fund-performance-method { color: #687a87; font-size: 11px; line-height: 1.9; margin: 10px 0; }
 .fund-performance-method p { margin: 8px 0; }
-.fund-table th { padding: 12px 10px; color: #6b7c88; font-size: 11px; font-weight: 500; background: #f8fafb; }
+.fund-table th { padding: 12px 10px; color: #6b7c88; font-size: 11px; font-weight: 600; background: #f8fafb; }
 .fund-table td { padding: 12px 10px; text-align: right; }
 .fund-table th { text-align: right; }
 .fund-table td:first-child,.fund-table th:first-child { text-align: left; }
 .fund-table td:first-child { position: sticky; left: 0; background: #fff; z-index: 1; }
 .fund-table th:first-child { left: 0; z-index: 2; }
-.fund-table td:nth-child(5) { font-weight: 650; }
-.fund-table a { color: var(--navy); text-decoration: none; font-weight: 550; }
+.fund-table td:nth-child(5) { font-weight: 700; }
+.fund-table a { color: var(--navy); text-decoration: none; font-weight: 600; }
 .fund-table a:hover { text-decoration: underline; }
 .fund-table small { display: block; font-size: 10px; color: #7d8994; font-weight: 400; margin-top: 5px; }
 .fund-table tbody tr:hover { background: #f5f9fa; }

@@ -2,6 +2,12 @@ import { periodKey } from '../domain/trading-calendar.mjs';
 
 export { periodKey };
 
+export const CHART_FONT_STACK = '"Inter Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif';
+
+export function chartFont(size, weight = 400) {
+  return `${weight} ${size}px ${CHART_FONT_STACK}`;
+}
+
 // Both panels use the same plot edges and a right-hand value axis.
 export function chartInsets(width) {
   return { left: 0, right: width < 500 ? 54 : 64 };

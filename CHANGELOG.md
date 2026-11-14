@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.1** (更新日期: 2026-11-14)。
+目前系统版本为 **v2.2.2** (更新日期: 2026-11-14)。
+
+## 🔧 v2.2.2 统一跨设备字体与字重渲染并自托管 Inter 数字子集 [FIX]
+
+- **自托管 Inter 可变字体与预加载**：新增从 `@fontsource-variable/inter@5.3.0` 提取的 [inter-latin-wght-normal.woff2](./public/fonts/inter-latin-wght-normal.woff2)（约 47 KB）及 [INTER-LICENSE.txt](./public/fonts/INTER-LICENSE.txt)，在 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 登记许可并在首页与基金对比页添加 `<link rel="preload">`；在 [http-server.mjs](./server/http-server.mjs) 中补充 `.woff2` 与 `.txt` MIME 类型映射及回归测试。
+- **跨平台字体栈与字重收敛**：在 [page.css](./public/css/page.css) 中注册 `"Inter Variable"`（置于系统字体栈首位）并启用 `font-synthesis: weight style`，将各页面样式中的非标准字重统一收敛至 `400 / 600 / 700`（纯数字徽章与情绪分值保留 `500`），修复标题层级字重倒挂及回测日期输入框未继承字体的问题。
+- **Canvas 图表字体同步与就绪重绘**：在 [geometry.mjs](./public/js/charts/geometry.mjs) 中统一导出 `CHART_FONT_STACK` 与 `chartFont(...)` 并在走势、KD 与情绪仪表中复用；在 [application.mjs](./public/js/application.mjs) 中监听 `document.fonts.ready` 与 `loadingdone`，字体加载完成后触发图表与 KD 缓存重绘。
 
 ## 🔧 v2.2.1 补充独立 PWA 版本探测与构建期模块缓存参数 [FIX]
 
