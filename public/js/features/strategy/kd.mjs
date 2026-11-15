@@ -1,7 +1,7 @@
 import { KD_DEFAULTS, normalizeKDOptions, calculateKDSeries, kdMultiple, kdTierLevel } from '../../domain/kd-strategy.mjs';
 import { chartInsets, createTradingScale, chartFont, periodKey } from '../../charts/geometry.mjs';
 import { appEvents, events } from '../../services/events.mjs';
-import { downloadCSV } from '../../ui/download.mjs';
+import { downloadCSV, formatCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 
 const $ = id => document.getElementById(id);
@@ -566,9 +566,7 @@ function exportOrders() {
       order.fillDate ? '已成交' : '待成交（区间外不执行）'
     ])
   ];
-  const escape = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
-  const csv = '\uFEFF' + rows.map(row => row.map(escape).join(',')).join('\r\n');
-  downloadCSV('KD_' + symbol + '_' + start + '_' + end + '.csv', csv);
+  downloadCSV('KD_' + symbol + '_' + start + '_' + end + '.csv', formatCSV(rows));
 }
 
 export function renderKDReview(context, result) {

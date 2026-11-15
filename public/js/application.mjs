@@ -9,7 +9,7 @@ import {
 import { createAppUpdateWatcher } from './ui/app-update.mjs';
 import { healthSummary } from './domain/data-health.mjs';
 import { sentimentLabel, sourceLabel } from './ui/labels.mjs';
-import { downloadCSV } from './ui/download.mjs';
+import { downloadCSV, formatCSV } from './ui/download.mjs';
 import { tooltipContent, positionTooltip } from './ui/tooltip.mjs';
 import { canTransitionDisplay } from './ui/dialog-utils.mjs';
 import { drawSentiment, drawOverview } from './charts/sentiment.mjs';
@@ -464,9 +464,10 @@ export function initApplication() {
 
   $('download').addEventListener('click', () => {
     if (!visible.length) return;
-    const csv =
-      'Date,Fear Greed,Rating,Source\n' +
-      visible.map(r => [r.date, r.score, r.label || rating(r.score), r.source].join(',')).join('\n');
+    const csv = formatCSV([
+      ['Date', 'Fear Greed', 'Rating', 'Source'],
+      ...visible.map(r => [r.date, r.score, r.label || rating(r.score), r.source])
+    ]);
     downloadCSV('fear-greed-' + visible[0].date + '-' + visible.at(-1).date + '.csv', csv);
   });
 

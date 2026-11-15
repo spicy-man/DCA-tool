@@ -4,7 +4,7 @@ import path from 'node:path';
 
 export const projectRoot=fileURLToPath(new URL('../',import.meta.url));
 const semver=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-const fundStylePages=['public/nasdaq-funds.html','public/sp500-funds.html'];
+const fundStylePages=['public/funds.html'];
 const appVersionMeta=version=>`<meta name="app-version" content="${version}">`;
 export async function readVersion(root=projectRoot){
  const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));

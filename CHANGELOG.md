@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.6** (更新日期: 2026-11-15)。
+目前系统版本为 **v2.2.7** (更新日期: 2026-11-15)。
+
+## 🔧 v2.2.7 完善本地服务防护、基金对比页面与主图交互体验 [FIX]
+
+- **合并国内场内 ETF 对比页并重排指标列**：将原有的 [nasdaq-funds.html](./public/nasdaq-funds.html) 与 [sp500-funds.html](./public/sp500-funds.html) 合并为共享页面 [funds.html](./public/funds.html)（通过 `?group=nasdaq100` / `?group=sp500` 切换，未知参数安全回退），将「参考溢价率」「年费率」「净资产规模」前移至紧邻基金名称之后，并以纯 CSS SVG 遮罩替代会在 iOS 下渲染为彩色 Emoji 的 `↕` / `↗` 字符，同步更新 [version.mjs](./scripts/version.mjs)、[fund-navigation.mjs](./public/js/ui/fund-navigation.mjs) 与相关文档。
+- **主图显隐持久化与 CSV 导出防护**：在 [chart-visibility.mjs](./public/js/ui/chart-visibility.mjs) 与 [index.html](./public/index.html) 中将主图显隐偏好持久化至 `localStorage`，在隐藏态遮罩中央提供「显示行情主图」一键展开按钮并同步无障碍状态与 `#price-empty` 显隐；在 [overlay.mjs](./public/js/features/strategy/overlay.mjs) 中为配比弹窗输入增加 130ms 防抖并在取消/提交时清理定时器；在 [download.mjs](./public/js/ui/download.mjs) 中抽出 `formatCSV` / `escapeCSVCell`，为所有 CSV 导出统一补充 UTF-8 BOM、RFC-4180 转义与表格公式前缀防护。
+- **本地服务安全、锁自愈与代理增强**：在 [http-server.mjs](./server/http-server.mjs) 中为写接口 `sameOrigin` 补充 `Host` 允许列表与监听端口校验（防御 DNS Rebinding），并在 `/api/symbols` 透传 `ELOCKED` 返回 `409`；在 [updater.mjs](./server/updater.mjs) 与 [http-server.mjs](./server/http-server.mjs) 中汇总场内基金各分组失败与历史收益状态（含 `performanceOk` 与全部分组 `502` 判定）；在 [storage.mjs](./server/storage.mjs) 新增 `readJsonOptional` 捕获损坏 JSON 自愈并支持 `.refresh.lock` 陈旧死锁清理；在 [symbols.mjs](./server/symbols.mjs) 与 [data-health.mjs](./public/js/domain/data-health.mjs) 中实现 `custom-symbols.json` 与 `status.json` 写失败回滚及 `isStatusComplete` 默认全集校验，删除自定义标的时同步清理 `<symbol>.json` 缓存；完善 [network.mjs](./server/network.mjs) Windows `socks=` 代理解析及 [start.cmd](./start.cmd) UTF-8 / Node >= 20 检查。
 
 ## 🔧 v2.2.6 收紧窄屏页首排版以保持单行显示 [FIX]
 

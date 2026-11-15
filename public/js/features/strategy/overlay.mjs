@@ -9,7 +9,7 @@ import { evaluateFearStrategy } from '../../domain/fear-strategy.mjs';
 import { formatFearStatus, renderStrategySummary } from './summary.mjs';
 import { estimateMonthlyBuy, nextMonthlyPlan, summarizePortfolioFunding } from '../../domain/strategy-summary.mjs';
 import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
-import { downloadCSV } from '../../ui/download.mjs';
+import { downloadCSV, formatCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 import { bindDialogExitFallback, closeDialog, enableDialogLightDismiss } from '../../ui/dialog-utils.mjs';
 
@@ -645,8 +645,27 @@ function initAllocationDialog() {
   let lastBacktest = null;
   let lastTotal = defaults.baseAmount;
   let previewTierFactor = getKDOptions().tierFactor;
+  let previewTimer = null;
+  const PREVIEW_DEBOUNCE_MS = 130;
+  function cancelScheduledPreview() {
+    if (previewTimer !== null) {
+      clearTimeout(previewTimer);
+      previewTimer = null;
+    }
+  }
+  function runPreviewNow() {
+    cancelScheduledPreview();
+    updatePreview();
+  }
+  function schedulePreview() {
+    cancelScheduledPreview();
+    previewTimer = setTimeout(() => {
+      previewTimer = null;
+      if (inputs.size) updatePreview();
+    }, PREVIEW_DEBOUNCE_MS);
+  }
   refreshAllocationPreview = () => {
-    if (dialog.open && inputs.size) updatePreview();
+    if (dialog.open && inputs.size) runPreviewNow();
   };
 
   function validateTierFactor() {
@@ -683,7 +702,7 @@ function initAllocationDialog() {
         .finally(() => {
           if (epoch !== marketCacheEpoch) return;
           loadingSymbols.delete(symbol);
-          if (inputs.size) updatePreview();
+          if (inputs.size) runPreviewNow();
         });
     }
   }
@@ -907,7 +926,7 @@ function initAllocationDialog() {
       input.value = validWeight(savedWeight) ? String(savedWeight) : '0';
       input.addEventListener('input', () => {
         message.textContent = '';
-        updatePreview();
+        schedulePreview();
       });
       const unit = document.createElement('span');
       unit.textContent = '%';
@@ -932,7 +951,7 @@ function initAllocationDialog() {
       fearCountInput.setAttribute('aria-label', symbol + ' 恐慌加投倍数');
       fearCountInput.addEventListener('input', () => {
         message.textContent = '';
-        updatePreview();
+        schedulePreview();
       });
       fearCountLabel.append(fearCountInput, '倍');
       li.append(fearCountLabel);
@@ -941,7 +960,7 @@ function initAllocationDialog() {
       return li;
     });
     list.replaceChildren(...rows);
-    updatePreview();
+    runPreviewNow();
   }
 
   openBtn.addEventListener('click', () => {
@@ -966,13 +985,17 @@ function initAllocationDialog() {
     dialog.showModal?.();
   });
 
-  cancelBtn.addEventListener('click', () => closeDialog(dialog));
+  cancelBtn.addEventListener('click', () => {
+    cancelScheduledPreview();
+    closeDialog(dialog);
+  });
+  dialog.addEventListener('close', cancelScheduledPreview);
   bindDialogExitFallback(dialog);
   enableDialogLightDismiss(dialog);
 
   totalInput.addEventListener('input', () => {
     message.textContent = '';
-    updatePreview();
+    schedulePreview();
   });
 
   for (const [plan, button] of Object.entries(planButtons)) {
@@ -980,14 +1003,14 @@ function initAllocationDialog() {
       if (plan === selectedPlan) return;
       selectPlan(plan);
       message.textContent = '';
-      updatePreview();
+      runPreviewNow();
     });
   }
 
   for (const input of [buyDayInput, thresholdInput]) {
     input.addEventListener('input', () => {
       message.textContent = '';
-      updatePreview();
+      schedulePreview();
     });
   }
 
@@ -995,7 +1018,7 @@ function initAllocationDialog() {
     const value = validateTierFactor();
     if (value === null || value === previewTierFactor) return;
     previewTierFactor = value;
-    updatePreview();
+    schedulePreview();
   });
 
   bulkFearButton.addEventListener('click', () => {
@@ -1007,11 +1030,11 @@ function initAllocationDialog() {
     }
     for (const { fearCountInput } of inputs.values()) fearCountInput.value = String(count);
     message.textContent = '';
-    updatePreview();
+    runPreviewNow();
   });
 
   backtestMode?.addEventListener('change', () => {
-    updatePreview();
+    runPreviewNow();
   });
 
   for (const [button, mode] of [[tabEquity, 'equity'], [tabProfit, 'profit']]) {
@@ -1046,6 +1069,7 @@ function initAllocationDialog() {
 
   form.addEventListener('submit', event => {
     event.preventDefault();
+    cancelScheduledPreview();
     const tierFactor = validateTierFactor();
     if (tierFactor === null) return;
     const total = Number(totalInput.value);
@@ -1237,31 +1261,37 @@ export function initStrategyOverlay() {
 
   $('signal-download').addEventListener('click', () => {
     if (!market || !allCurrent.length) return;
-    const header =
-      'Symbol,Date,BuyDay,BaseAmountUSD,MonthCutoff,MonthHigh,Drawdown,Multiple,AmountUSD,SignalType,SignalDate,FearScore,FearThreshold,RearmThreshold,ScheduledMonth,ScheduledDate,Strategy,MonthK,QuarterK,WeightedK,SignalWeek\n';
-    const body = allCurrent
-      .map(s =>
-        [
-          market.symbol,
-          s.date,
-          s.buyDay,
-          s.baseAmount,
-          s.strategy==='regular'?'':s.cutoff,
-          s.strategy==='regular'?'':s.monthHigh,
-          s.strategy==='regular'?'':s.drawdown,
-          s.multiple,
-          s.amount,
-          s.type,
-          s.signalDate ?? '',
-          s.score ?? '',
-          s.fearThreshold ?? '',
-          s.rearmThreshold ?? '',
-          s.scheduledMonth ?? '',
-          s.scheduledDate ?? '',
-          viewStrategy,s.monthK??'',s.quarterK??'',s.weightedK??'',s.signalWeek??''
-        ].join(',')
-      )
-      .join('\n');
-    downloadCSV(market.symbol + '-'+viewStrategy+'-dca-signals.csv', header + body);
+    const csv = formatCSV([
+      [
+        'Symbol', 'Date', 'BuyDay', 'BaseAmountUSD', 'MonthCutoff', 'MonthHigh', 'Drawdown',
+        'Multiple', 'AmountUSD', 'SignalType', 'SignalDate', 'FearScore', 'FearThreshold',
+        'RearmThreshold', 'ScheduledMonth', 'ScheduledDate', 'Strategy',
+        'MonthK', 'QuarterK', 'WeightedK', 'SignalWeek'
+      ],
+      ...allCurrent.map(s => [
+        market.symbol,
+        s.date,
+        s.buyDay,
+        s.baseAmount,
+        s.strategy === 'regular' ? '' : s.cutoff,
+        s.strategy === 'regular' ? '' : s.monthHigh,
+        s.strategy === 'regular' ? '' : s.drawdown,
+        s.multiple,
+        s.amount,
+        s.type,
+        s.signalDate ?? '',
+        s.score ?? '',
+        s.fearThreshold ?? '',
+        s.rearmThreshold ?? '',
+        s.scheduledMonth ?? '',
+        s.scheduledDate ?? '',
+        viewStrategy,
+        s.monthK ?? '',
+        s.quarterK ?? '',
+        s.weightedK ?? '',
+        s.signalWeek ?? ''
+      ])
+    ]);
+    downloadCSV(market.symbol + '-' + viewStrategy + '-dca-signals.csv', csv);
   });
 }

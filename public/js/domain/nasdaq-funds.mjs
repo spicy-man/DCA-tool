@@ -52,15 +52,15 @@ export function normalizeFundQuotes(payload, now = Date.now(), funds = NASDAQ_FU
 export const FUND_SORT_FIELDS = Object.freeze({
   code: { label: '基金代码', direction: 'asc', type: 'text' },
   premium: { label: '参考溢价率', direction: 'asc' },
+  annualFee: { label: '年费率', direction: 'asc' },
+  netAssets: { label: '净资产规模', direction: 'desc' },
   price: { label: '最新价', direction: 'asc' },
+  iopv: { label: 'IOPV', direction: 'asc' },
+  amount: { label: '成交额', direction: 'desc' },
+  quoteDate: { label: '行情日期', direction: 'desc', type: 'text' },
   return1: { label: '近1年涨幅', direction: 'desc' },
   return3: { label: '近3年涨幅', direction: 'desc' },
-  return5: { label: '近5年涨幅', direction: 'desc' },
-  amount: { label: '成交额', direction: 'desc' },
-  netAssets: { label: '净资产规模', direction: 'desc' },
-  iopv: { label: 'IOPV', direction: 'asc' },
-  annualFee: { label: '年费率', direction: 'asc' },
-  quoteDate: { label: '行情日期', direction: 'desc', type: 'text' }
+  return5: { label: '近5年涨幅', direction: 'desc' }
 });
 
 export function sortFunds(rows, key = 'premium', direction = 'asc', secondary = null) {

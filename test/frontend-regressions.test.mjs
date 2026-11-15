@@ -5,6 +5,8 @@ import { setSignalSentiment, updateSignals, drawSignalMarkers, initStrategyOverl
 import { appEvents, events } from '../public/js/services/events.mjs';
 import { loadMarket, invalidateMarket, initMarketChart, renderMarket } from '../public/js/features/market/chart.mjs';
 import { initStrategyDialog } from '../public/js/ui/strategy-dialog.mjs';
+import { initChartVisibility } from '../public/js/ui/chart-visibility.mjs';
+import { formatCSV, escapeCSVCell } from '../public/js/ui/download.mjs';
 
 function element() {
   const attrs = {};
@@ -257,6 +259,7 @@ test('行情刷新后旧的主图请求不能回写缓存', async t => {
 });
 
 test('组合使用完整复盘前行情，刷新时丢弃旧请求并等待新快照', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const $ = dom(t);
   const oldStorage = globalThis.localStorage;
   const oldResize = globalThis.ResizeObserver;
@@ -280,9 +283,11 @@ test('组合使用完整复盘前行情，刷新时丢弃旧请求并等待新�
   const spyWeight = $('allocation-list').children[1].children[1].children[0];
   qqqWeight.value = '50';
   qqqWeight.listeners.input();
+  t.mock.timers.tick(150);
   assert.match($('allocation-backtest-period').textContent, /2025-01-06/);
   spyWeight.value = '50';
   spyWeight.listeners.input();
+  t.mock.timers.tick(150);
   assert.equal(spyRequests.length, 1);
   assert.equal($('allocation-estimate-average').textContent, '正在测算…');
 
@@ -290,6 +295,7 @@ test('组合使用完整复盘前行情，刷新时丢弃旧请求并等待新�
   await invalidateMarket();
   updateSignals({ ...data, rows: freshRows }, settings);
   spyWeight.listeners.input();
+  t.mock.timers.tick(150);
   assert.equal(spyRequests.length, 2);
   spyRequests[0].resolve({ ok: true, json: async () => ({ ...data, symbol: 'SPY', rows: [...rows] }) });
   await new Promise(resolve => setImmediate(resolve));
@@ -489,6 +495,7 @@ test('定投金额与恐慌倍数按标的独立缓存，定投日与恐慌阈�
 });
 
 test('配比弹窗支持按权重填入、草稿校验与取消隔离、0倍数停用及稀疏月顺延', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const $ = dom(t);
   const saved = new Map();
   const oldStorage = globalThis.localStorage;
@@ -527,14 +534,17 @@ test('配比弹窗支持按权重填入、草稿校验与取消隔离、0倍数�
   const fearInput = i => $('allocation-list').children[i].children.find(child => child.className === 'allocation-fear-count').children[0];
   weightInput(0).value = '50'; weightInput(0).listeners.input();
   weightInput(1).value = '30'; weightInput(1).listeners.input();
+  t.mock.timers.tick(150);
   assert.match($('allocation-summary').textContent, /80%.*20%/);
   assert.match($('allocation-estimate-peak').textContent, /13,000\.00/);
 
   // 弹窗内草稿阈值与回测控件切换不污染全局配置；空倍数阻断提交且不把空值当成 0；关闭 QQQ 恐慌加投（填 0）及 0% 配比 SMH
   $('allocation-fear-threshold').value = '8'; $('allocation-fear-threshold').listeners.input();
+  t.mock.timers.tick(150);
   assert.match($('allocation-estimate-peak').textContent, /0\.00/);
   assert.equal(signalSettings().fearThreshold, 10);
   $('allocation-fear-threshold').value = '10'; $('allocation-fear-threshold').listeners.input();
+  t.mock.timers.tick(150);
   $('allocation-backtest-mode').value = 'actual'; $('allocation-backtest-mode').listeners.change();
   assert.equal($('allocation-principal-legend').hidden, true);
   $('allocation-tab-equity').listeners.click();
@@ -542,10 +552,12 @@ test('配比弹窗支持按权重填入、草稿校验与取消隔离、0倍数�
   $('allocation-scale-toggle').listeners.click();
   assert.equal($('allocation-backtest-plot').dataset.scale, 'linear');
   fearInput(1).value = ''; fearInput(1).listeners.input();
+  t.mock.timers.tick(150);
   assert.equal($('allocation-estimate-peak').textContent, '—');
   $('allocation-form').listeners.submit({ preventDefault() {} });
   assert.match($('allocation-message').textContent, /恐慌加投倍数/);
   fearInput(1).value = '0'; fearInput(1).listeners.input();
+  t.mock.timers.tick(150);
   assert.match($('allocation-estimate-peak').textContent, /10,000\.00/);
   $('allocation-form').listeners.submit({ preventDefault() {} });
   assert.equal(signalSettings().baseAmount, 2500);
@@ -585,6 +597,7 @@ test('配比弹窗支持按权重填入、草稿校验与取消隔离、0倍数�
   $('allocation-plan-pyramidFear').listeners.click();
   $('allocation-buy-day').value = '31';
   $('allocation-buy-day').listeners.input();
+  t.mock.timers.tick(150);
   assert.match($('allocation-recent-signal').textContent, /2025-02-28.*5,000\.00/);
   assert.equal($('allocation-recent-detail').textContent, 'SPY 5,000.00');
 
@@ -713,6 +726,7 @@ test('KD独立Canvas曲线与主图对齐，月K/季K细实线、加权K粗实�
 });
 
 test('组合 KD 系数草稿同时用于计划和回测，关闭后放弃、确认后同步保存', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const $ = dom(t);
   const { initKDControls } = await import('../public/js/features/strategy/kd.mjs');
   const saved = new Map();
@@ -745,7 +759,7 @@ test('组合 KD 系数草稿同时用于计划和回测，关闭后放弃、确�
   $('allocation-buy-day').value = '6';
   $('allocation-buy-day').listeners.input();
   const factor = $('allocation-kd-tier-factor');
-  const editFactor = value => { factor.value = value; factor.listeners.input(); };
+  const editFactor = value => { factor.value = value; factor.listeners.input(); t.mock.timers.tick(150); };
   const submit = () => $('allocation-form').listeners.submit({ preventDefault() {} });
   editFactor('1');
   assert.match($('allocation-next-plan').textContent, /2,000\.00/);
@@ -880,4 +894,72 @@ test('清空定投金额或恐慌倍数输入框不覆盖已保存配置；组�
  assert.equal(fullData.rows.length, 6);
  assert.ok(getVisibleSignals().every(s => s.date <= '2024-02-02'));
  assert.equal($('recent-signal').textContent, '2024-02-01');
+});
+
+test('主图显隐状态持久化至 localStorage，支持遮罩内一键展开并同步无障碍状态', t => {
+  const $ = dom(t);
+  const oldStorage = globalThis.localStorage;
+  const saved = new Map();
+  globalThis.localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, String(value)) };
+  t.after(() => { globalThis.localStorage = oldStorage; });
+  for (const id of ['price-wrap', 'price-quote']) {
+    const classes = new Set();
+    $(id).classList = { toggle: (name, force) => (force ? classes.add(name) : classes.delete(name)), has: name => classes.has(name) };
+  }
+  initChartVisibility();
+  assert.equal($('price-wrap').classList.has('is-concealed'), true);
+  assert.equal($('price-visibility-toggle').getAttribute('aria-pressed'), 'false');
+  assert.equal($('price-visibility-note').inert, false);
+  $('price-visibility-reveal').listeners.click();
+  assert.equal($('price-wrap').classList.has('is-concealed'), false);
+  assert.equal($('price-visibility-toggle').getAttribute('aria-pressed'), 'true');
+  assert.equal($('price-visibility-note').inert, true);
+  assert.equal(saved.get('seeker.priceChartRevealed.v1'), '1');
+
+  initChartVisibility();
+  assert.equal($('price-wrap').classList.has('is-concealed'), false);
+  $('price-visibility-toggle').listeners.click();
+  assert.equal(saved.get('seeker.priceChartRevealed.v1'), '0');
+  assert.equal($('price-wrap').classList.has('is-concealed'), true);
+});
+
+test('配比弹窗输入防抖在连续输入时不立即重算并在取消时清理待执行预览', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const $ = dom(t);
+  const oldStorage = globalThis.localStorage;
+  const oldResize = globalThis.ResizeObserver;
+  globalThis.localStorage = { getItem: () => null, setItem() {} };
+  globalThis.ResizeObserver = class { observe() {} };
+  t.after(() => { globalThis.localStorage = oldStorage; globalThis.ResizeObserver = oldResize; });
+  $('symbol').value = 'SPY';
+  $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }];
+  initStrategyOverlay();
+  setSignalSentiment([{ date: '2025-01-02', score: 20 }]);
+  updateSignals({ symbol: 'SPY', rows }, settings);
+  $('allocation-open').listeners.click();
+  const weight = $('allocation-list').children[0].children[1].children[0];
+  weight.value = '50';
+  weight.listeners.input();
+  weight.value = '100';
+  weight.listeners.input();
+  assert.equal($('allocation-summary').textContent, '配比合计：0%（剩余 100% 未分配）');
+  t.mock.timers.tick(150);
+  assert.equal($('allocation-summary').textContent, '配比合计：100%');
+  weight.value = '40';
+  weight.listeners.input();
+  $('allocation-cancel').listeners.click();
+  t.mock.timers.tick(150);
+  assert.equal($('allocation-summary').textContent, '配比合计：100%');
+});
+
+test('formatCSV 统一添加 UTF-8 BOM、RFC-4180 引号转义及公式注入防护', () => {
+  assert.equal(escapeCSVCell(-0.25), '"-0.25"');
+  assert.equal(escapeCSVCell('=SUM(A1)'), '"\'=SUM(A1)"');
+  assert.equal(escapeCSVCell('+cmd'), '"\'+cmd"');
+  assert.equal(escapeCSVCell('-cmd'), '"\'-cmd"');
+  assert.equal(escapeCSVCell('@1+1'), '"\'@1+1"');
+  assert.equal(escapeCSVCell('a"b,c'), '"a""b,c"');
+  const csv = formatCSV([['标的', '公式'], ['SPY', '=1+1']]);
+  assert.ok(csv.startsWith('\uFEFF'));
+  assert.equal(csv, '\uFEFF"标的","公式"\r\n"SPY","\'=1+1"');
 });

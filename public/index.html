@@ -9,7 +9,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="定投助手">
-  <meta name="app-version" content="2.2.6">
+  <meta name="app-version" content="2.2.7">
   <meta name="description" content="查看 SPY / QQQ / VGT / SMH / BRK-B 前复权行情、恐慌与贪婪指数及月跌幅金字塔定投信号。">
   <title>定投助手</title>
   <link rel="manifest" href="./manifest.webmanifest">
@@ -21,7 +21,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=2.2.6">
+  <link rel="stylesheet" href="./style.css?v=2.2.7">
 </head>
 <body>
   <div class="shell">
@@ -30,7 +30,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 2.2.6">v2.2.6</span>
+        <span class="version-badge" aria-label="版本 2.2.7">v2.2.7</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -205,7 +205,10 @@
           </button>
           <canvas id="price-chart" role="img" aria-label="ETF 前复权开高低收 K 线图" inert></canvas>
           <div id="signal-layer" class="signal-layer" inert></div>
-          <p class="chart-visibility-note">主图已隐藏，点击右上角眼睛按钮查看。</p>
+          <div id="price-visibility-note" class="chart-visibility-note">
+            <p>主图行情已默认隐藏，专注定投信号与策略执行</p>
+            <button id="price-visibility-reveal" class="chart-visibility-reveal" type="button" aria-controls="price-chart signal-layer price-quote">显示行情主图</button>
+          </div>
           <button id="price-scale-toggle" class="scale-toggle" type="button" aria-pressed="true" aria-label="切换 K 线对数坐标" title="切换对数坐标">对数</button>
           <div id="price-tooltip" class="tooltip" hidden></div>
           <p id="price-empty" class="price-empty" hidden></p>
@@ -256,7 +259,7 @@
             <button id="signal-download">导出定投信号 CSV</button>
           </section>
         </details>
-          <a id="fund-entry" class="fund-entry" href="./nasdaq-funds.html" hidden>纳指100 场内 ETF 对比 <span aria-hidden="true">↗</span></a>
+          <a id="fund-entry" class="fund-entry" href="./funds.html?group=nasdaq100" hidden>纳指100 场内 ETF 对比</a>
         </div>
       </section>
 

@@ -89,7 +89,7 @@ test('PWA 清单、iOS 图标与主页面入口声明有效且使用相对路径
     assert.equal(pngDims(await readFile(new URL(icon.src, pub))), icon.sizes);
   }
   assert.equal(pngDims(await readFile(new URL('icons/apple-touch-icon.png', pub))), '180x180');
-  for (const page of ['index.html', 'nasdaq-funds.html', 'sp500-funds.html']) {
+  for (const page of ['index.html', 'funds.html']) {
     const html = await readFile(new URL(page, pub), 'utf8');
     assert.ok(html.includes('viewport-fit=cover'), page);
     assert.ok(html.includes('href="./manifest.webmanifest"'), page);

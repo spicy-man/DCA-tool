@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { publicRequestHeaders } from '../server/network.mjs';
+import { publicRequestHeaders, parseWindowsProxy } from '../server/network.mjs';
 import { CNN_URL, ARCHIVE_URL } from '../server/updater.mjs';
 
 test('CNN配置防拦截来源请求头，避免通用下载器丢失来源参数', () => {
@@ -29,4 +29,12 @@ test('允许通过CNN_FETCH_USER_AGENT显式配置，空值回退默认', () => 
  } finally {
   if(saved===undefined)delete process.env.CNN_FETCH_USER_AGENT;else process.env.CNN_FETCH_USER_AGENT=saved;
  }
+});
+
+test('parseWindowsProxy 解析 ProxyEnable 与 http/https/socks 注册表项', () => {
+ assert.equal(parseWindowsProxy('ProxyEnable    REG_DWORD    0x0\r\nProxyServer    REG_SZ    127.0.0.1:7890\r\n'), '');
+ assert.equal(parseWindowsProxy('ProxyEnable    REG_DWORD    0x1\r\nProxyServer    REG_SZ    127.0.0.1:7890\r\n'), 'http://127.0.0.1:7890');
+ assert.equal(parseWindowsProxy('ProxyEnable    REG_DWORD    0x1\r\nProxyServer    REG_SZ    http=127.0.0.1:7890;https=127.0.0.1:7891\r\n'), 'http://127.0.0.1:7891');
+ assert.equal(parseWindowsProxy('ProxyEnable    REG_DWORD    0x1\r\nProxyServer    REG_SZ    socks=127.0.0.1:1080\r\n'), 'socks5h://127.0.0.1:1080');
+ assert.equal(parseWindowsProxy('ProxyEnable    REG_DWORD    0x1\r\nProxyServer    REG_SZ    socks=socks5://127.0.0.1:1080\r\n'), 'socks5://127.0.0.1:1080');
 });

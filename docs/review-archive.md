@@ -4,6 +4,20 @@
 
 ---
 
+## 代码审查台账 #10–#13 与工作区改动审查修复闭环（2026-11-15）
+
+- **已修复台账项（`#10–#13`）**：
+  1. `#10` [http-server.mjs](../server/http-server.mjs#L30-L85)：`sameOrigin` 增加 `Host` 允许列表（回环地址、配置 `HOST` / `allowedHosts` 及通配监听时的实际本机连接 IP）与监听端口校验，并拒绝除 `'same-origin'` 以外的 `Sec-Fetch-Site`。
+  2. `#11` [http-server.mjs](../server/http-server.mjs#L152-L209)、[updater.mjs](../server/updater.mjs#L46-L55)：`updateFunds` 在 `groups` 中暴露 `performanceOk`；`/api/refresh` 将 `status.funds`、`status.funds.groups`（含 `performanceOk === false` 与 `performanceComplete === false`）与 `status.funds.performance` 的失败或未到齐状态汇总进 `errors`，冷却判定同步校验各分组状态，`fundsAnyOk` 按全部分组独立判定、避免首组失败掩盖次组成功，全部数据源均失败时返回 `502`。
+  3. `#12` [storage.mjs](../server/storage.mjs#L14-L23)、[updater.mjs](../server/updater.mjs#L24-L120)、[symbols.mjs](../server/symbols.mjs#L17-L33)：新增 `readJsonOptional`，对损坏的基金快照、行情 `<symbol>.json` 与 `status.json` 捕获 `SyntaxError` 返回 `null` 以允许上游重新拉取自愈。
+  4. `#13` [data-health.mjs](../public/js/domain/data-health.mjs#L17-L25)、[symbols.mjs](../server/symbols.mjs#L17-L50)、[updater.mjs](../server/updater.mjs#L283-L407)：抽取共享 `isStatusComplete`（校验 `['Fear & Greed', ...SYMBOLS, ...extraSymbols]` 全集在场），并通过 `writeCustomSymbolsWithStatus` 先写 `custom-symbols.json` 再写 `status.json`（后者失败时回滚列表文件）。
+- **工作区双人独立复审追加修复**：
+  1. [page.css](../public/css/page.css#L2076-L2077)：主图默认隐藏态（`.price-wrap.is-concealed`）同步隐藏 `#price-empty`，避免空区间提示与中央展开引导重叠。
+  2. [start.cmd](../start.cmd#L1-L34)：移除 `goto :fail` 改为线性错误退出流程，规避 Windows `cmd.exe` 在 UTF-8（`chcp 65001`）+ LF 换行下的标签跳转偏移问题。
+- **范围、轮次与验证**：两轮双人独立只读审查（两方审查前均未预读 `docs/code-review.md` 与 `docs/tech-debt.md`）；第 2 轮复审后两方均未发现未解决的有效问题。`npm test` **211 / 211 全部通过**，`git diff --check` 无异常（剩余限制：`start.cmd` 仅完成静态批处理语法核查，未在 Windows 真机 `cmd.exe` 实测；`public/data/status.json` 与未跟踪的 `public/data/{googl,aapl,ko}.json` 为本地运行中的自选股数据，静态构建已通过 `build-site.mjs` 过滤）。
+
+---
+
 ## 卡片头部基线对齐与窄屏布局修复闭环（2026-11-14）
 
 - **范围与轮次**：

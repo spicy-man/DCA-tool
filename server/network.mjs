@@ -9,11 +9,33 @@ export function yahooURL(symbol) {
   return `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=0&period2=${Math.floor(Date.now() / 1000)}&interval=1d&events=div%2Csplits&includeAdjustedClose=true`;
 }
 
+export function parseWindowsProxy(stdout) {
+  if (!/ProxyEnable\s+REG_DWORD\s+0x1\b/i.test(stdout)) return '';
+  const server = stdout.match(/ProxyServer\s+REG_SZ\s+([^\r\n]+)/i)?.[1]?.trim();
+  if (!server) return '';
+  if (!server.includes('=')) {
+    return /^[a-z0-9+.-]+:\/\//i.test(server) ? server : 'http://' + server;
+  }
+  const httpTarget =
+    server.match(/(?:^|;)https=([^;]+)/i)?.[1]?.trim() ||
+    server.match(/(?:^|;)http=([^;]+)/i)?.[1]?.trim();
+  if (httpTarget) {
+    return /^[a-z0-9+.-]+:\/\//i.test(httpTarget) ? httpTarget : 'http://' + httpTarget;
+  }
+  const socksTarget = server.match(/(?:^|;)socks=([^;]+)/i)?.[1]?.trim();
+  if (socksTarget) {
+    return /^[a-z0-9+.-]+:\/\//i.test(socksTarget) ? socksTarget : 'socks5h://' + socksTarget;
+  }
+  return '';
+}
+
 async function networkProxy() {
   const explicit =
     process.env.MARKET_DATA_PROXY ||
     process.env.HTTPS_PROXY ||
     process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy ||
     process.env.ALL_PROXY ||
     process.env.all_proxy;
   if (explicit) return explicit === 'direct' ? '' : explicit;
@@ -25,13 +47,7 @@ async function networkProxy() {
       ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'],
       { windowsHide: true, timeout: 5000 }
     );
-    if (!/ProxyEnable\s+REG_DWORD\s+0x1\b/i.test(stdout)) return '';
-    const server = stdout.match(/ProxyServer\s+REG_SZ\s+([^\r\n]+)/i)?.[1]?.trim();
-    if (!server) return '';
-    const selected = server.includes('=')
-      ? server.match(/(?:^|;)https=([^;]+)/i)?.[1] || server.match(/(?:^|;)http=([^;]+)/i)?.[1]
-      : server;
-    return selected ? (/^[a-z]+:\/\//i.test(selected) ? selected : 'http://' + selected) : '';
+    return parseWindowsProxy(stdout);
   } catch {
     return '';
   }
@@ -60,6 +76,7 @@ export async function fetchPublicText(url) {
       if (/^(https?|all)_proxy$/i.test(key)) delete env[key];
     }
     env.HTTPS_PROXY = proxy;
+    env.HTTP_PROXY = proxy;
     try {
       const { stdout } = await run(
         process.platform === 'win32' ? 'curl.exe' : 'curl',

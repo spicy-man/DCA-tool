@@ -2073,7 +2073,8 @@ footer {
   pointer-events: none;
   transition-delay: 0s, 200ms;
 }
-.price-wrap.is-concealed > #price-tooltip { display: none; }
+.price-wrap.is-concealed > #price-tooltip,
+.price-wrap.is-concealed > #price-empty { display: none; }
 .price-card #price-quote { filter: blur(0); transition: filter 200ms ease; }
 .price-card #price-quote.is-concealed {
   filter: blur(6px);
@@ -2084,23 +2085,44 @@ footer {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   margin: 0;
   padding: 52px 24px;
-  color: #607487;
-  font-size: 12px;
-  line-height: 1.8;
+  color: #4a5c68;
+  font-size: 13px;
+  line-height: 1.6;
   text-align: center;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
   transition: opacity 200ms ease, visibility 0s 200ms;
 }
+.chart-visibility-note p { margin: 0; }
+.chart-visibility-reveal {
+  pointer-events: none;
+  padding: 6px 14px;
+  border: 1px solid #c3cfd8;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chart-visibility-reveal:hover {
+  border-color: #6f8695;
+  background: #ffffff;
+}
 .price-wrap.is-concealed > .chart-visibility-note {
   opacity: 1;
   visibility: visible;
   transition-delay: 0s, 0s;
+}
+.price-wrap.is-concealed > .chart-visibility-note .chart-visibility-reveal {
+  pointer-events: auto;
 }
 @media (prefers-reduced-motion: reduce) {
   .price-wrap > #price-chart,

@@ -9,11 +9,11 @@ export const SP500_FUNDS = Object.freeze([
 
 export const FUND_GROUPS = Object.freeze({
   nasdaq100: Object.freeze({ id: 'nasdaq100', title: '纳斯达克100', funds: NASDAQ_FUNDS,
-    page: 'nasdaq-funds.html', snapshotFile: 'nasdaq100-etfs.json', homeSymbol: 'QQQ',
+    page: 'funds.html?group=nasdaq100', snapshotFile: 'nasdaq100-etfs.json', homeSymbol: 'QQQ',
     button: '纳指100 场内 ETF 对比',
     benchmark: Object.freeze({ symbol: 'QQQ', name: 'Invesco 纳斯达克100 ETF', provider: 'Invesco', ...QQQ_FEE }) }),
   sp500: Object.freeze({ id: 'sp500', title: '标普500', funds: SP500_FUNDS,
-    page: 'sp500-funds.html', snapshotFile: 'sp500-etfs.json', homeSymbol: 'SPY',
+    page: 'funds.html?group=sp500', snapshotFile: 'sp500-etfs.json', homeSymbol: 'SPY',
     button: '标普500 场内 ETF 对比',
     benchmark: Object.freeze({ symbol: 'SPY', name: 'SPDR 标普500 ETF', provider: 'State Street', ...SPY_FEE }) })
 });

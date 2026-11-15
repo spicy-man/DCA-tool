@@ -9,9 +9,7 @@ export function initFundNavigation() {
     link.hidden = !group;
     if (!group) return;
     link.href = './' + group.page;
-    const arrow = document.createElement('span');
-    arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '↗';
-    link.replaceChildren(document.createTextNode(group.button + ' '), arrow);
+    link.textContent = group.button;
   };
   symbol.addEventListener('change', update);
   update();

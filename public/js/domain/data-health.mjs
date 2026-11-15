@@ -14,6 +14,16 @@ export function formatNewYorkTime(value) {
   return p.year + '-' + p.month + '-' + p.day + ' ' + p.hour + ':' + p.minute + ':' + p.second + ' ' + p.timeZoneName;
 }
 
+export function isStatusComplete(results, expectedDate, extraSymbols = []) {
+  if (!Array.isArray(results) || !expectedDate) return false;
+  const bySymbol = new Map(results.map(r => [r.symbol, r]));
+  const required = ['Fear & Greed', ...SYMBOLS, ...extraSymbols];
+  return required.every(symbol => {
+    const r = bySymbol.get(symbol);
+    return r && r.ok && r.date >= expectedDate;
+  }) && results.every(r => r.ok && r.date >= expectedDate);
+}
+
 export function healthSummary(status, now = Date.now()) {
   const expected = latestClosedSession(now);
   if (!status?.results?.length) {

@@ -68,4 +68,4 @@ node scripts/build-site.mjs 生成 dist/，每次清理并重建这个固定输�
 
 ## 标普500 ETF 页面
 
-`sp500-funds.html` 与纳指页面使用同一套更新流程（北京时间15:01起每6小时），基准为SPY（直接复用本地 `spy.json`）。`node scripts/update-funds.mjs` 默认更新两组，新增的 `public/data/sp500-etfs.json` 会随现有工作流保存、发布；本地完整更新也包含两组。可使用 `--group=sp500` 或 `--group=nasdaq100` 单独更新，仍使用同一数据锁与原子写入。两组独立保留快照，命令按整体 complete 报告部分失败。
+`funds.html?group=sp500` 与纳指分组（`funds.html?group=nasdaq100`）共用同一页面与更新流程（北京时间15:01起每6小时），基准为SPY（直接复用本地 `spy.json`）。`node scripts/update-funds.mjs` 默认更新两组，`public/data/sp500-etfs.json` 会随现有工作流保存、发布；本地完整更新也包含两组。可使用 `--group=sp500` 或 `--group=nasdaq100` 单独更新，仍使用同一数据锁与原子写入。两组独立保留快照，命令按整体 complete 报告部分失败。

@@ -12,10 +12,6 @@
 | 编号 | 优先级 | 模块 | 问题摘要 |
 | --- | --- | --- | --- |
 | [#9](#9-low-pagesyml-update-写状态前崩溃仍会部署旧-statusjson) | **Low** | [pages.yml](../.github/workflows/pages.yml#L103-L106) | `update-data.mjs` 在写出 `status.json` 前抛错退出，因 `continue-on-error` 仍部署旧状态 |
-| [#10](#10-medium-http-servermjs-本地写接口缺少-host-允许列表校验) | **Medium** | [http-server.mjs](../server/http-server.mjs#L29-L37) | `sameOrigin` 仅比对 `Origin.host === Host` 且允许缺省 `Origin`，存在 DNS Rebinding 风险 |
-| [#11](#11-medium-http-servermjs-apirefresh-忽略基金与历史收益失败) | **Medium** | [http-server.mjs](../server/http-server.mjs#L110-L136) | 市场 ETF 成功但基金快照或历史收益失败时仍返回 `HTTP 200` 与空 `errors` |
-| [#12](#12-medium-updatermjs-本地-json-缓存损坏导致更新中断) | **Medium** | [updater.mjs](../server/updater.mjs#L25-L26) | `updateFundGroup` / `updateETF` / `run` 读取损坏本地 JSON 时未兜底，无法从上游自愈 |
-| [#13](#13-medium-updatermjs--symbolsmjs-自定义标的增删非原子且漏检默认全集) | **Medium** | [updater.mjs](../server/updater.mjs#L297-L308) | 先写 `status.json` 后写 `custom-symbols.json`，且重算 `complete` 未校验默认标的全集 |
 | [#14](#14-medium-http-servermjs-局部接口方法head-响应与流解码缺陷) | **Medium** | [http-server.mjs](../server/http-server.mjs#L50-L78) | `/deployment.json` 未限方法、`HEAD` 返回响应体、`/api/symbols` 拼接文本块且 `413` 未销毁流 |
 | [#15](#15-low-comparisonmjs-场内基金成交额全为空时误显示-000-亿) | **Low** | [comparison.mjs](../public/js/features/funds/comparison.mjs#L124-L125) | 所有基金 `amount === null` 时 `#fund-turnover` 显示 `0.00 亿` 而非 `—` |
 | [#16](#16-low-strategy-summarymjs-summarizefunding-峰值并列使用精确-) | **Low** | [strategy-summary.mjs](../public/js/domain/strategy-summary.mjs#L90-L91) | 单标的峰值月份并列比较使用 `amount === peak`，未统一采用 `1e-9` 容差 |
@@ -35,32 +31,6 @@
 - **触发条件**：`scripts/update-data.mjs` 在 `refreshAll` 写出新 `public/data/status.json` 之前抛错退出（如 `FEAR_GREED_SOURCE` 配置非法、已有 `status.json` 损坏或文件锁异常）。
 - **实际影响**：`Update sources` 配置了 `continue-on-error: true`，后续 `Build static site` 与 `Deploy` 仍会继续执行并部署上一轮旧 `status.json`（不过 `report-data-status.mjs` 会检测到 `UPDATE_OUTCOME === 'failure'` 并使 Actions 任务失败）。
 - **建议修复**：在 `update` 意外失败且未更新 `status.json` 时，跳过部署或向构建产物注入失败状态提示。
-
-### #10 [Medium] `http-server.mjs` 本地写接口缺少 `Host` 允许列表校验
-- **位置**：[server/http-server.mjs](../server/http-server.mjs#L29-L37)、[server/http-server.mjs](../server/http-server.mjs#L66-L108)
-- **触发条件**：`sameOrigin` 仅拒绝 `sec-fetch-site === 'cross-site'`，允许无 `Origin` 请求，且仅对比 `new URL(req.headers.origin).host === req.headers.host` 而未校验 `Host`。在 DNS Rebinding 攻击下，恶意域名解析到 `127.0.0.1` 后浏览器发送 `Sec-Fetch-Site: same-origin` 且 `Origin` 与 `Host` 一致。
-- **实际影响**：外部恶意页面（经由 DNS Rebinding）或本机无 `Origin` 请求可调用 `POST/DELETE /api/symbols` 与 `POST /api/refresh`，改动本地数据或触发外网抓取。
-- **建议修复**：校验 `req.headers.host` 属于允许的回环地址/配置主机名及监听端口；在兼容无 `Origin` 本地单测的前提下收紧校验或要求自定义请求头。
-
-### #11 [Medium] `http-server.mjs` `/api/refresh` 忽略基金与历史收益失败
-- **位置**：[server/http-server.mjs](../server/http-server.mjs#L110-L136)
-- **触发条件**：市场 ETF 更新成功（`anyOk === true`），但 `status.funds` 或 `status.funds.performance` 返回 `ok: false` 或 `complete: false`。
-- **实际影响**：服务端虽未写入冷却缓存（`L113-114`），但 `L127-135` 仅从 `status.results` 构造 `errors`，导致响应仍为 `HTTP 200` 且 `errors: []`，首页 [application.mjs](../public/js/application.mjs#L286-L305) 无法感知基金更新失败。
-- **建议修复**：将 `status.funds` 与 `status.funds.performance` 的错误及未到齐状态汇总进 `errors`，并在全部数据源均失败时返回 `502`。
-
-### #12 [Medium] `updater.mjs` 本地 JSON 缓存损坏导致更新中断
-- **位置**：[server/updater.mjs](../server/updater.mjs#L25-L26)、[server/updater.mjs](../server/updater.mjs#L118-L119)、[server/updater.mjs](../server/updater.mjs#L334-L335)、[server/symbols.mjs](../server/symbols.mjs#L7)
-- **触发条件**：`status.json`、基金快照或任意 `<symbol>.json` 文件截断或语法损坏时，`updateFundGroup`（`L26`）、`updateETF`（`L119`）、`run`（`L335`）直接调用未保护的 `JSON.parse`。
-- **实际影响**：单份本地缓存损坏即阻断自动/手动更新流程（关联 `#9`），必须手动删文件后才能恢复，无法由上游拉取自动覆盖修复。
-- **建议修复**：提取 `readJsonOptional(file)` 辅助函数捕获 `SyntaxError`，按缺失缓存返回 `null` 并允许上游重新拉取自愈。
-
-### #13 [Medium] `updater.mjs` / `symbols.mjs` 自定义标的增删非原子且漏检默认全集
-- **位置**：[server/updater.mjs](../server/updater.mjs#L297-L308)、[server/symbols.mjs](../server/symbols.mjs#L22-L31)（对照 [public/js/domain/data-health.mjs](../public/js/domain/data-health.mjs#L69-L72)）
-- **触发条件**：
-  1. `addCustomSymbol` 与 `removeCustomSymbol` 均先写 `status.json` 再写 `custom-symbols.json`，若第二次 `atomicWrite` 失败导致两文件不一致。
-  2. 两处均仅以 `status.results.every(complete)` 计算 `status.complete`，未校验 `['Fear & Greed', ...SYMBOLS]` 是否齐全。
-- **实际影响**：极端写盘失败后配置列表与状态文件分裂；当 `status.results` 缺少默认标的时可能误置 `status.complete = true`。
-- **建议修复**：抽离共享 `complete` 判定（校验默认全集在场），并调整写入顺序或在失败时回滚/读取时对账修复。
 
 ### #14 [Medium] `http-server.mjs` 局部接口方法、`HEAD` 响应与流解码缺陷
 - **位置**：[server/http-server.mjs](../server/http-server.mjs#L50-L78)

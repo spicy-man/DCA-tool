@@ -3,10 +3,11 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fetchPublicText, yahooURL } from './network.mjs';
 import { normalizeYahoo, SYMBOLS, validSymbol, filterMarketHistory, HISTORY_STARTS } from '../public/js/domain/market.mjs';
-import { readCustomSymbols } from './symbols.mjs';
+import { readCustomSymbols, writeCustomSymbolsWithStatus } from './symbols.mjs';
 import { parseCSV, rating, OFFICIAL_START } from '../public/js/domain/sentiment.mjs';
+import { isStatusComplete } from '../public/js/domain/data-health.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
-import { readOptional, atomicWrite, preserveHistory, withDataLock } from './storage.mjs';
+import { readOptional, readJsonOptional, atomicWrite, preserveHistory, withDataLock } from './storage.mjs';
 import { loadHistoricalSupplement, mergeHistoricalSupplement } from './sentiment-history.mjs';
 import { fetchFundSnapshot } from './nasdaq-funds.mjs';
 import { fetchFundPerformance } from './fund-performance.mjs';
@@ -22,8 +23,7 @@ const pending = new Map();
 
 async function updateFundGroup({ dataDir, fetchText = fetchPublicText, now = Date.now() }, group) {
   const file = path.join(dataDir, group.snapshotFile);
-  const text = await readOptional(file);
-  const previous = text ? JSON.parse(text) : null;
+  const previous = await readJsonOptional(file);
   let next;
   try {
     next = await fetchFundSnapshot({ fetchText, now, previous, funds: group.funds });
@@ -49,7 +49,8 @@ async function updateFunds(options) {
   for (const group of groups) snapshots.push(await updateFundGroup(options, group));
   return { ...snapshots[0], complete: snapshots.every(s => s.ok && s.performance?.ok && s.performance?.complete),
     groups: snapshots.map(s => ({ groupId: s.groupId, ok: s.ok, count: s.rows.length,
-      performanceDate: s.performance?.endDate, performanceComplete: s.performance?.complete,
+      performanceDate: s.performance?.endDate, performanceOk: s.performance?.ok ?? null,
+      performanceComplete: s.performance?.complete,
       error: s.error || s.performance?.error })) };
 }
 
@@ -102,21 +103,22 @@ async function retry(task, wait) {
 
 async function snapshot(dataDir, symbol) {
   const fileName = symbol === 'Fear & Greed' ? 'fear-greed.csv' : symbol.toLowerCase() + '.json';
-  const text = await readOptional(path.join(dataDir, fileName));
-  if (!text) return null;
+  const file = path.join(dataDir, fileName);
   if (symbol === 'Fear & Greed') {
+    const text = await readOptional(file);
+    if (!text) return null;
     const rows = parseCSV(text);
     return { date: rows.at(-1).date, count: rows.length };
   }
-  const data = JSON.parse(text);
+  const data = await readJsonOptional(file);
+  if (!data) return null;
   if (data.symbol !== symbol || !data.rows?.length) throw Error('本地行情格式无效');
   return { date: data.anchorDate, count: filterMarketHistory(symbol, data.rows).length };
 }
 
 async function updateETF(symbol, { dataDir, fetchText, now }) {
   const file = path.join(dataDir, symbol.toLowerCase() + '.json');
-  const saved = await readOptional(file);
-  const previous = saved ? JSON.parse(saved) : null;
+  const previous = await readJsonOptional(file);
   let text;
   try {
     text = await fetchText(yahooURL(symbol));
@@ -141,7 +143,7 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
         result.indicators.adjclose[0].adjclose?.[i]];
       return date <= latest && (!HISTORY_STARTS[symbol] || date >= HISTORY_STARTS[symbol]) && values.some(v => v == null) ? [date] : [];
     });
-    if (previous) {
+    if (previous?.rows) {
       const previousRows = filterMarketHistory(symbol, previous.rows);
       const tailIncomplete = new Set(incompleteDates.filter(date => date > next.anchorDate));
       if (tailIncomplete.size && previousRows.some(r => tailIncomplete.has(r.date))) {
@@ -280,10 +282,8 @@ export async function addCustomSymbol(symbol, options = {}) {
     } catch {
       throw Error('无法添加：请确认代码有效、属于美元美股股票或 ETF，并检查行情数据源连接');
     }
-    const statusFile = path.join(dataDir, 'status.json');
-    const saved = await readOptional(statusFile);
-    if (saved) {
-      const status = JSON.parse(saved);
+    const nextSymbols = [...symbols, symbol];
+    await writeCustomSymbolsWithStatus(dataDir, nextSymbols, status => {
       const expectedDate = status.expectedDate || latestClosedSession(now);
       const checkedAt = new Date(now).toISOString();
       const entry = {
@@ -296,16 +296,13 @@ export async function addCustomSymbol(symbol, options = {}) {
       };
       status.results = [...(status.results || []).filter(r => r.symbol !== symbol), entry];
       const complete = r => r.ok && r.date >= expectedDate;
-      status.complete = status.results.every(complete);
+      status.complete = isStatusComplete(status.results, expectedDate, nextSymbols);
       if (status.requestedSources) {
         status.requestedComplete = status.results
           .filter(r => status.requestedSources.includes(r.symbol)).every(complete);
       }
-      await atomicWrite(statusFile, JSON.stringify(status, null, 2) + '\n');
-    }
-    symbols.push(symbol);
-    await atomicWrite(path.join(dataDir, 'custom-symbols.json'), JSON.stringify(symbols) + '\n');
-    return { symbol, symbols };
+    });
+    return { symbol, symbols: nextSymbols };
   });
 }
 
@@ -320,7 +317,8 @@ async function run({
   sources,
   sentimentSource = process.env.FEAR_GREED_SOURCE || 'auto'
 }) {
-  const symbols = [...SYMBOLS, ...await readCustomSymbols(dataDir)];
+  const customSymbols = await readCustomSymbols(dataDir);
+  const symbols = [...SYMBOLS, ...customSymbols];
   sources = sources ? [...new Set([...sources,
     ...(SYMBOLS.every(s => sources.includes(s)) ? symbols : [])])] : ['Fear & Greed', ...symbols];
   if (!['auto', 'cnn', 'archive'].includes(sentimentSource)) {
@@ -331,8 +329,7 @@ async function run({
   }
   const expectedDate = latestClosedSession(now);
   const checkedAt = new Date(now).toISOString();
-  const oldText = await readOptional(path.join(dataDir, 'status.json'));
-  const old = oldText ? JSON.parse(oldText) : null;
+  const old = await readJsonOptional(path.join(dataDir, 'status.json'));
   if (catchUp) {
     for (const symbol of ['Fear & Greed', ...symbols]) {
       if (sources.includes(symbol)) continue;
@@ -407,7 +404,7 @@ async function run({
     requestedSources: sources,
     requestedComplete: results.filter(r => sources.includes(r.symbol))
       .every(r => r.ok && r.date >= expectedDate),
-    complete: results.every(r => r.ok && r.date >= expectedDate),
+    complete: isStatusComplete(results, expectedDate, customSymbols),
     results
   };
   await atomicWrite(path.join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');

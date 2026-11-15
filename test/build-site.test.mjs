@@ -11,7 +11,7 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
   const root = await mkdtemp(path.join(os.tmpdir(), 'dca-build-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const file of ['scripts/build-site.mjs', 'scripts/version.mjs', 'package.json', 'CHANGELOG.md',
-    'public/index.html', 'public/nasdaq-funds.html', 'public/sp500-funds.html', 'public/diagram.html',
+    'public/index.html', 'public/funds.html', 'public/diagram.html',
     'public/js/funds-page.mjs', 'public/style.css', 'public/js/domain/market.mjs', 'public/js/domain/trading-calendar.mjs']) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await copyFile(new URL('../' + file, import.meta.url), path.join(root, file));
@@ -38,12 +38,10 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
   assert.deepEqual(JSON.parse(await readFile(path.join(root, 'dist/deployment.json'), 'utf8')),
     { mode: 'static', version });
   assert.ok((await readFile(path.join(root, 'dist/index.html'), 'utf8')).includes(`./js/app.mjs?v=${version}"`));
-  for (const rel of ['nasdaq-funds.html', 'sp500-funds.html']) {
-    const built = await readFile(path.join(root, 'dist', rel), 'utf8');
-    const source = await readFile(path.join(root, 'public', rel), 'utf8');
-    assert.ok(built.includes(`./js/funds-page.mjs?v=${version}"`), rel);
-    assert.equal(built, versionHtmlScripts(source, version));
-  }
+  const built = await readFile(path.join(root, 'dist/funds.html'), 'utf8');
+  const source = await readFile(path.join(root, 'public/funds.html'), 'utf8');
+  assert.ok(built.includes(`./js/funds-page.mjs?v=${version}"`), 'funds.html');
+  assert.equal(built, versionHtmlScripts(source, version));
   assert.ok((await readFile(path.join(root, 'dist/diagram.html'), 'utf8'))
     .includes(`'./js/ui/diagram-viewer.mjs?v=${version}'`));
   assert.equal(await readFile(path.join(root, 'dist/js/funds-page.mjs'), 'utf8'),

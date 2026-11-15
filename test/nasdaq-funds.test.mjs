@@ -243,3 +243,100 @@ test('基金对比页切回前台遵守冷却并跳过未变更快照重绘，�
   assert.equal(fetches, 4);
   assert.notEqual($('fund-table').children[0], initialRow);
 });
+
+test('国内ETF对比页把溢价率与年费率排在前面且不使用会在iOS显示为emoji的箭头', async t => {
+  const pub = new URL('../public/', import.meta.url);
+  const html = await readFile(new URL('funds.html', pub), 'utf8');
+  const sorts = [...html.matchAll(/data-fund-sort="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(sorts.slice(0, 4), ['code', 'premium', 'annualFee', 'netAssets']);
+  assert.doesNotMatch(html, /[↕↗]/);
+  const nodes = new Map();
+  const element = () => ({
+    textContent: '', value: '', href: '', hidden: false, title: '', children: [], options: [], listeners: {},
+    dataset: {}, classList: { toggle() {} }, setAttribute(name, value) { this['attr:' + name] = value; }, removeAttribute() {}, closest() { return this; },
+    replaceChildren(...values) { this.children = values; },
+    append(...values) { this.children.push(...values); },
+    addEventListener(key, fn) { this.listeners[key] = fn; },
+    querySelector() { return this.indicator || (this.indicator = element()); }
+  });
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, element());
+    return nodes.get(id);
+  };
+  const headerButtons = ['code', 'premium', 'annualFee', 'netAssets'].map(key => {
+    const button = element();
+    button.dataset = { fundSort: key };
+    button.indicator = element();
+    return button;
+  });
+  const metaDesc = element();
+  const doc = {
+    title: '',
+    visibilityState: 'visible',
+    body: { dataset: { fundGroup: 'nasdaq100' } },
+    getElementById: $,
+    createElement: element,
+    querySelector: selector => (selector === 'meta[name="description"]' ? metaDesc : null),
+    querySelectorAll: () => headerButtons,
+    addEventListener() {}
+  };
+  const loc = { search: '?group=sp500' };
+  for (const [key, value] of Object.entries({ document: doc, location: loc, navigator: { onLine: true } })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  const snapshot = {
+    version: 1,
+    groupId: 'sp500',
+    ok: true,
+    checkedAt: '2026-10-26T07:05:00Z',
+    rows: [{
+      code: '513500', manager: '博时', price: 1.5, iopv: 1.4, premium: 7.14,
+      amount: 5e8, netAssets: 1e10, scaleDate: '2026-06-30', annualFee: 0.6,
+      profileCheckedAt: '2026-10-26T07:00:00Z', quoteDate: '2026-10-26'
+    }],
+    performance: {
+      version: 2, ok: true, complete: true, endDate: '2026-10-26',
+      benchmark: { code: 'SPY', price: 500, quoteDate: '2026-10-26', periods: {} },
+      rows: [{ code: '513500', ok: true, periods: { 1: { status: 'ok', return: 25, startDate: '2025-10-26', endDate: '2026-10-26' } } }]
+    }
+  };
+  const requested = [];
+  t.mock.method(globalThis, 'fetch', async url => {
+    requested.push(url);
+    return { ok: true, json: async () => snapshot };
+  });
+  initFundComparison();
+  for (let i = 0; i < 20 && $('fund-table').children.length === 0; i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.ok(requested.some(u => u.includes('sp500-etfs.json')));
+  assert.equal(doc.title, '标普500 ETF 对比 · 定投助手');
+  assert.equal($('fund-heading').textContent, '标普500 ETF 对比');
+  assert.match(metaDesc['attr:content'], /标普500 ETF/);
+  assert.equal($('fund-table-scroll')['attr:aria-label'], '标普500 ETF 对比，可横向滚动');
+  assert.equal($('benchmark-fee-source').textContent, 'SPY 总费用率：State Street 官方披露');
+  const cells = $('fund-table').children[0].children;
+  assert.equal(cells[1].textContent, '+7.14%');
+  assert.equal(cells[2].textContent, '0.60%');
+  assert.match(cells[2].title, /管理费＋托管费/);
+  assert.equal(cells[3].textContent, '100.00');
+  assert.equal(cells[3].children[0].textContent, '截至 2026-06-30');
+  assert.equal(cells[4].textContent, '1.500');
+  assert.equal(cells[5].textContent, '1.4000');
+  assert.equal(cells[6].textContent, '5.00');
+  assert.equal(cells[7].textContent, '2026-10-26');
+  assert.equal(cells[8].textContent, '+25.00%');
+  assert.match(cells[8].title, /2025-10-26 至 2026-10-26/);
+  assert.equal(headerButtons[1].indicator.textContent, '↑1');
+  assert.equal(headerButtons[2].indicator.textContent, '');
+
+  // Unknown query param safely falls back to nasdaq100.
+  loc.search = '?group=unknown';
+  doc.body.dataset.fundGroup = 'nasdaq100';
+  requested.length = 0;
+  initFundComparison();
+  assert.equal(doc.title, '纳斯达克100 ETF 对比 · 定投助手');
+  assert.ok(requested.some(u => u.includes('nasdaq100-etfs.json')));
+});

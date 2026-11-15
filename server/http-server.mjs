@@ -33,23 +33,55 @@ export function createServer({
   refresh = refreshAll,
   addSymbol = addCustomSymbol,
   cooldownMs = 60000,
-  appVersion = defaultAppVersion
+  appVersion = defaultAppVersion,
+  allowedHosts = []
 } = {}) {
   let active;
   let lastResult;
   let lastRun = 0;
+  const configuredHosts = new Set([
+    '127.0.0.1',
+    'localhost',
+    '::1',
+    '[::1]',
+    ...(process.env.HOST && !['0.0.0.0', '::'].includes(process.env.HOST) ? [process.env.HOST] : []),
+    ...allowedHosts
+  ].map(host => String(host).toLowerCase()));
 
+  let server;
   function sameOrigin(req) {
-    if (req.headers['sec-fetch-site'] === 'cross-site') return false;
+    const fetchSite = req.headers['sec-fetch-site'];
+    if (fetchSite && fetchSite !== 'same-origin') return false;
+    const rawHost = req.headers.host;
+    if (typeof rawHost !== 'string' || !rawHost) return false;
+    let parsedHost;
+    try {
+      parsedHost = new URL('http://' + rawHost);
+    } catch {
+      return false;
+    }
+    if (parsedHost.username || parsedHost.password) return false;
+    const address = server?.address?.();
+    if (address && typeof address === 'object' && address.port) {
+      const port = parsedHost.port ? Number(parsedHost.port) : 80;
+      if (port !== address.port) return false;
+    }
+    const hostname = parsedHost.hostname.toLowerCase();
+    const wildcard = address && typeof address === 'object' && ['0.0.0.0', '::'].includes(address.address);
+    const localIp = req.socket?.localAddress?.replace(/^::ffff:/, '').toLowerCase();
+    const bracketedIp = localIp?.includes(':') ? '[' + localIp + ']' : localIp;
+    const allowedByWildcard = wildcard && (hostname === localIp || hostname === bracketedIp);
+    if (!configuredHosts.has(hostname) && !allowedByWildcard) return false;
     if (!req.headers.origin) return true;
     try {
-      return new URL(req.headers.origin).host === req.headers.host;
+      const origin = new URL(req.headers.origin);
+      return ['http:', 'https:'].includes(origin.protocol) && origin.host.toLowerCase() === rawHost.toLowerCase();
     } catch {
       return false;
     }
   }
 
-  return http.createServer(async (req, res) => {
+  server = http.createServer(async (req, res) => {
     const send = (code, value) => {
       res.writeHead(code, {
         'Content-Type': 'application/json; charset=utf-8',
@@ -76,8 +108,7 @@ export function createServer({
           send(405, { error: '仅支持 POST 或 DELETE' });
           return;
         }
-        if (req.headers['sec-fetch-site'] === 'cross-site' ||
-            !sameOrigin(req)) {
+        if (!sameOrigin(req)) {
           send(403, { error: '不允许跨站修改标的' });
           return;
         }
@@ -100,6 +131,7 @@ export function createServer({
           lastResult = null;
           send(200, result);
         } catch (error) {
+          if (error.code === 'ELOCKED') throw error;
           send(400, { error: error.message });
         }
         return;
@@ -112,19 +144,25 @@ export function createServer({
           return;
         }
         // Public Pages builds do not expose this endpoint. Keep local writes same-origin.
-        if (
-          req.headers['sec-fetch-site'] === 'cross-site' ||
-          !sameOrigin(req)
-        ) {
+        if (!sameOrigin(req)) {
           send(403, { error: '不允许跨站更新' });
           return;
         }
 
+        const isFundsHealthy = funds => {
+          if (!funds) return true;
+          if (funds.ok === false || funds.complete === false) return false;
+          if (funds.performance?.ok === false || funds.performance?.complete === false) return false;
+          if (Array.isArray(funds.groups)) {
+            return funds.groups.every(g => g.ok !== false && g.performanceOk !== false && g.performanceComplete !== false);
+          }
+          return true;
+        };
+
         if (!active && (!lastResult || Date.now() - lastRun >= cooldownMs)) {
           active = refresh({ dataDir, includeFunds: true })
             .then(value => {
-              if (value.results.length && value.results.every(r => r.ok) && value.funds?.ok !== false && value.funds?.complete !== false &&
-                  value.funds?.performance?.ok !== false && value.funds?.performance?.complete !== false) {
+              if (value.results.length && value.results.every(r => r.ok) && isFundsHealthy(value.funds)) {
                 lastResult = value;
                 lastRun = Date.now();
               }
@@ -140,7 +178,29 @@ export function createServer({
         const errors = results
           .filter(r => !r.ok || !r.fresh)
           .map(r => r.symbol + (r.ok ? ' 数据尚未到齐' : ' 更新失败，已保留本地数据'));
-        const anyOk = results.some(r => r.ok);
+        const funds = status.funds;
+        if (funds) {
+          if (Array.isArray(funds.groups) && funds.groups.length) {
+            for (const group of funds.groups) {
+              const label = group.groupId || '场内基金';
+              if (group.ok === false) errors.push(label + ' 基金更新失败，已保留本地数据');
+              else if (group.performanceOk === false) errors.push(label + ' 基金历史收益更新失败，已保留本地数据');
+              else if (group.performanceComplete === false) errors.push(label + ' 基金历史收益尚未到齐');
+            }
+          } else {
+            if (funds.ok === false || funds.performance?.ok === false) {
+              errors.push('场内基金更新失败，已保留本地数据');
+            } else if (funds.complete === false || funds.performance?.complete === false) {
+              errors.push('场内基金数据尚未到齐');
+            }
+          }
+        }
+        const fundsAnyOk = !!funds && (
+          Array.isArray(funds.groups) && funds.groups.length
+            ? funds.groups.some(g => g.ok !== false)
+            : funds.ok !== false
+        );
+        const anyOk = results.some(r => r.ok) || fundsAnyOk;
         send(anyOk ? 200 : 502, {
           ...status,
           errors,
@@ -190,4 +250,5 @@ export function createServer({
       });
     }
   });
+  return server;
 }

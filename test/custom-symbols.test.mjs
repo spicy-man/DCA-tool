@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
@@ -115,15 +115,14 @@ test('添加 API：方法、同源、格式、大小限制及列表恢复', asyn
   for (const symbol of [...SYMBOLS, '../spy']) assert.equal((await remove(symbol)).status, 400);
   assert.deepEqual(await (await remove('VOO')).json(), { symbol: 'VOO', symbols: [] });
   assert.deepEqual(await (await fetch(base + '/data/custom-symbols.json')).json(), []);
-  assert.equal((await fetch(base + '/data/voo.json')).status, 200);
+  assert.equal((await fetch(base + '/data/voo.json')).status, 404);
 });
 
-test('删除移除持久化列表和健康状态，保留行情；后续刷新不再请求已删除标的', async t => {
+test('删除移除持久化列表、健康状态与缓存行情；后续刷新不再请求，重新添加不受旧历史阻塞', async t => {
   const dataDir = await directory(t);
   await addCustomSymbol('VOO', { dataDir, now, fetchText: async () => JSON.stringify(yahoo('VOO')) });
   await refreshAll({ dataDir, now, sources: SYMBOLS, wait: async () => {},
     fetchText: async url => JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1))) });
-  const cached = await readFile(path.join(dataDir, 'voo.json'), 'utf8');
   await addCustomSymbol('AAPL', { dataDir, now, fetchText: async () => JSON.stringify(yahoo('AAPL')) });
   assert.ok(JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8')).results.some(r => r.symbol === 'AAPL' && r.ok));
   await removeCustomSymbol('AAPL', { dataDir });
@@ -134,12 +133,16 @@ test('删除移除持久化列表和健康状态，保留行情；后续刷新�
   const status = JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8'));
   assert.ok(!status.results.some(result => result.symbol === 'VOO'));
   assert.ok(!status.requestedSources.includes('VOO'));
-  assert.equal(await readFile(path.join(dataDir, 'voo.json'), 'utf8'), cached);
+  await assert.rejects(readFile(path.join(dataDir, 'voo.json'), 'utf8'), { code: 'ENOENT' });
   await refreshAll({ dataDir, now, sources: SYMBOLS, wait: async () => {},
     fetchText: async url => {
       assert.ok(!url.includes('/VOO?'));
       return JSON.stringify(yahoo(new URL(url).pathname.split('/').at(-1)));
     } });
+  const adjusted = yahoo('VOO');
+  adjusted.chart.result[0].timestamp = [Date.parse('2025-01-07T15:00Z') / 1000];
+  await addCustomSymbol('VOO', { dataDir, now, fetchText: async () => JSON.stringify(adjusted) });
+  assert.deepEqual(await readCustomSymbols(dataDir), ['VOO']);
 });
 
 test('已有个人 SMH 升级成内置标的，不重复注册；旧缓存仅移除改制前数据且仍保护有效历史', async t => {
@@ -159,4 +162,28 @@ test('已有个人 SMH 升级成内置标的，不重复注册；旧缓存仅移
     fetchText: async () => JSON.stringify(missing) });
   assert.equal(failed.results.find(result => result.symbol === 'SMH').ok, false);
   assert.deepEqual(JSON.parse(await readFile(path.join(dataDir, 'smh.json'), 'utf8')), saved);
+});
+
+test('自定义标的增删校验默认标的全集并在 status.json 写入失败时回滚列表', async t => {
+  const dataDir = await directory(t);
+  await writeFile(path.join(dataDir, 'status.json'), JSON.stringify({
+    version: 1,
+    expectedDate: '2025-01-06',
+    complete: true,
+    results: [{ symbol: 'Fear & Greed', ok: true, date: '2025-01-06' }]
+  }));
+  await addCustomSymbol('VOO', { dataDir, now, fetchText: async () => JSON.stringify(yahoo('VOO')) });
+  let status = JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8'));
+  assert.equal(status.complete, false);
+
+  await addCustomSymbol('AAPL', { dataDir, now, fetchText: async () => JSON.stringify(yahoo('AAPL')) });
+  await removeCustomSymbol('VOO', { dataDir });
+  status = JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8'));
+  assert.equal(status.complete, false);
+  assert.deepEqual(await readCustomSymbols(dataDir), ['AAPL']);
+
+  await rm(path.join(dataDir, 'status.json'));
+  await mkdir(path.join(dataDir, 'status.json'));
+  await assert.rejects(removeCustomSymbol('AAPL', { dataDir }));
+  assert.deepEqual(await readCustomSymbols(dataDir), ['AAPL']);
 });

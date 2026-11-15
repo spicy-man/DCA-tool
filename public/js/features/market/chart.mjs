@@ -16,7 +16,7 @@ import {
   periodKey
 } from '../../charts/geometry.mjs';
 import { aggregateOHLC } from '../../domain/market.mjs';
-import { downloadCSV } from '../../ui/download.mjs';
+import { downloadCSV, formatCSV } from '../../ui/download.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 
 const $ = id => document.getElementById(id);
@@ -407,11 +407,10 @@ export function initMarketChart() {
   $('price-download').addEventListener('click', () => {
     if (!shown.length) return;
     const data = store.get($('symbol').value);
-    const csv =
-      'Date,Open,High,Low,Close,Volume,Adjustment,AnchorDate\n' +
-      shown
-        .map(r => [r.date, r.open, r.high, r.low, r.close, r.volume ?? '', 'QFQ', data.anchorDate].join(','))
-        .join('\n');
+    const csv = formatCSV([
+      ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adjustment', 'AnchorDate'],
+      ...shown.map(r => [r.date, r.open, r.high, r.low, r.close, r.volume ?? '', 'QFQ', data.anchorDate])
+    ]);
     downloadCSV(data.symbol + '-qfq-' + settings.frequency + '.csv', csv);
   });
 

@@ -18,8 +18,7 @@ server/
   fund-performance.mjs         ETF与基准历史下载、原币种1/3/5年累计涨幅与失败保留编排
 public/
   index.html                    主页结构和首屏浅色声明
-  nasdaq-funds.html             国内纳指100 ETF 独立对比页面
-  sp500-funds.html              国内标普500 ETF 独立对比页面
+  funds.html                    国内场内 ETF 对比共享二级页面（按 ?group= 切换分组）
   diagram.html                  策略逻辑原图查看页面
   logo.svg                      站点图标
   style.css                     CSS 加载入口，固定加载顺序
@@ -60,7 +59,7 @@ docs/                           架构、部署与代码审查说明
 
 本地更新：页面 → POST /api/refresh → server/updater.mjs 的 refreshAll → network 下载 → domain 校验/计算 → storage 锁和原子替换。命令行和定时任务也调用同一 refreshAll。旧的 refreshETF 独立写入路径已移除，禁止另建绕过锁、历史保护或来源状态记录的写入通道。
 
-主页 QQQ / SPY 行情卡片右下角的主题色链接分别进入 `nasdaq-funds.html` / `sp500-funds.html`，二级页面仅初始化基金对比，不加载美股图表与回测。国内基金对比使用独立快照 `nasdaq100-etfs.json` / `sp500-etfs.json` 和 features/funds/comparison.mjs；不加入以美股交易日判断健康度的 results，也不进入美元回测。每日脚本调用 updater 的 refreshFunds，和 refreshAll 共用 withDataLock 与 atomicWrite；本地整体更新通过 includeFunds 在同一锁内更新。行情必须覆盖对应分组配置的全部基金（纳指100 12只、标普500 4只），校验价格、时间、净值与回退字段口径，不接受逐只时间倒退。行情失败保留整份旧快照；规模或费率抓取失败保留此前披露值和日期。浏览器通过 fundsUpdated 重新读取快照。
+主页 QQQ / SPY 行情卡片右下角的主题色链接分别进入 `funds.html?group=nasdaq100` / `funds.html?group=sp500`，二级页面仅初始化基金对比，不加载美股图表与回测。国内基金对比使用独立快照 `nasdaq100-etfs.json` / `sp500-etfs.json` 和 features/funds/comparison.mjs；不加入以美股交易日判断健康度的 results，也不进入美元回测。每日脚本调用 updater 的 refreshFunds，和 refreshAll 共用 withDataLock 与 atomicWrite；本地整体更新通过 includeFunds 在同一锁内更新。行情必须覆盖对应分组配置的全部基金（纳指100 12只、标普500 4只），校验价格、时间、净值与回退字段口径，不接受逐只时间倒退。行情失败保留整份旧快照；规模或费率抓取失败保留此前披露值和日期。浏览器通过 fundsUpdated 重新读取快照。
 
 静态站点：刷新图标置灰禁用，提示仅本地部署可更新数据。构建仅复制 public 到 dist，并写入静态部署标记；不需要打包编译 JavaScript。源码不会随服务端模块发布到 Pages。
 
@@ -81,4 +80,4 @@ style.css 按 page.css → header.css → strategy-dialog.css → welcome-dialog
 
 ## 国内基金分组
 
-`domain/fund-groups.mjs` 固定配置纳指100/QQQ与标普500/SPY的基金名单、基准、费率来源、页面及快照路径。`fund-navigation` 随主页标的切换入口；共享二级页启动器按 body 的 `data-fund-group` 选择配置。网络层仅接受配置内的快照路径，界面校验基准代码，基准历史优先复用本地 `qqq.json` / `spy.json` 快照，历史缓存不跨基准复用。updater 在同一数据锁内逐组校验、原子保存，单组失败保留该组原数据；返回的 groups 和 complete 汇总两组结果，逐组文件不包含汇总状态。静态构建只发布明确列入白名单的两组快照。
+`domain/fund-groups.mjs` 固定配置纳指100/QQQ与标普500/SPY的基金名单、基准、费率来源、页面及快照路径。`fund-navigation` 随主页标的切换入口；共享二级页启动器按查询参数 `?group=`（缺省回退 `body[data-fund-group]`）选择配置。网络层仅接受配置内的快照路径，界面校验基准代码，基准历史优先复用本地 `qqq.json` / `spy.json` 快照，历史缓存不跨基准复用。updater 在同一数据锁内逐组校验、原子保存，单组失败保留该组原数据；返回的 groups 和 complete 汇总两组结果，逐组文件不包含汇总状态。静态构建只发布明确列入白名单的两组快照。

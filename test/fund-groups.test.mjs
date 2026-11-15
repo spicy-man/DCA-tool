@@ -75,6 +75,7 @@ test('基准缓存JSON损坏仅影响历史收益，新基金报价仍保存且�
   } });
   const saved = JSON.parse(await readFile(file, 'utf8'));
   assert.equal(result.complete, false);
+  assert.equal(result.groups[0].performanceOk, false);
   assert.equal(saved.ok, true);
   assert.ok(saved.rows.every(row => row.price === 3));
   assert.equal(saved.performance.ok, false);

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -231,6 +232,14 @@ test('进程内合并并发；跨进程锁阻止第二个写入者，结束释�
  assert.equal(first,refreshAll({...opts(d)}));release();await first;
  await withDataLock(d,async()=>{await assert.rejects(withDataLock(d,async()=>{}),/已有数据更新任务/);});
  await withDataLock(d,async()=>{});
+ const lockFile=path.join(d,'.refresh.lock');
+ await writeFile(lockFile,JSON.stringify({pid:999999,startedAt:new Date().toISOString()}));
+ await withDataLock(d,async()=>{assert.equal(JSON.parse(await readFile(lockFile,'utf8')).pid,process.pid);});
+ await writeFile(lockFile,JSON.stringify({pid:process.pid,startedAt:new Date(Date.now()-20*60*1000).toISOString()}));
+ await withDataLock(d,async()=>{});
+ await writeFile(lockFile,'busy');
+ await assert.rejects(withDataLock(d,async()=>{}),{code:'ELOCKED'});
+ await withDataLock(d,async()=>{},{staleMs:100,now:Date.now()+1000});
 });
 
 test('K线第二轮强制请求并接收复权修订，不因日期已到齐跳过',async t=>{
@@ -276,9 +285,15 @@ test('本地 HTTP：部署模式、快照、跨站保护、方法及冷却防重
  assert.equal((await fetch(base+'/api/refresh',{method:'POST',headers:{Origin:'https://untrusted.example'}})).status,403);
  assert.equal((await fetch(base+'/api/refresh',{method:'POST',headers:{Origin:'null'}})).status,403);
  await withDataLock(d,async()=>{
-  const locked=await fetch('http://127.0.0.1:'+(await (async()=>{const s=createServer({dataDir:d});s.listen(0,'127.0.0.1');await once(s,'listening');t.after(()=>new Promise(r=>s.close(r)));return s.address().port;})())+'/api/refresh',{method:'POST'});
+  const s=createServer({dataDir:d});s.listen(0,'127.0.0.1');await once(s,'listening');t.after(()=>new Promise(r=>s.close(r)));
+  const localBase='http://127.0.0.1:'+s.address().port;
+  const locked=await fetch(localBase+'/api/refresh',{method:'POST'});
   assert.equal(locked.status,409);
   assert.match((await locked.json()).error,/已有数据更新任务/);
+  const addLocked=await fetch(localBase+'/api/symbols',{method:'POST',body:JSON.stringify({symbol:'VOO'})});
+  assert.equal(addLocked.status,409);
+  const delLocked=await fetch(localBase+'/api/symbols',{method:'DELETE',body:JSON.stringify({symbol:'VOO'})});
+  assert.equal(delLocked.status,409);
  });
  assert.equal((await fetch(base+'/api/refresh',{method:'POST'})).status,200);
  assert.equal((await fetch(base+'/api/refresh',{method:'POST'})).status,200);assert.equal(calls,1);
@@ -445,4 +460,157 @@ test('本地 HTTP：非法 URI 编码返回 400，目录路径返回 404，PWA �
   const quoteFontRes = await fetch(base + '/fonts/noto-serif-sc-quote-wght.woff2');
   assert.equal(quoteFontRes.status, 200);
   assert.equal(quoteFontRes.headers.get('content-type'), 'font/woff2');
+});
+
+test('本地写接口校验 Host 允许列表与 Sec-Fetch-Site，防御 DNS Rebinding', async t => {
+  const server = createServer({
+    allowedHosts: ['dca.local'],
+    refresh: async () => ({ complete: true, results: [{ symbol: 'SPY', ok: true, fresh: true }] }),
+    addSymbol: async symbol => ({ symbol, symbols: [symbol] })
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const port = server.address().port;
+  const sendRaw = (pathName, headers, body = '') => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: pathName, method: 'POST', headers }, res => {
+      res.resume();
+      res.on('end', () => resolve(res.statusCode));
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+
+  assert.equal(await sendRaw('/api/refresh', {
+    Host: 'evil.example:' + port,
+    Origin: 'http://evil.example:' + port,
+    'Sec-Fetch-Site': 'same-origin'
+  }), 403);
+  assert.equal(await sendRaw('/api/symbols', {
+    Host: 'evil.example:' + port,
+    Origin: 'http://evil.example:' + port,
+    'Sec-Fetch-Site': 'same-origin'
+  }, '{"symbol":"VOO"}'), 403);
+  assert.equal(await sendRaw('/api/refresh', {
+    Host: 'localhost:' + port,
+    'Sec-Fetch-Site': 'same-site'
+  }), 403);
+  assert.equal(await sendRaw('/api/refresh', {
+    Host: 'dca.local:' + port,
+    Origin: 'http://dca.local:' + port,
+    'Sec-Fetch-Site': 'same-origin'
+  }), 200);
+});
+
+test('/api/refresh 汇总场内基金及历史收益失败状态至 errors，全部失败返回 502', async t => {
+  let mode = 'group-fail';
+  const server = createServer({
+    refresh: async () => {
+      if (mode === 'group-fail') {
+        return {
+          complete: true,
+          results: [{ symbol: 'SPY', ok: true, fresh: true }],
+          funds: {
+            ok: true,
+            complete: false,
+            groups: [
+              { groupId: 'nasdaq100', ok: true, performanceComplete: false },
+              { groupId: 'sp500', ok: false, performanceComplete: false }
+            ]
+          }
+        };
+      }
+      if (mode === 'perf-ok-false-but-complete') {
+        return {
+          ok: true,
+          complete: false,
+          results: [{ symbol: 'SPY', ok: true, fresh: true }],
+          funds: {
+            ok: true,
+            complete: false,
+            performance: { ok: false, complete: true },
+            groups: [
+              { groupId: 'nasdaq100', ok: true, performanceOk: false, performanceComplete: true },
+              { groupId: 'sp500', ok: true, performanceOk: true, performanceComplete: true }
+            ]
+          }
+        };
+      }
+      if (mode === 'group0-fail-group1-ok') {
+        return {
+          complete: false,
+          results: [{ symbol: 'SPY', ok: false, fresh: false }],
+          funds: {
+            ok: false,
+            complete: false,
+            performance: { ok: false, complete: false },
+            groups: [
+              { groupId: 'nasdaq100', ok: false, performanceOk: false, performanceComplete: false },
+              { groupId: 'sp500', ok: true, performanceOk: true, performanceComplete: true }
+            ]
+          }
+        };
+      }
+      if (mode === 'perf-fail') {
+        return {
+          complete: true,
+          results: [{ symbol: 'SPY', ok: true, fresh: true }],
+          funds: { ok: true, performance: { ok: false, complete: false } }
+        };
+      }
+      return {
+        complete: false,
+        results: [{ symbol: 'SPY', ok: false, fresh: false }],
+        funds: { ok: false, complete: false, performance: { ok: false, complete: false } }
+      };
+    }
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const url = 'http://127.0.0.1:' + server.address().port + '/api/refresh';
+
+  const r1 = await fetch(url, { method: 'POST' });
+  assert.equal(r1.status, 200);
+  const b1 = await r1.json();
+  assert.ok(b1.errors.some(e => e.includes('nasdaq100') && e.includes('历史收益')));
+  assert.ok(b1.errors.some(e => e.includes('sp500') && e.includes('基金更新失败')));
+
+  mode = 'perf-ok-false-but-complete';
+  const r1b = await fetch(url, { method: 'POST' });
+  assert.equal(r1b.status, 200);
+  const b1b = await r1b.json();
+  assert.ok(b1b.errors.some(e => e.includes('nasdaq100') && e.includes('历史收益更新失败')));
+
+  mode = 'group0-fail-group1-ok';
+  const r1c = await fetch(url, { method: 'POST' });
+  assert.equal(r1c.status, 200);
+  const b1c = await r1c.json();
+  assert.ok(b1c.errors.some(e => e.includes('SPY')));
+  assert.ok(b1c.errors.some(e => e.includes('nasdaq100') && e.includes('基金更新失败')));
+
+  mode = 'perf-fail';
+  const r2 = await fetch(url, { method: 'POST' });
+  assert.equal(r2.status, 200);
+  const b2 = await r2.json();
+  assert.ok(b2.errors.some(e => e.includes('场内基金更新失败')));
+
+  mode = 'all-fail';
+  const r3 = await fetch(url, { method: 'POST' });
+  assert.equal(r3.status, 502);
+  const b3 = await r3.json();
+  assert.match(b3.error, /SPY.*场内基金更新失败/);
+});
+
+test('损坏的 status.json 与行情 JSON 缓存可由上游拉取自动恢复', async t => {
+  const d = await dir(t);
+  await seed(d);
+  await writeFile(path.join(d, 'status.json'), '{corrupted');
+  await writeFile(path.join(d, 'spy.json'), '{corrupted');
+  const status = await refreshAll({ ...opts(d), fetchText: async url => source(url) });
+  assert.equal(status.complete, true);
+  const spy = JSON.parse(await readFile(path.join(d, 'spy.json'), 'utf8'));
+  assert.equal(spy.symbol, 'SPY');
+  assert.ok(spy.rows.length > 0);
 });
