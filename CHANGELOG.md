@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.4** (更新日期: 2026-11-14)。
+目前系统版本为 **v2.2.5** (更新日期: 2026-11-15)。
+
+## 🔧 v2.2.5 优化窄屏布局与涨跌幅显示 [FIX]
+
+- **主行情涨跌幅精简**：在 [chart.mjs](./public/js/features/market/chart.mjs) 中移除 `#price-change` 的日期前缀，仅保留涨跌幅百分比（单根 K 线无前值时显示 `—`），并同步更新 [frontend-regressions.test.mjs](./test/frontend-regressions.test.mjs)。
+- **窄屏标的栏与定投参数列优化**：在 [page.css](./public/css/page.css) 中保持 `<= 465px` 窄屏下标的选择器、自定义标的按钮、组合定投按钮与收盘价位于同一行（`flex-wrap: nowrap` 与省略号截断）；将 `<= 800px` 下定投参数输入框与 [strategy-dialog.css](./public/css/strategy-dialog.css) 中 `策略说明` 按钮的统一宽度由 `90px` 收窄至 `76px`。
+- **页首与页尾链接整理**：在 [index.html](./public/index.html) 与 [header.css](./public/css/header.css) 中移除页首 `布局` 文字（保留 `aria-label="布局"`），将 `本项目开源代码 ↗` 移至布局选框左侧并保持同行显示；移除页尾重复的开源代码链接及移动端误隐藏 `footer span:last-child` 的旧样式。
 
 ## 🔧 v2.2.4 修复卡片头部文字基线错位与极窄屏标的选择器挤压 [FIX]
 

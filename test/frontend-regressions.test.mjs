@@ -399,10 +399,10 @@ test('复盘从起始日左端逐日展开主图 K 线，回看同步且重置�
   $('backtest-replay-start').listeners.change();
   $('backtest-replay-play').listeners.click();
   assert.equal($('price-observations').textContent, '1 根 K 线');
-  assert.equal($('price-change').textContent, '2025-01-03');
+  assert.equal($('price-change').textContent, '—');
   tick();
   assert.equal($('price-observations').textContent, '2 根 K 线');
-  assert.match($('price-change').textContent, /2025-01-06/);
+  assert.match($('price-change').textContent, /^-?\d+\.\d{2}%$/);
   $('backtest-plot').listeners.keydown({ key: 'ArrowLeft', preventDefault() {} });
   assert.equal($('price-observations').textContent, '1 根 K 线');
   $('backtest-replay-reset').listeners.click();

@@ -123,8 +123,8 @@ export function renderMarket(next, { syncBacktest = true } = {}) {
   $('price-close').textContent = last ? last.close.toFixed(2) : '—';
   $('price-change').textContent = last
     ? previous
-      ? `${last.date} · ${((last.close / previous.close - 1) * 100).toFixed(2)}%`
-      : `${last.date}`
+      ? `${((last.close / previous.close - 1) * 100).toFixed(2)}%`
+      : '—'
     : '当前区间无行情';
   $('price-observations').textContent = shown.length.toLocaleString() + ' 根 K 线';
   $('price-anchor').textContent = `${symbol} 可用历史：${data.rows[0].date} — ${data.anchorDate} · 复权基准：${data.anchorDate} · 更新：${data.fetchedAt.slice(0, 10)}`;

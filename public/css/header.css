@@ -3,6 +3,19 @@
   flex-shrink: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.header-actions .updated {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
 .header-layout {
   display: flex;
   align-items: center;
@@ -28,15 +41,11 @@
     padding: 9px 0;
   }
 
-  .header-layout {
-    margin-left: auto;
+  .header-actions {
+    gap: 10px;
   }
 
   .masthead .updated {
-    order: 1;
-    flex-basis: 100%;
-    margin-left: 0;
-    text-align: right;
     line-height: 1.4;
   }
 }

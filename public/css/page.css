@@ -615,10 +615,6 @@ th {
     line-height: 1.6;
   }
 
-  footer span:last-child {
-    display: none;
-  }
-
   .chart-caption {
     padding-left: 35px;
   }
@@ -1411,6 +1407,7 @@ footer {
 }
 
 .price-title-row .symbol-control {
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -1420,6 +1417,9 @@ footer {
   min-width: 182px;
   font-size: 14px;
   font-weight: 600;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .price-card .chart-heading p {
@@ -1699,8 +1699,8 @@ footer {
   }
 
   .chart-controls .strategy-row :is(#buy-day, #base-amount, #fear-threshold, #fear-buy-count, #main-kd-tier-factor) {
-    width: 90px;
-    min-width: 90px;
+    width: 76px;
+    min-width: 76px;
   }
 }
 
@@ -1862,22 +1862,46 @@ footer {
 }
 
 @media (max-width: 465px) {
+  .price-card > .chart-heading {
+    column-gap: 8px;
+  }
+
   .price-card .price-title-row {
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-wrap: nowrap;
+    gap: 5px;
   }
 
   .price-card .price-title-row .symbol-control {
-    flex: 1 1 100%;
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   .price-card .price-title-row .symbol-control select {
-    padding: 0 22px 0 8px;
+    height: 30px;
+    padding: 0 20px 0 8px;
+  }
+
+  .price-card #add-symbol {
+    width: 30px;
+    height: 30px;
+  }
+
+  .price-card .allocation-open {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .price-card .score-block {
+    min-width: 0;
+  }
+
+  .price-card .score-block strong {
+    font-size: 22px;
   }
 
   .price-card #price-quote > span {
-    white-space: normal;
-    max-width: 86px;
+    white-space: nowrap;
   }
 }
 
