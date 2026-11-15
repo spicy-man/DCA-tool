@@ -37,12 +37,49 @@
     height: auto;
     min-height: 48px;
     flex-wrap: wrap;
-    gap: 6px 12px;
+    gap: 6px 8px;
     padding: 9px 0;
   }
 
+  .masthead .brand {
+    font-size: 14px;
+    gap: 6px;
+  }
+
+  .masthead .mark,
+  .masthead .mark img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .masthead .brand-identity {
+    gap: 5px;
+  }
+
+  .masthead .version-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+
+  .masthead .brand-divider {
+    display: none;
+  }
+
+  .masthead .welcome-help {
+    height: 26px;
+    padding: 0 7px;
+    font-size: 11px;
+  }
+
   .header-actions {
-    gap: 10px;
+    gap: 6px;
+  }
+
+  .header-layout select {
+    height: 26px;
+    min-width: 0;
+    padding: 0 18px 0 6px;
+    font-size: 11px;
   }
 
   .masthead .updated {
