@@ -2074,7 +2074,8 @@ footer {
   transition-delay: 0s, 200ms;
 }
 .price-wrap.is-concealed > #price-tooltip,
-.price-wrap.is-concealed > #price-empty { display: none; }
+.price-wrap.is-concealed > #price-empty,
+.price-wrap.is-concealed > #price-scale-toggle { display: none; }
 .price-card #price-quote { filter: blur(0); transition: filter 200ms ease; }
 .price-card #price-quote.is-concealed {
   filter: blur(6px);

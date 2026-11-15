@@ -182,6 +182,9 @@ export function initFundComparison() {
       if (id !== requestID) return;
       if (silentOnError && snapshot?.rows?.length) return;
       $('fund-updated').textContent = '基金快照读取失败，请稍后重试或运行基金数据更新。';
+      if (!snapshot?.rows?.length) {
+        $('fund-performance-status').textContent = '历史涨幅暂不可用，请先完成基金数据更新。';
+      }
       $('fund-empty').hidden = !!snapshot?.rows?.length;
     }
   }

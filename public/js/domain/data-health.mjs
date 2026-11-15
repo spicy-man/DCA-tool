@@ -1,6 +1,8 @@
 import { latestClosedSession } from './trading-calendar.mjs';
 import { SYMBOLS } from './market.mjs';
 
+const fundGroupTitles = Object.freeze({ nasdaq100: '纳斯达克100', sp500: '标普500' });
+
 const timeFormat = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
   hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', timeZoneName: 'short'
@@ -76,14 +78,41 @@ export function healthSummary(status, now = Date.now()) {
       return group.map(r => r.symbol).join(' / ') + '：' + description(group[0]) + '；检查：' + checked;
     }));
   }
+  const fundsIssues = (() => {
+    const funds = status.funds;
+    if (!funds) return [];
+    const issues = [];
+    if (Array.isArray(funds.groups) && funds.groups.length) {
+      for (const group of funds.groups) {
+        const label = (Object.hasOwn(fundGroupTitles, group.groupId) ? fundGroupTitles[group.groupId] : null) ||
+          group.groupId || '场内基金';
+        if (group.ok === false) issues.push(label + '基金更新失败，已保留本地数据');
+        else if (group.performanceOk === false) issues.push(label + '基金历史收益更新失败，已保留本地数据');
+        else if (group.performanceComplete === false) issues.push(label + '基金历史收益尚未到齐');
+      }
+    } else {
+      if (funds.ok === false || funds.performance?.ok === false) {
+        issues.push('场内基金更新失败，已保留本地数据');
+      } else if (funds.complete === false || funds.performance?.complete === false) {
+        issues.push('场内基金历史收益尚未到齐');
+      }
+    }
+    return issues;
+  })();
+  if (fundsIssues.length) {
+    lines.push('场内基金：' + fundsIssues.join('；'));
+  }
   const hasAllSymbols = ['Fear & Greed', ...SYMBOLS].every(symbol =>
     status.results.some(r => r.symbol === symbol));
   const allFresh = hasAllSymbols && status.results.every(r => !!r.date && r.date >= expected);
-  const complete = allFresh && status.results.every(r => r.ok);
+  const fundsOk = !fundsIssues.length;
+  const complete = allFresh && status.results.every(r => r.ok) && fundsOk;
   const overall = complete
     ? '已到齐'
     : allFresh
-      ? '已到齐（最近更新失败，继续使用已保存数据）'
+      ? (fundsOk
+          ? '已到齐（最近更新失败，继续使用已保存数据）'
+          : '美股与情绪指数已到齐（场内基金部分更新失败或未到齐）')
       : '未全部到齐';
   return lines.join('。\n') + '。\n整体数据：' + overall +
     '；应有数据截至 ' + expected + '；时间均为纽约时间。';

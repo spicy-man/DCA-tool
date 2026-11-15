@@ -1,6 +1,7 @@
 import { getDeploymentMode } from '../services/data-client.mjs';
 import { appEvents, events } from '../services/events.mjs';
 import { SYMBOLS } from '../domain/market.mjs';
+import { invalidateSymbolCache } from '../features/market/chart.mjs';
 import { bindDialogExitFallback } from './dialog-utils.mjs';
 
 export async function initSymbolDialog() {
@@ -74,6 +75,7 @@ export async function initSymbolDialog() {
     message.textContent = '正在删除 ' + symbol + '…';
     try {
       const result = await requestSymbols('DELETE', symbol, '删除失败，请稍后重试');
+      invalidateSymbolCache(symbol);
       sync(result.symbols);
       appEvents.dispatchEvent(new Event(events.sourceHealth));
       message.textContent = symbol + ' 已删除';
@@ -111,6 +113,7 @@ export async function initSymbolDialog() {
     message.textContent = '正在获取 ' + symbol + ' 完整历史行情，请稍候…';
     try {
       const result = await requestSymbols('POST', symbol, '添加失败，请稍后重试');
+      invalidateSymbolCache(result.symbol);
       sync(result.symbols);
       appEvents.dispatchEvent(new Event(events.sourceHealth));
       select.value = result.symbol;

@@ -614,3 +614,65 @@ test('损坏的 status.json 与行情 JSON 缓存可由上游拉取自动恢复'
   assert.equal(spy.symbol, 'SPY');
   assert.ok(spy.rows.length > 0);
 });
+
+test('sameOrigin 允许配置 IPv6 HOST 并拒绝带路径或查询的畸形 Host 头', async t => {
+  const previousHost = process.env.HOST;
+  process.env.HOST = 'fd00::1';
+  t.after(() => {
+    if (previousHost === undefined) delete process.env.HOST;
+    else process.env.HOST = previousHost;
+  });
+  const server = createServer({
+    refresh: async () => ({ complete: true, results: [{ symbol: 'SPY', ok: true, fresh: true }] })
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const port = server.address().port;
+  const sendRaw = (headers) => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/refresh', method: 'POST', headers }, res => {
+      res.resume();
+      res.on('end', () => resolve(res.statusCode));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+
+  assert.equal(await sendRaw({
+    Host: `[fd00::1]:${port}`,
+    Origin: `http://[fd00::1]:${port}`,
+    'Sec-Fetch-Site': 'same-origin'
+  }), 200);
+  assert.equal(await sendRaw({
+    Host: `127.0.0.1:${port}/evil`,
+    'Sec-Fetch-Site': 'same-origin'
+  }), 403);
+  assert.equal(await sendRaw({
+    Host: `127.0.0.1:${port}?x=1`,
+    'Sec-Fetch-Site': 'same-origin'
+  }), 403);
+});
+
+test('refreshAll(includeFunds) 将场内基金失败状态落盘至 status.json 并由 healthSummary 展示', async t => {
+  const d = await dir(t);
+  await seed(d);
+  const status = await refreshAll({
+    ...opts(d),
+    includeFunds: true,
+    fetchText: async url => {
+      if (url.includes('eastmoney.com') || url.includes('qt.gtimg.cn')) throw Error('fund offline');
+      return source(url);
+    }
+  });
+  assert.equal(status.complete, true);
+  assert.equal(status.funds.ok, false);
+  assert.equal(status.funds.complete, false);
+  const saved = JSON.parse(await readFile(path.join(d, 'status.json'), 'utf8'));
+  assert.equal(saved.funds.ok, false);
+  assert.equal(saved.funds.groups.length, 2);
+  const summary = healthSummary(saved, now);
+  assert.match(summary, /场内基金：/);
+  assert.match(summary, /纳斯达克100基金更新失败/);
+  assert.match(summary, /标普500基金更新失败/);
+  assert.doesNotMatch(summary, /整体数据：已到齐/);
+});

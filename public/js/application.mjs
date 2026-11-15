@@ -167,8 +167,14 @@ export function initApplication() {
     labelId: 'sentiment-chart-toggle-label',
     tooltipId: 'tooltip',
     initialCollapsed: !lastFearEnabled,
-    onExpand: () => { if (rows.length && windowRange) draw(); },
-    onCollapse: () => { plot = null; }
+    onExpand: () => {
+      if (rows.length && windowRange) draw();
+      appEvents.dispatchEvent(new Event(events.chartVisibility));
+    },
+    onCollapse: () => {
+      plot = null;
+      appEvents.dispatchEvent(new Event(events.chartVisibility));
+    }
   });
   const kdCollapse = createChartCollapse({
     collapseId: 'kd-chart-collapse',
@@ -410,8 +416,10 @@ export function initApplication() {
       loadedHealthKey = healthKey(health);
       if (health) lastResumeCheck = Date.now();
       $('status').textContent = healthSummary(health);
+      return health;
     } catch {
       $('status').textContent = '无法检查数据更新状态，请核对各图的数据日期。';
+      return null;
     }
   }
 
@@ -434,9 +442,10 @@ export function initApplication() {
     try {
       $('status').textContent = '正在同步情绪指数与 ETF 行情…';
       let refreshError = null;
+      let refreshResult = null;
       try {
         try {
-          await requestSourceRefresh();
+          refreshResult = await requestSourceRefresh();
         } catch (error) {
           refreshError = error;
         }
@@ -452,7 +461,10 @@ export function initApplication() {
         await invalidateMarket();
       }
       if (refreshError) throw refreshError;
-      await loadHealth();
+      const health = await loadHealth();
+      if (refreshResult?.errors?.length && !health?.funds) {
+        $('status').textContent += '\n' + refreshResult.errors.join('；');
+      }
     } catch (error) {
       $('status').textContent = error.message || '检查失败，已保留本地数据。';
     } finally {

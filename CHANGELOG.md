@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.7** (更新日期: 2026-11-15)。
+目前系统版本为 **v2.2.8** (更新日期: 2026-11-16)。
+
+## 🔧 v2.2.8 修复基金状态展示、主图隐藏联动与自定义标的回滚 [FIX]
+
+- **场内基金状态落盘与前后端展示**：在 [updater.mjs](./server/updater.mjs) 的 `refreshAll` 中将多分组聚合后的 `status.funds` 写回 `status.json`，在 [update-funds.mjs](./scripts/update-funds.mjs) 中按 `groups` 聚合顶层 `ok`、`count`、`performanceComplete` 与 `error`；在 [data-health.mjs](./public/js/domain/data-health.mjs) 与 [application.mjs](./public/js/application.mjs) 中补充场内基金失败/未到齐诊断与刷新错误展示，并在 [comparison.mjs](./public/js/features/funds/comparison.mjs) 首次读取快照失败时同步更新 `#fund-performance-status`。
+- **主图隐藏态与桌面悬浮小窗联动**：在 [page.css](./public/css/page.css) 与 [chart-visibility.mjs](./public/js/ui/chart-visibility.mjs) 中于主图隐藏态同步隐藏并禁用 `#price-scale-toggle`，通过 [events.mjs](./public/js/services/events.mjs) 广播 `events.chartVisibility`；在 [floating-charts.mjs](./public/js/ui/floating-charts.mjs) 与 [application.mjs](./public/js/application.mjs) 中跳过隐藏的 `#price-wrap`、在两图均不可见时自动隐藏悬浮小窗、按图独立追踪挂载状态避免重复 `append` 并修复 `schedule()` 重入标志。
+- **自定义标的缓存清理、原子回滚与服务边界防护**：同步 [index.html](./public/index.html) 缓存清理文案，在 [symbol-dialog.mjs](./public/js/ui/symbol-dialog.mjs)、[chart.mjs](./public/js/features/market/chart.mjs) 与 [overlay.mjs](./public/js/features/strategy/overlay.mjs) 中通过 `invalidateSymbolCache` 与分标的 `symbolCacheEpochs` 清理前端缓存；在 [symbols.mjs](./server/symbols.mjs) 与 [updater.mjs](./server/updater.mjs) 中为 `addCustomSymbol` / `removeCustomSymbol` 增加 `<symbol>.json` 写入失败回滚并抽取 `syncRequestedComplete`；在 [http-server.mjs](./server/http-server.mjs) 中完善 IPv6 `HOST` 归一化与畸形 `Host` 校验，在 [download.mjs](./public/js/ui/download.mjs) 中增强 `escapeCSVCell` 前导换行及空白前缀公式注入防护，并微调 [logo.svg](./public/logo.svg) 图标垂直居中。
 
 ## 🔧 v2.2.7 完善本地服务防护、基金对比页面与主图交互体验 [FIX]
 

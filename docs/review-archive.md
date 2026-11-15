@@ -4,6 +4,19 @@
 
 ---
 
+## `v2.2.7` 提交及全量运行时代码审查与修复闭环（2026-11-16）
+
+- **已修复发现**：
+  1. **场内基金状态落盘与前后端展示**（[updater.mjs](../server/updater.mjs#L416-L432)、[update-funds.mjs](../scripts/update-funds.mjs#L6-L18)、[data-health.mjs](../public/js/domain/data-health.mjs#L81-L116)、[application.mjs](../public/js/application.mjs#L416-L467)）：`refreshAll({ includeFunds: true })` 将多分组聚合后的 `status.funds` 写回 `status.json`；`update-funds.mjs` 按 `groups` 聚合顶层 `ok`、`count`、`performanceComplete` 与 `error`；`healthSummary()` 与 `application.mjs` 完整展示场内基金更新失败或未到齐提示，避免被覆盖为「已到齐」。
+  2. **主图隐藏态与桌面悬浮小窗联动**（[page.css](../public/css/page.css#L2076-L2078)、[chart-visibility.mjs](../public/js/ui/chart-visibility.mjs#L27-L45)、[floating-charts.mjs](../public/js/ui/floating-charts.mjs#L23-L108)、[application.mjs](../public/js/application.mjs#L169-L178)、[events.mjs](../public/js/services/events.mjs#L3)）：主图遮挡态下隐藏 `#price-scale-toggle` 并同步 `inert`（保留 `.chart-toolbar` 共享控制）；`floating-charts.mjs` 跳过 `is-concealed` 的 `#price-wrap`（两图均不可见时自动隐藏小窗），通过 `events.chartVisibility` 同步切换状态，修复同步 rAF 调度阻塞与第 2 轮发现的 `show(visible)` 重复 `append` / 隐藏提示框回归。
+  3. **自定义标的缓存清理、原子回滚与 `requestedComplete` 校验**（[index.html](../public/index.html#L665)、[symbol-dialog.mjs](../public/js/ui/symbol-dialog.mjs#L78-L116)、[chart.mjs](../public/js/features/market/chart.mjs#L75-L78)、[overlay.mjs](../public/js/features/strategy/overlay.mjs#L37-L55)、[symbols.mjs](../server/symbols.mjs#L37-L68)、[updater.mjs](../server/updater.mjs#L280-L309)）：同步弹窗文案为清理本地缓存；增删标的时通过 `invalidateSymbolCache` 与分标的 `symbolCacheEpochs` 清理前端内存缓存；`addCustomSymbol` 与 `removeCustomSymbol` 在 `writeCustomSymbolsWithStatus` 失败时恢复或清理 `<symbol>.json`；抽取 `syncRequestedComplete` 消除无 `requestedSources` 时的空数组真空真值与漏检。
+  4. **`sameOrigin` IPv6 `HOST` 与畸形 `Host` 拦截**（[http-server.mjs](../server/http-server.mjs#L42-L78)）：将配置中无方括号的 IPv6 地址同时归一化为裸地址与 `[...]` 形式，并拒绝携带 `pathname`/`search`/`hash` 的 `Host` 头。
+  5. **基金对比页加载失败提示**（[comparison.mjs](../public/js/features/funds/comparison.mjs#L184-L188)）：首次读取快照失败时同步更新 `#fund-performance-status`，避免永久停留在「正在读取历史涨幅…」。
+  6. **CSV 公式注入边界增强**（[download.mjs](../public/js/ui/download.mjs#L5-L7)）：补充对前导 `\n` 及前导空白后接 `=+\-@` 的防护。
+- **范围、轮次与验证**：覆盖 `ff8488b` 及 `server/`、`public/`、`scripts/`、`start.cmd`、`start.command`、`.github/workflows/`、`test/` 全量调用链路；共经历三轮双人独立只读审查与复审闭环（两方审查前均未预读 `docs/code-review.md` 与 `docs/tech-debt.md`；第 2 轮由 Reviewer B 检出 `floating-charts.mjs` `show(visible)` 回归并修复后进入第 3 轮；第 3 轮两方均未发现未解决的有效问题）。`node --test test/*.test.mjs` **215 / 215 全部通过**，`git diff --check` 无异常（剩余限制：浏览器交互与桌面前后滚动视觉未在真实桌面浏览器逐帧实测，均由单测桩与静态分析验证）。
+
+---
+
 ## 代码审查台账 #10–#13 与工作区改动审查修复闭环（2026-11-15）
 
 - **已修复台账项（`#10–#13`）**：

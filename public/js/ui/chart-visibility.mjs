@@ -1,3 +1,5 @@
+import { appEvents, events } from '../services/events.mjs';
+
 const storageKey = 'seeker.priceChartRevealed.v1';
 
 function readRevealed() {
@@ -25,6 +27,8 @@ export function initChartVisibility() {
     $('price-wrap').classList.toggle('is-concealed', !revealed);
     $('price-chart').inert = !revealed;
     $('signal-layer').inert = !revealed;
+    const scaleToggle = $('price-scale-toggle');
+    if (scaleToggle) scaleToggle.inert = !revealed;
     $('price-quote').classList.toggle('is-concealed', !revealed);
     $('price-quote').setAttribute('aria-hidden', String(!revealed));
     $('price-quote').inert = !revealed;
@@ -37,6 +41,7 @@ export function initChartVisibility() {
     const label = revealed ? '隐藏主图' : '显示主图';
     button.setAttribute('aria-label', label);
     button.title = label;
+    appEvents.dispatchEvent(new Event(events.chartVisibility));
   }
 
   button.addEventListener('click', () => {

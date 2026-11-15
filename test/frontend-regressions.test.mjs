@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { drawSentiment } from '../public/js/charts/sentiment.mjs';
 import { setSignalSentiment, updateSignals, drawSignalMarkers, initStrategyOverlay, signalSettings, getVisibleSignals, getSignalStrategy, allocateWeightedAmounts } from '../public/js/features/strategy/overlay.mjs';
 import { appEvents, events } from '../public/js/services/events.mjs';
-import { loadMarket, invalidateMarket, initMarketChart, renderMarket } from '../public/js/features/market/chart.mjs';
+import { loadMarket, invalidateMarket, invalidateSymbolCache, initMarketChart, renderMarket } from '../public/js/features/market/chart.mjs';
 import { initStrategyDialog } from '../public/js/ui/strategy-dialog.mjs';
 import { initChartVisibility } from '../public/js/ui/chart-visibility.mjs';
+import { initFloatingCharts } from '../public/js/ui/floating-charts.mjs';
 import { formatCSV, escapeCSVCell } from '../public/js/ui/download.mjs';
 
 function element() {
@@ -910,10 +911,12 @@ test('主图显隐状态持久化至 localStorage，支持遮罩内一键展开�
   assert.equal($('price-wrap').classList.has('is-concealed'), true);
   assert.equal($('price-visibility-toggle').getAttribute('aria-pressed'), 'false');
   assert.equal($('price-visibility-note').inert, false);
+  assert.equal($('price-scale-toggle').inert, true);
   $('price-visibility-reveal').listeners.click();
   assert.equal($('price-wrap').classList.has('is-concealed'), false);
   assert.equal($('price-visibility-toggle').getAttribute('aria-pressed'), 'true');
   assert.equal($('price-visibility-note').inert, true);
+  assert.equal($('price-scale-toggle').inert, false);
   assert.equal(saved.get('seeker.priceChartRevealed.v1'), '1');
 
   initChartVisibility();
@@ -921,6 +924,95 @@ test('主图显隐状态持久化至 localStorage，支持遮罩内一键展开�
   $('price-visibility-toggle').listeners.click();
   assert.equal(saved.get('seeker.priceChartRevealed.v1'), '0');
   assert.equal($('price-wrap').classList.has('is-concealed'), true);
+  assert.equal($('price-scale-toggle').inert, true);
+});
+
+test('主图隐藏态下悬浮小窗不搬运灰色占位框，且全部隐藏时不弹出空悬浮窗', t => {
+  const $ = dom(t);
+  const oldStorage = globalThis.localStorage;
+  const oldMatchMedia = globalThis.matchMedia;
+  const oldGetComputedStyle = globalThis.getComputedStyle;
+  const oldRAF = globalThis.requestAnimationFrame;
+  const oldAddEvent = globalThis.addEventListener;
+  const oldInnerWidth = globalThis.innerWidth;
+  const oldInnerHeight = globalThis.innerHeight;
+  globalThis.localStorage = { getItem: () => '0', setItem() {} };
+  globalThis.matchMedia = () => ({ matches: true, addEventListener() {} });
+  globalThis.getComputedStyle = () => ({ marginTop: '0px', marginBottom: '0px' });
+  globalThis.requestAnimationFrame = fn => { fn(); return 1; };
+  globalThis.addEventListener = () => {};
+  globalThis.innerWidth = 1280;
+  globalThis.innerHeight = 800;
+  t.after(() => {
+    globalThis.localStorage = oldStorage;
+    globalThis.matchMedia = oldMatchMedia;
+    globalThis.getComputedStyle = oldGetComputedStyle;
+    globalThis.requestAnimationFrame = oldRAF;
+    globalThis.addEventListener = oldAddEvent;
+    globalThis.innerWidth = oldInnerWidth;
+    globalThis.innerHeight = oldInnerHeight;
+  });
+
+  const classes = new Set();
+  for (const id of ['price-wrap', 'price-quote']) {
+    const set = id === 'price-wrap' ? classes : new Set();
+    $(id).classList = {
+      toggle: (name, force) => (force ? set.add(name) : set.delete(name)),
+      contains: name => set.has(name),
+      has: name => set.has(name)
+    };
+  }
+  const anchors = [];
+  const makeNode = (base) => Object.assign(base, {
+    before(node) {
+      node.getBoundingClientRect = () => ({ left: 0, top: 0, bottom: -10, width: 600, height: 300 });
+      node.after = child => {
+        $('floating-charts-body').children = $('floating-charts-body').children.filter(c => c !== child);
+      };
+      anchors.push(node);
+    },
+    after() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, bottom: -10, width: 600, height: 300 })
+  });
+  makeNode($('price-wrap'));
+  makeNode($('chart-wrap'));
+  $('price-wrap').closest = () => null;
+  $('chart-wrap').closest = () => $('sentiment-chart-collapse');
+  $('sentiment-chart-collapse').hidden = true;
+  $('chart-wrap').hidden = true;
+  $('floating-charts').hidden = true;
+  $('frequency').selectedOptions = [{ textContent: '日线' }];
+  $('floating-charts').getBoundingClientRect = () => ({ width: 440, height: 220 });
+
+  initChartVisibility();
+  initFloatingCharts();
+  assert.equal($('floating-charts').hidden, true);
+  assert.equal($('floating-charts-body').children.length, 0);
+
+  $('sentiment-chart-collapse').hidden = false;
+  $('chart-wrap').hidden = false;
+  appEvents.dispatchEvent(new Event(events.chartVisibility));
+  assert.equal($('floating-charts').hidden, false);
+  assert.deepEqual($('floating-charts-body').children, [$('chart-wrap')]);
+
+  $('price-visibility-reveal').listeners.click();
+  assert.deepEqual($('floating-charts-body').children, [$('price-wrap'), $('chart-wrap')]);
+
+  // Repeated sync while floating with unchanged visibility does not re-append DOM or hide tooltips.
+  let appendCount = 0;
+  const origAppend = $('floating-charts-body').append.bind($('floating-charts-body'));
+  $('floating-charts-body').append = (...args) => { appendCount++; return origAppend(...args); };
+  $('price-tooltip').hidden = false;
+  $('frequency').listeners.change();
+  assert.equal(appendCount, 0);
+  assert.equal($('price-tooltip').hidden, false);
+
+  $('price-visibility-toggle').listeners.click();
+  $('sentiment-chart-collapse').hidden = true;
+  $('chart-wrap').hidden = true;
+  appEvents.dispatchEvent(new Event(events.chartVisibility));
+  assert.equal($('floating-charts').hidden, true);
+  assert.equal($('floating-charts-body').children.length, 0);
 });
 
 test('配比弹窗输入防抖在连续输入时不立即重算并在取消时清理待执行预览', t => {
@@ -958,8 +1050,59 @@ test('formatCSV 统一添加 UTF-8 BOM、RFC-4180 引号转义及公式注入防
   assert.equal(escapeCSVCell('+cmd'), '"\'+cmd"');
   assert.equal(escapeCSVCell('-cmd'), '"\'-cmd"');
   assert.equal(escapeCSVCell('@1+1'), '"\'@1+1"');
+  assert.equal(escapeCSVCell(' =SUM(A1)'), '"\' =SUM(A1)"');
+  assert.equal(escapeCSVCell('\n=1+1'), '"\'\n=1+1"');
   assert.equal(escapeCSVCell('a"b,c'), '"a""b,c"');
   const csv = formatCSV([['标的', '公式'], ['SPY', '=1+1']]);
   assert.ok(csv.startsWith('\uFEFF'));
   assert.equal(csv, '\uFEFF"标的","公式"\r\n"SPY","\'=1+1"');
+});
+
+test('invalidateSymbolCache 清理指定标的的主图与组合配比内存缓存，后续重新拉取新数据', async t => {
+  const $ = dom(t);
+  const oldStorage = globalThis.localStorage;
+  const oldResize = globalThis.ResizeObserver;
+  globalThis.localStorage = { getItem: () => null, setItem() {} };
+  globalThis.ResizeObserver = class { observe() {} };
+  t.after(() => { globalThis.localStorage = oldStorage; globalThis.ResizeObserver = oldResize; });
+  const oldDpr = globalThis.devicePixelRatio;
+  globalThis.devicePixelRatio = 1;
+  t.after(() => { globalThis.devicePixelRatio = oldDpr; });
+  $('symbol').value = 'AAPL';
+  $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }, { value: 'AAPL', textContent: 'AAPL' }];
+  $('price-chart').getContext = () => new Proxy({}, {
+    get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {},
+    set: () => true
+  });
+  let fetches = 0;
+  let version = 1;
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('aapl.json')) {
+      fetches++;
+      return {
+        ok: true,
+        json: async () => ({
+          symbol: 'AAPL',
+          anchorDate: version === 1 ? '2025-01-06' : '2025-01-07',
+          fetchedAt: '2025-01-07T00:00:00Z',
+          rows: rows.map(r => ({ ...r, volume: 100 }))
+        })
+      };
+    }
+    throw Error('Unexpected fetch ' + url);
+  });
+
+  initStrategyOverlay();
+  setSignalSentiment([{ date: '2025-01-02', score: 20 }]);
+  renderMarket(settings);
+  await loadMarket();
+  assert.equal(fetches, 1);
+
+  $('symbol').value = 'SPY';
+  invalidateSymbolCache('AAPL');
+  version = 2;
+  $('symbol').value = 'AAPL';
+  await loadMarket();
+  assert.equal(fetches, 2);
+  assert.match($('price-asof').textContent, /2025-01-07/);
 });

@@ -3,7 +3,7 @@ export function escapeCSVCell(value) {
     return '"' + String(value) + '"';
   }
   const text = String(value ?? '');
-  const safe = /^[=+\-@\t\r]/.test(text) ? "'" + text : text;
+  const safe = /^(?:[\t\r\n]|[\s\u00A0]*[=+\-@])/.test(text) ? "'" + text : text;
   return '"' + safe.replace(/"/g, '""') + '"';
 }
 

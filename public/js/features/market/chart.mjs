@@ -72,6 +72,11 @@ export function hasLoadedMarket() {
   return store.has($('symbol').value);
 }
 
+export function invalidateSymbolCache(symbol) {
+  store.delete(symbol);
+  invalidatePortfolioMarketCache(symbol);
+}
+
 export async function invalidateMarket({ preserveOnError = false, onCommit = null } = {}) {
   if (!preserveOnError) {
     store.clear();

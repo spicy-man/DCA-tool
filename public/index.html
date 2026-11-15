@@ -9,7 +9,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="定投助手">
-  <meta name="app-version" content="2.2.7">
+  <meta name="app-version" content="2.2.8">
   <meta name="description" content="查看 SPY / QQQ / VGT / SMH / BRK-B 前复权行情、恐慌与贪婪指数及月跌幅金字塔定投信号。">
   <title>定投助手</title>
   <link rel="manifest" href="./manifest.webmanifest">
@@ -21,7 +21,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=2.2.7">
+  <link rel="stylesheet" href="./style.css?v=2.2.8">
 </head>
 <body>
   <div class="shell">
@@ -30,7 +30,7 @@
         <a href="./" class="brand" aria-label="定投助手首页">
           <span class="mark"><img src="./logo.svg?v=dca" alt="" width="28" height="28"></span>定投助手
         </a>
-        <span class="version-badge" aria-label="版本 2.2.7">v2.2.7</span>
+        <span class="version-badge" aria-label="版本 2.2.8">v2.2.8</span>
       </div>
       <span class="brand-divider" aria-hidden="true"></span>
       <button id="welcome-help" class="welcome-help" type="button" aria-haspopup="dialog" aria-controls="welcome-dialog">理念与规则</button>
@@ -662,7 +662,7 @@
   <dialog id="symbol-dialog" aria-labelledby="symbol-dialog-title">
     <form id="symbol-form">
       <h2 id="symbol-dialog-title">自定义标的</h2>
-      <p>管理个人标的：可添加或删除；删除后不再显示或更新，保留行情缓存。</p>
+      <p>管理个人标的：可添加或删除；删除后不再显示或更新，并清理本地行情缓存。</p>
       <ul id="custom-symbol-list" aria-label="标的管理"></ul>
       <p id="symbol-help">支持美元计价的美股股票和 ETF，例如 VOO、AAPL、BRK-B。添加时获取完整前复权历史，成功后保存到本地服务。</p>
       <label for="custom-symbol">标的代码</label>

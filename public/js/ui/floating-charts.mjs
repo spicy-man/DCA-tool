@@ -1,3 +1,5 @@
+import { appEvents, events } from '../services/events.mjs';
+
 // Move the original interactive plots; placeholders keep document geometry stable.
 export function initFloatingCharts() {
   const media = matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)');
@@ -16,11 +18,17 @@ export function initFloatingCharts() {
     return anchor;
   });
   let floating = false;
+  const moved = wraps.map(() => false);
   let dismissed = false;
-  let frame = 0;
+  let scheduled = false;
   let drag = null;
   let position = null;
   const clamp = (value, min, max) => Math.max(min, Math.min(value, Math.max(min, max)));
+  const isWrapHidden = wrap => {
+    const collapse = wrap.closest?.('#sentiment-chart-collapse');
+    return wrap.hidden || Boolean(collapse?.hidden || collapse?.hasAttribute?.('data-closing')) ||
+      Boolean(wrap.classList?.contains?.('is-concealed'));
+  };
 
   function place(left, top) {
     const rect = panel.getBoundingClientRect();
@@ -39,29 +47,40 @@ export function initFloatingCharts() {
     floating = false;
     for (const id of ['price-tooltip', 'tooltip']) document.getElementById(id).hidden = true;
     for (const [i, wrap] of wraps.entries()) {
-      anchors[i].after(wrap);
-      anchors[i].hidden = true;
+      if (moved[i]) {
+        anchors[i].after(wrap);
+        anchors[i].hidden = true;
+        moved[i] = false;
+      }
     }
     panel.hidden = true;
     drag = null;
   }
 
-  function show() {
-    if (floating) return;
+  function show(visible) {
+    if (floating && wraps.every((_, i) => moved[i] === visible[i])) return;
     for (const id of ['price-tooltip', 'tooltip']) document.getElementById(id).hidden = true;
+    const entering = wraps.map((_, i) => visible[i] && !moved[i]);
     for (const [i, wrap] of wraps.entries()) {
-      const collapse = wrap.closest?.('#sentiment-chart-collapse');
-      const collapsed = wrap.hidden || Boolean(collapse?.hidden || collapse?.hasAttribute?.('data-closing'));
-      if (collapsed) {
-        anchors[i].hidden = true;
-      } else {
+      if (entering[i]) {
         const style = getComputedStyle(wrap);
         anchors[i].style.height = wrap.getBoundingClientRect().height + 'px';
         anchors[i].style.marginTop = style.marginTop;
         anchors[i].style.marginBottom = style.marginBottom;
         anchors[i].hidden = false;
+        moved[i] = true;
+      } else if (!visible[i] && moved[i]) {
+        anchors[i].after(wrap);
+        anchors[i].hidden = true;
+        moved[i] = false;
       }
-      body.append(wrap);
+    }
+    if (entering[0]) {
+      for (const [i, wrap] of wraps.entries()) {
+        if (moved[i]) body.append(wrap);
+      }
+    } else if (entering[1]) {
+      body.append(wraps[1]);
     }
     floating = true;
     panel.hidden = false;
@@ -69,19 +88,24 @@ export function initFloatingCharts() {
   }
 
   function sync() {
-    frame = 0;
-    const source = floating ? anchors[0] : wraps[0];
+    const source = moved[0] ? anchors[0] : wraps[0];
     const passed = source.getBoundingClientRect().bottom <= 0;
     if (!passed) dismissed = false;
-    if (!media.matches || !passed || dismissed) restore();
-    else show();
+    const visible = wraps.map(wrap => !isWrapHidden(wrap));
+    if (!media.matches || !passed || dismissed || visible.every(v => !v)) restore();
+    else show(visible);
     if (floating && position) place(position.left, position.top);
     ticker.value = document.getElementById('symbol').value;
     title.textContent = document.getElementById('frequency').selectedOptions[0].textContent;
   }
 
   function schedule() {
-    if (!frame) frame = requestAnimationFrame(sync);
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      sync();
+    });
   }
 
   function dismiss() {
@@ -127,6 +151,7 @@ export function initFloatingCharts() {
     event.preventDefault();
   });
   for (const id of ['symbol', 'frequency']) document.getElementById(id).addEventListener('change', schedule);
+  appEvents.addEventListener(events.chartVisibility, schedule);
   addEventListener('scroll', schedule, { passive: true });
   addEventListener('resize', schedule, { passive: true });
   media.addEventListener('change', schedule);

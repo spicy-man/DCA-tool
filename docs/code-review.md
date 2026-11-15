@@ -17,7 +17,7 @@
 | [#16](#16-low-strategy-summarymjs-summarizefunding-峰值并列使用精确-) | **Low** | [strategy-summary.mjs](../public/js/domain/strategy-summary.mjs#L90-L91) | 单标的峰值月份并列比较使用 `amount === peak`，未统一采用 `1e-9` 容差 |
 | [#17](#17-low-backtestmjs-组合回测缺少前置行情顺序与正价格校验) | **Low** | [backtest.mjs](../public/js/domain/backtest.mjs#L252-L278) | `comparePortfolioStrategies` 未复用 `compareStrategies` 的前置日线与正价格校验 |
 | [#18](#18-low-geometrymjs--chartmjs--sentimentmjs-零宽度画布产生负间距) | **Low** | [geometry.mjs](../public/js/charts/geometry.mjs#L19) | 画布宽度为 0 或折叠时 `pw < 0` 传入 `createTradingScale` 产生负步距 |
-| [#19](#19-low-updatermjs--applicationmjs-csv-解析与导出未转义逗号与公式前缀) | **Low** | [application.mjs](../public/js/application.mjs#L315-L316) | `parseCNN` 拼接 `entry.rating` 与前端导出 CSV 未做引号及表格公式前缀防护 |
+| [#19](#19-low-updatermjs-parsecnn-拼接-csv-未转义逗号) | **Low** | [updater.mjs](../server/updater.mjs#L76-L77) | `parseCNN` 将 `entry.rating` 拼接为 CSV 字符串后再走 `parseCSV`，含逗号时会被拆列 |
 | [#20](#20-low-nasdaq-fundsmjs-仅更新年费时未刷新-profilecheckedat) | **Low** | [nasdaq-funds.mjs](../server/nasdaq-funds.mjs#L72-L73) | `netAssets === null` 且 `annualFee !== null` 时更新 `annualFee` 却不更新 `profileCheckedAt` |
 | [#21](#21-low-overlaymjs-localstorage-反序列化未过滤原型键) | **Low** | [overlay.mjs](../public/js/features/strategy/overlay.mjs#L1172-L1202) | 还原 `bySymbol`、`weights`、`fearEnabled` 时未跳过 `__proto__` 等特殊键 |
 | [#22](#22-low-data-clientmjs-requestsourcerefresh-未兜底非-json-错误响应) | **Low** | [data-client.mjs](../public/js/services/data-client.mjs#L46-L51) | 非 JSON 错误响应时直接抛出原始 `SyntaxError` 而非上下文失败提示 |
@@ -64,11 +64,11 @@
 - **实际影响**：`spacing` 为负值，坐标轴映射方向反转。
 - **建议修复**：绘制入口对 `pw <= 0 || ph <= 0` 提前返回，并在 `createTradingScale` 中对非正宽度做保护。
 
-### #19 [Low] `updater.mjs` / `application.mjs` CSV 解析与导出未转义逗号与公式前缀
-- **位置**：[server/updater.mjs](../server/updater.mjs#L76-L77)、[public/js/application.mjs](../public/js/application.mjs#L315-L316)
-- **触发条件**：上游 CNN `entry.rating` 含逗号时，`parseCNN` 拼接 CSV 字符串再走 `parseCSV` 会被拆列；前端导出可见情绪 CSV 时未对 `label`/`source` 加引号且未防护 `=`, `+`, `-`, `@` 前缀。
-- **实际影响**：上游文案变动时解析脆弱；导出的 CSV 缺少表格公式注入防御纵深。
-- **建议修复**：`parseCNN` 直接构造并校验对象；导出 CSV 统一按 RFC-4180 加引号并对公式前缀字符做安全转义。
+### #19 [Low] `updater.mjs` `parseCNN` 拼接 CSV 未转义逗号
+- **位置**：[server/updater.mjs](../server/updater.mjs#L76-L77)
+- **触发条件**：上游 CNN `entry.rating` 含逗号时，`parseCNN` 拼接 CSV 字符串再走 `parseCSV` 会被拆列（前端 CSV 导出已通过 [download.mjs](../public/js/ui/download.mjs#L1-L8) 统一转义与防公式注入）。
+- **实际影响**：上游文案变动时解析脆弱。
+- **建议修复**：`parseCNN` 直接构造并校验对象，不再经由 CSV 字符串拼接中转。
 
 ### #20 [Low] `nasdaq-funds.mjs` 仅更新年费时未刷新 `profileCheckedAt`
 - **位置**：[server/nasdaq-funds.mjs](../server/nasdaq-funds.mjs#L72-L73)
@@ -90,8 +90,8 @@
 
 ---
 
-## 三、最近一轮审查摘要（2026-11-14 · 跨设备字体与字重一致性修复闭环）
+## 三、最近一轮审查摘要（2026-11-16 · `v2.2.7` 提交及全量代码审查与修复闭环）
 
-- **审查范围**：`public/fonts/`、[index.html](../public/index.html)、[nasdaq-funds.html](../public/nasdaq-funds.html)、[sp500-funds.html](../public/sp500-funds.html)、[style.css](../public/style.css)、`public/css/*.css`、[geometry.mjs](../public/js/charts/geometry.mjs)、[sentiment.mjs](../public/js/charts/sentiment.mjs)、[chart.mjs](../public/js/features/market/chart.mjs)、[kd.mjs](../public/js/features/strategy/kd.mjs)、[application.mjs](../public/js/application.mjs)、[http-server.mjs](../server/http-server.mjs)、[build-site.mjs](../scripts/build-site.mjs)、[version.mjs](../scripts/version.mjs)、[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) 与 [backend.test.mjs](../test/backend.test.mjs)；经首轮只读分析 + 修改后第二轮双人独立复审闭环（两方审查前均未预读台账与技术债文档），完整闭环记录已归档至 [历史审查归档](./review-archive.md)。
-- **发现与处置**：第二轮两方独立复审均未发现未解决的有效缺陷或回归风险，保留原待修台账 `#9–#22` 不变。
-- **测试验证**：`node --test test/*.test.mjs` **202 / 202 全部通过**，`node scripts/build-site.mjs` 已打包 `dist/fonts/`，`git diff --check` 无异常，headless Chrome 实测主页面与基金对比页成功加载 `Inter Variable` 且零控制台报错；Android 与 Windows 真机观感需在实机进一步确认。
+- **审查范围**：提交 `ff8488b`（`v2.2.7`）及完整运行时代码库（`server/`、`public/`、`scripts/`、`start.cmd`、`start.command`、`.github/workflows/`、`test/`）；经首轮只读双人独立审查 + 方案确认后修复 + 第二轮（识别并修复 `floating-charts.mjs` `show(visible)` 回归）+ 第三轮双人独立复审闭环（两方审查前均未预读台账与技术债文档），完整闭环记录已归档至 [历史审查归档](./review-archive.md)。
+- **发现与处置**：修复了 6 项有效发现（`status.funds` 落盘与前后端状态展示、主图隐藏态与悬浮小窗联动、自定义标的前端内存缓存/弹窗文案/后端原子回滚与 `requestedComplete` 计算、`sameOrigin` IPv6 `HOST` 与畸形 `Host` 拦截、基金对比页加载失败提示、CSV 公式注入前导换行/空格防护）及第二轮识别的 `floating-charts.mjs` 重复挂载回归；第三轮两方独立复审均未发现未解决的有效问题，保留原待修台账 `#9, #14–#22`（其中 `#19` 收窄为 `updater.mjs` `parseCNN`）不变。
+- **测试验证**：`node --test test/*.test.mjs` **215 / 215 全部通过**。

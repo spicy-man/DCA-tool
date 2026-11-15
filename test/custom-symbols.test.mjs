@@ -186,4 +186,32 @@ test('自定义标的增删校验默认标的全集并在 status.json 写入失�
   await mkdir(path.join(dataDir, 'status.json'));
   await assert.rejects(removeCustomSymbol('AAPL', { dataDir }));
   assert.deepEqual(await readCustomSymbols(dataDir), ['AAPL']);
+  assert.equal(JSON.parse(await readFile(path.join(dataDir, 'aapl.json'), 'utf8')).symbol, 'AAPL');
+  await assert.rejects(addCustomSymbol('MSFT', { dataDir, now, fetchText: async () => JSON.stringify(yahoo('MSFT')) }));
+  assert.deepEqual(await readCustomSymbols(dataDir), ['AAPL']);
+  await assert.rejects(readFile(path.join(dataDir, 'msft.json'), 'utf8'), { code: 'ENOENT' });
+
+  await rm(path.join(dataDir, 'status.json'), { recursive: true });
+  await writeFile(path.join(dataDir, 'status.json'), JSON.stringify({
+    version: 1,
+    expectedDate: '2025-01-06',
+    complete: false,
+    results: [{ symbol: 'AAPL', ok: true, date: '2025-01-06' }]
+  }));
+  await removeCustomSymbol('AAPL', { dataDir });
+  status = JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8'));
+  assert.equal(status.requestedComplete, undefined);
+
+  await writeFile(path.join(dataDir, 'custom-symbols.json'), JSON.stringify(['AAPL']));
+  await writeFile(path.join(dataDir, 'status.json'), JSON.stringify({
+    version: 1,
+    expectedDate: '2025-01-06',
+    complete: false,
+    requestedSources: ['SPY', 'AAPL'],
+    requestedComplete: false,
+    results: [{ symbol: 'AAPL', ok: true, date: '2025-01-06' }]
+  }));
+  await removeCustomSymbol('AAPL', { dataDir });
+  status = JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8'));
+  assert.equal(status.requestedComplete, false);
 });

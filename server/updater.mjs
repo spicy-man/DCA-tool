@@ -1,9 +1,10 @@
 import path from 'node:path';
+import { unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fetchPublicText, yahooURL } from './network.mjs';
 import { normalizeYahoo, SYMBOLS, validSymbol, filterMarketHistory, HISTORY_STARTS } from '../public/js/domain/market.mjs';
-import { readCustomSymbols, writeCustomSymbolsWithStatus } from './symbols.mjs';
+import { readCustomSymbols, writeCustomSymbolsWithStatus, syncRequestedComplete } from './symbols.mjs';
 import { parseCSV, rating, OFFICIAL_START } from '../public/js/domain/sentiment.mjs';
 import { isStatusComplete } from '../public/js/domain/data-health.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
@@ -276,6 +277,8 @@ export async function addCustomSymbol(symbol, options = {}) {
     const symbols = await readCustomSymbols(dataDir);
     if (SYMBOLS.includes(symbol) || symbols.includes(symbol)) return { symbol, symbols };
     if (symbols.length >= 30) throw Error('自定义标的最多支持 30 个');
+    const cacheFile = path.join(dataDir, symbol.toLowerCase() + '.json');
+    const prevCacheText = await readOptional(cacheFile);
     let value;
     try {
       value = await updateETF(symbol, { dataDir, fetchText: options.fetchText || fetchPublicText, now });
@@ -283,25 +286,27 @@ export async function addCustomSymbol(symbol, options = {}) {
       throw Error('无法添加：请确认代码有效、属于美元美股股票或 ETF，并检查行情数据源连接');
     }
     const nextSymbols = [...symbols, symbol];
-    await writeCustomSymbolsWithStatus(dataDir, nextSymbols, status => {
-      const expectedDate = status.expectedDate || latestClosedSession(now);
-      const checkedAt = new Date(now).toISOString();
-      const entry = {
-        symbol, ...value, ok: true, fresh: value.date >= expectedDate,
-        ...(value.date < expectedDate ? {
-          message: (value.warning ? value.warning + '；' : '') +
-            '来源有效数据截至 ' + value.date + '，尚缺 ' + expectedDate + ' 的完整数据'
-        } : {}),
-        expectedDate, checkedAt, lastSuccessAt: checkedAt
-      };
-      status.results = [...(status.results || []).filter(r => r.symbol !== symbol), entry];
-      const complete = r => r.ok && r.date >= expectedDate;
-      status.complete = isStatusComplete(status.results, expectedDate, nextSymbols);
-      if (status.requestedSources) {
-        status.requestedComplete = status.results
-          .filter(r => status.requestedSources.includes(r.symbol)).every(complete);
-      }
-    });
+    try {
+      await writeCustomSymbolsWithStatus(dataDir, nextSymbols, status => {
+        const expectedDate = status.expectedDate || latestClosedSession(now);
+        const checkedAt = new Date(now).toISOString();
+        const entry = {
+          symbol, ...value, ok: true, fresh: value.date >= expectedDate,
+          ...(value.date < expectedDate ? {
+            message: (value.warning ? value.warning + '；' : '') +
+              '来源有效数据截至 ' + value.date + '，尚缺 ' + expectedDate + ' 的完整数据'
+          } : {}),
+          expectedDate, checkedAt, lastSuccessAt: checkedAt
+        };
+        status.results = [...(status.results || []).filter(r => r.symbol !== symbol), entry];
+        status.complete = isStatusComplete(status.results, expectedDate, nextSymbols);
+        syncRequestedComplete(status);
+      });
+    } catch (error) {
+      if (prevCacheText !== null) await atomicWrite(cacheFile, prevCacheText).catch(() => {});
+      else await unlink(cacheFile).catch(() => {});
+      throw error;
+    }
     return { symbol, symbols: nextSymbols };
   });
 }
@@ -408,6 +413,22 @@ async function run({
     results
   };
   await atomicWrite(path.join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
-  if (includeFunds) status.funds = await updateFunds({ dataDir, fetchText, now });
+  if (includeFunds) {
+    const funds = await updateFunds({ dataDir, fetchText, now });
+    const fundErrors = funds.groups.map(g => g.error).filter(Boolean);
+    status.funds = {
+      ok: funds.groups.every(g => g.ok !== false),
+      complete: funds.complete !== false,
+      checkedAt: funds.checkedAt || checkedAt,
+      performance: {
+        ok: funds.groups.every(g => g.performanceOk !== false),
+        complete: funds.groups.every(g => g.performanceComplete !== false),
+        endDate: funds.performance?.endDate ?? null
+      },
+      ...(fundErrors.length ? { error: fundErrors.join('；') } : {}),
+      groups: funds.groups
+    };
+    await atomicWrite(path.join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
+  }
   return status;
 }

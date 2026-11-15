@@ -34,10 +34,19 @@ let sentimentRows = [];
 const marketRowsBySymbol = new Map();
 const loadingSymbols = new Set();
 const failedSymbols = new Set();
+const symbolCacheEpochs = new Map();
 let marketCacheEpoch = 0;
 let refreshAllocationPreview = null;
 
-export function invalidatePortfolioMarketCache() {
+export function invalidatePortfolioMarketCache(symbol = null) {
+  if (symbol) {
+    symbolCacheEpochs.set(symbol, (symbolCacheEpochs.get(symbol) || 0) + 1);
+    marketRowsBySymbol.delete(symbol);
+    loadingSymbols.delete(symbol);
+    failedSymbols.delete(symbol);
+    refreshAllocationPreview?.();
+    return;
+  }
   marketCacheEpoch++;
   marketRowsBySymbol.clear();
   loadingSymbols.clear();
@@ -687,9 +696,10 @@ function initAllocationDialog() {
       if (marketRowsBySymbol.has(symbol) || loadingSymbols.has(symbol) || failedSymbols.has(symbol)) continue;
       loadingSymbols.add(symbol);
       const epoch = marketCacheEpoch;
+      const symbolEpoch = symbolCacheEpochs.get(symbol) || 0;
       loadMarketSnapshot(symbol)
         .then(snapshot => {
-          if (epoch !== marketCacheEpoch || marketRowsBySymbol.has(symbol)) return;
+          if (epoch !== marketCacheEpoch || symbolEpoch !== (symbolCacheEpochs.get(symbol) || 0) || marketRowsBySymbol.has(symbol)) return;
           if (snapshot?.rows?.length) {
             marketRowsBySymbol.set(symbol, snapshot.rows);
           } else {
@@ -697,10 +707,10 @@ function initAllocationDialog() {
           }
         })
         .catch(() => {
-          if (epoch === marketCacheEpoch && !marketRowsBySymbol.has(symbol)) failedSymbols.add(symbol);
+          if (epoch === marketCacheEpoch && symbolEpoch === (symbolCacheEpochs.get(symbol) || 0) && !marketRowsBySymbol.has(symbol)) failedSymbols.add(symbol);
         })
         .finally(() => {
-          if (epoch !== marketCacheEpoch) return;
+          if (epoch !== marketCacheEpoch || symbolEpoch !== (symbolCacheEpochs.get(symbol) || 0)) return;
           loadingSymbols.delete(symbol);
           if (inputs.size) runPreviewNow();
         });

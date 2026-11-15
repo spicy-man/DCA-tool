@@ -34,21 +34,37 @@ export async function writeCustomSymbolsWithStatus(dataDir, nextSymbols, updateS
   }
 }
 
+export function syncRequestedComplete(status) {
+  if (!Array.isArray(status.requestedSources)) return;
+  const complete = result => result && result.ok && result.date >= status.expectedDate;
+  status.requestedComplete = status.requestedSources.length > 0
+    ? status.requestedSources.every(symbol => (status.results || []).some(r => r?.symbol === symbol && complete(r)))
+    : Boolean(status.complete);
+}
+
 export async function removeCustomSymbol(symbol, { dataDir }) {
   if (!validSymbol(symbol)) throw Error('标的代码无效');
   if (SYMBOLS.includes(symbol)) throw Error('默认标的不可删除');
   return withDataLock(dataDir, async () => {
     const symbols = (await readCustomSymbols(dataDir)).filter(value => value !== symbol);
-    await writeCustomSymbolsWithStatus(dataDir, symbols, status => {
-      status.results = (status.results || []).filter(result => result.symbol !== symbol);
-      if (status.requestedSources) status.requestedSources = status.requestedSources.filter(value => value !== symbol);
-      const complete = result => result.ok && result.date >= status.expectedDate;
-      status.complete = isStatusComplete(status.results, status.expectedDate, symbols);
-      status.requestedComplete = status.results.filter(result => status.requestedSources?.includes(result.symbol)).every(complete);
-    });
-    await unlink(path.join(dataDir, symbol.toLowerCase() + '.json')).catch(error => {
+    const cacheFile = path.join(dataDir, symbol.toLowerCase() + '.json');
+    const prevCacheText = await readOptional(cacheFile);
+    await unlink(cacheFile).catch(error => {
       if (error.code !== 'ENOENT') throw error;
     });
+    try {
+      await writeCustomSymbolsWithStatus(dataDir, symbols, status => {
+        status.results = (status.results || []).filter(result => result.symbol !== symbol);
+        if (Array.isArray(status.requestedSources)) {
+          status.requestedSources = status.requestedSources.filter(value => value !== symbol);
+        }
+        status.complete = isStatusComplete(status.results, status.expectedDate, symbols);
+        syncRequestedComplete(status);
+      });
+    } catch (error) {
+      if (prevCacheText !== null) await atomicWrite(cacheFile, prevCacheText).catch(() => {});
+      throw error;
+    }
     return { symbol, symbols };
   });
 }

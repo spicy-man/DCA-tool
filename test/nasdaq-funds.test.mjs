@@ -339,4 +339,14 @@ test('国内ETF对比页把溢价率与年费率排在前面且不使用会在iO
   initFundComparison();
   assert.equal(doc.title, '纳斯达克100 ETF 对比 · 定投助手');
   assert.ok(requested.some(u => u.includes('nasdaq100-etfs.json')));
+
+  // Initial snapshot failure clears loading text in #fund-performance-status.
+  $('fund-performance-status').textContent = '正在读取历史涨幅…';
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: false, status: 404 }));
+  initFundComparison();
+  for (let i = 0; i < 20 && !$('fund-updated').textContent.includes('失败'); i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.match($('fund-updated').textContent, /基金快照读取失败/);
+  assert.match($('fund-performance-status').textContent, /历史涨幅暂不可用/);
 });

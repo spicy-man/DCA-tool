@@ -46,7 +46,11 @@ export function createServer({
     '[::1]',
     ...(process.env.HOST && !['0.0.0.0', '::'].includes(process.env.HOST) ? [process.env.HOST] : []),
     ...allowedHosts
-  ].map(host => String(host).toLowerCase()));
+  ].flatMap(host => {
+    const normalized = String(host || '').trim().toLowerCase();
+    if (!normalized) return [];
+    return normalized.includes(':') && !normalized.startsWith('[') ? [normalized, `[${normalized}]`] : [normalized];
+  }));
 
   let server;
   function sameOrigin(req) {
@@ -60,7 +64,7 @@ export function createServer({
     } catch {
       return false;
     }
-    if (parsedHost.username || parsedHost.password) return false;
+    if (parsedHost.username || parsedHost.password || parsedHost.pathname !== '/' || parsedHost.search || parsedHost.hash) return false;
     const address = server?.address?.();
     if (address && typeof address === 'object' && address.port) {
       const port = parsedHost.port ? Number(parsedHost.port) : 80;
