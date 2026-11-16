@@ -206,7 +206,7 @@ export function initApplication() {
     for (const [canvasID, timelineID] of [['mini', 'timeline'], ['backtest-mini', 'backtest-timeline']]) {
       const canvas = $(canvasID);
       drawOverview(canvas, rows, bounds());
-      if (!windowRange || !rows.length) continue;
+      if (!windowRange || !calendar.length) continue;
       const state = navigatorState({
         start: Date.parse(windowRange.start),
         end: Date.parse(windowRange.end)
@@ -221,12 +221,12 @@ export function initApplication() {
   }
 
   function render() {
-    if (!rows.length || !calendar.length) return;
+    if (!calendar.length) return;
     const end = iso(Number($('timeline').value));
     const selected = customWindow
       ? calendar.filter(r => r.date >= iso(customWindow.start) && r.date <= iso(customWindow.end))
       : $('range').value === 'sentiment'
-        ? calendar.filter(r => r.date >= rows[0].date && r.date <= end)
+        ? (rows.length ? calendar.filter(r => r.date >= rows[0].date && r.date <= end) : selectRange(calendar, 'all', end))
         : selectRange(calendar, $('range').value, end);
 
     windowRange = {
@@ -251,7 +251,7 @@ export function initApplication() {
     } else {
       $('score').textContent = '—';
       $('score').title = '';
-      $('rating').textContent = '当前区间无指数记录';
+      $('rating').textContent = rows.length ? '当前区间无指数记录' : '情绪指数暂不可用';
     }
 
     $('date-range').textContent = formatDate(windowRange.start) + ' – ' + formatDate(windowRange.end);
@@ -342,7 +342,7 @@ export function initApplication() {
 
   for (const id of ['timeline', 'backtest-timeline']) {
     $(id).addEventListener('input', event => {
-      if (!windowRange || !rows.length) return;
+      if (!windowRange || !calendar.length) return;
       const end = Number(event.currentTarget.value);
       const span = Date.parse(windowRange.end) - Date.parse(windowRange.start);
       applyWindow({ start: end - span, end });
@@ -484,7 +484,7 @@ export function initApplication() {
   });
 
   const resizeObserver = new ResizeObserver(() => {
-    if (rows.length) {
+    if (calendar.length) {
       draw();
       mini();
     }
@@ -523,7 +523,7 @@ export function initApplication() {
   for (const id of ['price-chart', 'kd-plot', 'chart']) {
     attachChartNavigation($(id), {
       getWindow: () =>
-        rows.length && windowRange
+        calendar.length && windowRange
           ? customWindow || { start: Date.parse(windowRange.start), end: Date.parse(windowRange.end) }
           : null,
       getBounds: bounds,
@@ -535,7 +535,7 @@ export function initApplication() {
   appEvents.addEventListener(events.marketCalendar, event => {
     marketCalendar = [...new Set(event.detail)].sort();
     syncCalendar();
-    if (rows.length) render();
+    if (calendar.length) render();
   });
 
   appEvents.addEventListener(events.strategySettings, () => {
@@ -599,7 +599,7 @@ export function initApplication() {
           }
           marketCalendar = [...new Set(dates)].sort();
           syncCalendar();
-          if (rows.length) {
+          if (calendar.length) {
             render();
             return true;
           }
@@ -617,7 +617,7 @@ export function initApplication() {
   });
 
   const redrawChartsForFonts = () => {
-    if (rows.length && windowRange) draw();
+    if (calendar.length && windowRange) draw();
     if (hasLoadedMarket() && windowRange) drawPrice(crossDate);
     invalidateKDChart();
     drawKDChart();

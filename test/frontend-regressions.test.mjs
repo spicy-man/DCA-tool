@@ -1106,3 +1106,81 @@ test('invalidateSymbolCache 清理指定标的的主图与组合配比内存缓�
   assert.equal(fetches, 2);
   assert.match($('price-asof').textContent, /2025-01-07/);
 });
+
+test('前高修复虚线跟随当前选定的主策略及对应颜色', async t => {
+  const $ = dom(t);
+  const { initBacktest, updateBacktest } = await import('../public/js/features/strategy/backtest.mjs');
+  const previousStorage = globalThis.localStorage;
+  const previousResize = globalThis.ResizeObserver;
+  globalThis.localStorage = { getItem: () => null, setItem() {} };
+  globalThis.ResizeObserver = class { observe() {} };
+  t.after(() => { globalThis.localStorage = previousStorage; globalThis.ResizeObserver = previousResize; });
+  let tick;
+  t.mock.method(globalThis, 'setInterval', callback => { tick = callback; return 1; });
+  t.mock.method(globalThis, 'clearInterval', () => {});
+  $('kd-plot').getContext = () => new Proxy({}, {
+    get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {},
+    set: () => true
+  });
+  initBacktest();
+  const daily = ['2025-01-02', '2025-01-03', '2025-01-06', '2025-01-07'].map((date, i) => ({
+    date, open: 100, high: 105, low: 80, close: [100, 100, 80, 95][i]
+  }));
+  const baseContext = {
+    symbol: 'QQQ',
+    rows: daily,
+    monthlySignals: [{ date: daily[0].date, scheduledMonth: '2025-01', multiple: 1, amount: 100 }],
+    kdSignals: [{ date: daily[0].date, scheduledMonth: '2025-01', multiple: 1.5, amount: 150 }],
+    fearSignals: [{ date: daily[3].date, amount: 100 }],
+    baseAmount: 100,
+    sentiment: [],
+    range: { start: daily[0].date, end: daily.at(-1).date, calendar: daily.map(r => r.date) }
+  };
+  const recoveryLine = () => $('backtest-plot').children.find(c => c.getAttribute('data-recovery-line') === '');
+
+  for (const [strategy, expectedColor, expectedName] of [
+    ['kdFear', '#a64b77', /加权K定投＋恐慌加投/],
+    ['combined', '#2563eb', /月跌幅金字塔＋恐慌加投/]
+  ]) {
+    updateBacktest({ ...baseContext, strategy });
+    $('backtest-replay-start').value = '2025-01-02';
+    $('backtest-replay-start').listeners.change();
+    $('backtest-replay-play').listeners.click();
+    tick();
+    tick();
+    tick();
+    const line = recoveryLine();
+    assert.ok(line);
+    assert.equal(line.getAttribute('stroke'), expectedColor);
+    assert.match(line.getAttribute('aria-label'), expectedName);
+  }
+
+  // 通过界面主策略开关在复盘前、复盘中切换时，前高修复虚线同步切换且不重置复盘
+  $('symbol').value = 'QQQ';
+  $('symbol').options = [{ value: 'QQQ', textContent: 'QQQ' }];
+  $('price-chart').getContext = () => new Proxy({}, {
+    get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {},
+    set: () => true
+  });
+  initStrategyOverlay();
+  const realRows = ['2025-01-02', '2025-01-03', '2025-01-06', '2025-01-07'].map((date, i) => ({
+    date, open: 100, high: 105, low: 80, close: [100, 100, 80, 95][i]
+  }));
+  updateSignals({ symbol: 'QQQ', rows: realRows }, {
+    start: realRows[0].date, end: realRows.at(-1).date, calendar: realRows.map(r => r.date), frequency: 'daily'
+  });
+  $('status-strategy-combined').listeners.click();
+  $('backtest-replay-start').value = '2025-01-02';
+  $('backtest-replay-start').listeners.change();
+  $('backtest-replay-play').listeners.click();
+  tick();
+  tick();
+  tick();
+  assert.equal(recoveryLine().getAttribute('stroke'), '#2563eb');
+  assert.match(recoveryLine().getAttribute('aria-label'), /月跌幅金字塔＋恐慌加投/);
+  const resultRows = $('backtest-results').children;
+  $('status-strategy-kdFear').listeners.click();
+  assert.equal($('backtest-results').children, resultRows);
+  assert.equal(recoveryLine().getAttribute('stroke'), '#a64b77');
+  assert.match(recoveryLine().getAttribute('aria-label'), /加权K定投＋恐慌加投/);
+});

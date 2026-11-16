@@ -2,7 +2,18 @@ import path from 'node:path';
 import { unlink } from 'node:fs/promises';
 import { readOptional, readJsonOptional, atomicWrite, withDataLock } from './storage.mjs';
 import { SYMBOLS, validSymbol } from '../public/js/domain/market.mjs';
+import { FUND_GROUPS } from '../public/js/domain/fund-groups.mjs';
 import { isStatusComplete } from '../public/js/domain/data-health.mjs';
+
+const RESERVED_FILES = new Set([
+  'custom-symbols.json',
+  'status.json',
+  ...Object.values(FUND_GROUPS).map(group => group.snapshotFile.toLowerCase())
+]);
+
+export function isReservedSymbolFile(symbol) {
+  return typeof symbol === 'string' && RESERVED_FILES.has(symbol.toLowerCase() + '.json');
+}
 
 export async function readCustomSymbols(dataDir) {
   const saved = await readOptional(path.join(dataDir, 'custom-symbols.json'));
@@ -36,7 +47,8 @@ export async function writeCustomSymbolsWithStatus(dataDir, nextSymbols, updateS
 
 export function syncRequestedComplete(status) {
   if (!Array.isArray(status.requestedSources)) return;
-  const complete = result => result && result.ok && result.date >= status.expectedDate;
+  const complete = result =>
+    result && result.ok && result.fresh !== false && !result.missingDates?.length && result.date >= status.expectedDate;
   status.requestedComplete = status.requestedSources.length > 0
     ? status.requestedSources.every(symbol => (status.results || []).some(r => r?.symbol === symbol && complete(r)))
     : Boolean(status.complete);
@@ -45,8 +57,11 @@ export function syncRequestedComplete(status) {
 export async function removeCustomSymbol(symbol, { dataDir }) {
   if (!validSymbol(symbol)) throw Error('标的代码无效');
   if (SYMBOLS.includes(symbol)) throw Error('默认标的不可删除');
+  if (isReservedSymbolFile(symbol)) throw Error('保留数据文件不可作为标的删除');
   return withDataLock(dataDir, async () => {
-    const symbols = (await readCustomSymbols(dataDir)).filter(value => value !== symbol);
+    const currentSymbols = await readCustomSymbols(dataDir);
+    if (!currentSymbols.includes(symbol)) return { symbol, symbols: currentSymbols };
+    const symbols = currentSymbols.filter(value => value !== symbol);
     const cacheFile = path.join(dataDir, symbol.toLowerCase() + '.json');
     const prevCacheText = await readOptional(cacheFile);
     await unlink(cacheFile).catch(error => {

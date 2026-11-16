@@ -4,6 +4,18 @@
 
 ---
 
+## 代码审查台账 `#23 / #26 / #27 / #28 / #30` 核实与修复闭环（2026-11-16）
+
+- **已修复台账项**：
+  1. `#23` **删除自定义标的误删基金快照保护**（[symbols.mjs](../server/symbols.mjs#L8-L16)、[updater.mjs](../server/updater.mjs#L306)、[custom-symbols.test.mjs](../test/custom-symbols.test.mjs#L219-L244)）：新增 `isReservedSymbolFile` 保护 `custom-symbols.json`、`status.json` 及 `FUND_GROUPS` 中的 `nasdaq100-etfs.json` / `sp500-etfs.json`，在 `removeCustomSymbol` 与 `addCustomSymbol` 统一拒绝；`removeCustomSymbol` 在 `withDataLock` 内校验目标是否确在 `custom-symbols.json` 中，未登记目标幂等返回而不删文件、不写盘。
+  2. `#26` **情绪快照首载失败降级渲染行情与回测**（[application.mjs](../public/js/application.mjs#L209-L620)、[application-calendar.test.mjs](../test/application-calendar.test.mjs#L739-L799)）：将 `render`、`mini`、时间轴拖动、`attachChartNavigation`、`ResizeObserver`、`marketCalendar` 监听、`visibilitychange` 恢复与字体重绘的门控由 `rows.length` 改为 `calendar.length`；`range === 'sentiment'` 无情绪数据时安全回退至 `'all'` 并显示「情绪指数暂不可用」，保障行情与单标的回测正常展示。
+  3. `#27` **内置标的缺失交易日检查与全链路状态联动**（[market.mjs](../public/js/domain/market.mjs#L5-L15)、[updater.mjs](../server/updater.mjs#L125-L448)、[data-health.mjs](../public/js/domain/data-health.mjs#L19-L128)、[symbols.mjs](../server/symbols.mjs#L48-L55)、[build-site.mjs](../scripts/build-site.mjs#L62-L67)、[refresh-schedule.mjs](../server/refresh-schedule.mjs#L11)、[backend.test.mjs](../test/backend.test.mjs#L680-L714)、[data-health.test.mjs](../test/data-health.test.mjs#L86-L93)、[build-site.test.mjs](../test/build-site.test.mjs#L79-L89)、[refresh-schedule.test.mjs](../test/refresh-schedule.test.mjs#L69-L79)）：新增 `findMissingTradingDays` 校验内置标的覆盖区间内的 NYSE 交易日连续性；`snapshot`、`updateETF`（含 `retained` 分支）、`run`、`isStatusComplete`、`healthSummary`、`hasBlockingDataGap`、`syncRequestedComplete`、`buildSite` 与 `scheduledSources(..., { catchUp: true })` 统一检查 `fresh !== false && !missingDates?.length`，缺日时标为数据不完整并允许后续自动补抓自愈。
+  4. `#28` **情绪快照未来日期拦截与旧污染点清理**（[updater.mjs](../server/updater.mjs#L67-L281)、[backend.test.mjs](../test/backend.test.mjs#L716-L743)）：`parseCNN` 与 `validateSentimentAge` 按 UTC 口径拒绝 `> today` 的未来日期并加入 `validationFailure` 白名单；`snapshot` 与 `updateSentiment` 读取旧 `fear-greed.csv` 时过滤 `<= today` 的记录，防止异常未来点通过 `preserveHistory` 阻断后续正常刷新或误报 `fresh: true`。
+  5. `#30` **前高修复虚线随当前选定主策略切换**（[overlay.mjs](../public/js/features/strategy/overlay.mjs#L231-L237)、[backtest.mjs](../public/js/features/strategy/backtest.mjs#L8-L92)、[index.html](../public/index.html#L446)、[frontend-regressions.test.mjs](../test/frontend-regressions.test.mjs#L1110-L1185)）：`overlay.mjs` 初始/同步及点击主策略开关（`events.strategyView` 携带 `{ detail: viewStrategy }`）均向回测模块同步策略；`backtest.mjs` 维护 `activeStrategy` 并监听 `events.strategyView`，仅重绘前高修复虚线与颜色而不重置复盘或重建结果表（三策略调用仍安全回退至 `combined`）；同步更新 `public/index.html` 说明文案。
+- **范围、轮次与验证**：经历两轮双人独立只读复审闭环（两方审查前均未预读 `docs/code-review.md` 与 `docs/tech-debt.md`；第 1 轮后补齐 `scripts/build-site.mjs`、`server/refresh-schedule.mjs` 及 `overlay.mjs`/`backtest.mjs` 主策略按钮联动；第 2 轮两方对最终代码均未发现未解决的有效缺陷或测试缺口）。`npm test`（`node --test test/*.test.mjs`）**223 / 223 全部通过**，`git diff --check` 无异常（剩余限制：未对真实线上 Yahoo/CNN 接口或桌面/移动端真实浏览器执行交互验收）。
+
+---
+
 ## `v2.2.7` 提交及全量运行时代码审查与修复闭环（2026-11-16）
 
 - **已修复发现**：

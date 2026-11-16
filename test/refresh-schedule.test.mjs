@@ -66,4 +66,15 @@ test('catchUp 模式仅补抓缺失、失败或日期滞后的来源，全部新
     }),
     ['QQQ']
   );
+  assert.deepEqual(
+    scheduledSources(slot(13, '1-5'), Date.parse('2026-11-02T21:15Z'), {
+      status: {
+        results: all.map(symbol => symbol === 'SPY'
+          ? { symbol, ok: true, fresh: false, missingDates: ['2026-10-30'], date: '2026-11-02' }
+          : { symbol, ok: true, date: '2026-11-02' })
+      },
+      catchUp: true
+    }),
+    ['SPY']
+  );
 });

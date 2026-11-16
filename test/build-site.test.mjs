@@ -76,6 +76,17 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
   assert.deepEqual(published.requestedSources, []);
   assert.equal(published.requestedComplete, true);
 
+  // Missing trading days or fresh=false must also prevent marking complete=true.
+  const gappedStatus = { ...status, requestedSources: [...sources],
+    results: sources.map(symbol => symbol === 'SPY'
+      ? { symbol, ok: true, fresh: false, missingDates: ['2026-10-19'], date: '2026-10-20' }
+      : { symbol, ok: true, date: '2026-10-20' }) };
+  await writeFile(localFile, JSON.stringify(gappedStatus));
+  build();
+  published = JSON.parse(await readFile(outputFile, 'utf8'));
+  assert.equal(published.complete, false);
+  assert.equal(published.requestedComplete, false);
+
   await rm(localFile);
   build();
   await assert.rejects(readFile(outputFile), { code: 'ENOENT' });

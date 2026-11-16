@@ -21,6 +21,9 @@
 | [#20](#20-low-nasdaq-fundsmjs-仅更新年费时未刷新-profilecheckedat) | **Low** | [nasdaq-funds.mjs](../server/nasdaq-funds.mjs#L72-L73) | `netAssets === null` 且 `annualFee !== null` 时更新 `annualFee` 却不更新 `profileCheckedAt` |
 | [#21](#21-low-overlaymjs-localstorage-反序列化未过滤原型键) | **Low** | [overlay.mjs](../public/js/features/strategy/overlay.mjs#L1172-L1202) | 还原 `bySymbol`、`weights`、`fearEnabled` 时未跳过 `__proto__` 等特殊键 |
 | [#22](#22-low-data-clientmjs-requestsourcerefresh-未兜底非-json-错误响应) | **Low** | [data-client.mjs](../public/js/services/data-client.mjs#L46-L51) | 非 JSON 错误响应时直接抛出原始 `SyntaxError` 而非上下文失败提示 |
+| [#24](#24-p1-回收过期锁可破坏写入互斥) | **P1** | [storage.mjs](../server/storage.mjs#L57-L107) | 过期锁回收及释放可能删除其他写入者的锁 |
+| [#25](#25-p2-定时与手动发布可绕过应用测试) | **P2** | [pages.yml](../.github/workflows/pages.yml#L91-L102) | 定时与手动任务可发布曾因测试失败而拦下的代码 |
+| [#29](#29-p3-情绪备用存档被标为官方接口) | **P3** | [sentiment.mjs](../public/js/domain/sentiment.mjs#L37-L42) | 来源提示及 CSV 导出硬编码 2021-02-01 起为 CNN 官方接口 |
 
 ---
 
@@ -90,8 +93,21 @@
 
 ---
 
-## 三、最近一轮审查摘要（2026-11-16 · `v2.2.7` 提交及全量代码审查与修复闭环）
+### #24 [P1] 回收过期锁可破坏写入互斥
 
-- **审查范围**：提交 `ff8488b`（`v2.2.7`）及完整运行时代码库（`server/`、`public/`、`scripts/`、`start.cmd`、`start.command`、`.github/workflows/`、`test/`）；经首轮只读双人独立审查 + 方案确认后修复 + 第二轮（识别并修复 `floating-charts.mjs` `show(visible)` 回归）+ 第三轮双人独立复审闭环（两方审查前均未预读台账与技术债文档），完整闭环记录已归档至 [历史审查归档](./review-archive.md)。
-- **发现与处置**：修复了 6 项有效发现（`status.funds` 落盘与前后端状态展示、主图隐藏态与悬浮小窗联动、自定义标的前端内存缓存/弹窗文案/后端原子回滚与 `requestedComplete` 计算、`sameOrigin` IPv6 `HOST` 与畸形 `Host` 拦截、基金对比页加载失败提示、CSV 公式注入前导换行/空格防护）及第二轮识别的 `floating-charts.mjs` 重复挂载回归；第三轮两方独立复审均未发现未解决的有效问题，保留原待修台账 `#9, #14–#22`（其中 `#19` 收窄为 `updater.mjs` `parseCNN`）不变。
-- **测试验证**：`node --test test/*.test.mjs` **215 / 215 全部通过**。
+多个任务先判断同一个锁过期，再依次按路径删除，有竞争者可误删后来取得的新锁。仍存活的 PID 超过十分钟也可被接管，原持有者完成时同样会按路径移除接管者的锁。已在隔离目录复现两个任务同时进入临界区。应保护活锁，串行化过期锁接管，并验证释放时的锁归属。
+
+### #25 [P2] 定时与手动发布可绕过应用测试
+
+推送因测试失败停止时，相关提交仍在 `main`。后续定时或手动任务检出同一提交并跳过应用测试，仍可构建部署。应让部署核验实际应用代码对应的测试结果，快照更新可复用验证通过的代码。
+
+### #29 [P3] 情绪备用存档被标为官方接口
+
+备用存档路径将实际下载来源写入状态文件，逐日 CSV 未保存获取渠道。前端仍按固定分界日将数据表、提示及导出标为 CNN 官方接口。应保留可追溯的来源信息，或为旧快照明确区分指数归属与获取渠道。
+
+---
+
+## 三、最近一轮审查摘要（2026-11-16 · `#23 / #26 / #27 / #28 / #30` 核实与修复闭环）
+
+- 两名独立审查者在不预读台账文档前提下先核实确认 `#23、#26、#27、#28、#30` 全部成立；经用户确认后完成修复，并经历两轮双人独立只读复审闭环（第 1 轮检出 `scripts/build-site.mjs`、`server/refresh-schedule.mjs` 缺日标记联动遗漏及 `overlay.mjs`/`backtest.mjs` 主策略按钮切换未同步问题，补修后第 2 轮两方均无未解决的有效发现），已将 `#23、#26、#27、#28、#30` 移入 [历史审查归档](./review-archive.md)。
+- `npm test`（`node --test test/*.test.mjs`）**223 / 223 全部通过**，`git diff --check` 无异常；实际验证基于本地单测与 DOM/HTTP/源响应桩，未执行线上真实上游抓取或真机浏览器视觉验收。

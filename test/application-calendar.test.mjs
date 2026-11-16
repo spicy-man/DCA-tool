@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initApplication } from '../public/js/application.mjs';
 import { initStrategyOverlay } from '../public/js/features/strategy/overlay.mjs';
-import { initMarketChart, loadMarket } from '../public/js/features/market/chart.mjs';
+import { initMarketChart, loadMarket, invalidateSymbolCache } from '../public/js/features/market/chart.mjs';
 import { initKDControls } from '../public/js/features/strategy/kd.mjs';
 import { appEvents, events } from '../public/js/services/events.mjs';
 import { drawOverview } from '../public/js/charts/sentiment.mjs';
@@ -284,6 +284,7 @@ test('PWA 切回前台仅在 status.json 更新后刷新行情与情绪，离线
     return { ok: true, json: async () => url.includes('deployment') ? { mode: 'local' } : null };
   });
 
+  invalidateSymbolCache('SPY');
   initStrategyOverlay();
   initMarketChart();
   initApplication();
@@ -514,6 +515,7 @@ test('恐慌加投倍数为 0 时自动折叠恐慌图表并保留拖动条，�
   }));
 
   const { initFloatingCharts } = await import('../public/js/ui/floating-charts.mjs');
+  invalidateSymbolCache('SPY');
   initStrategyOverlay();
   initMarketChart();
   initApplication();
@@ -721,6 +723,7 @@ test('启动时若缓存的 KD 参数为 1，KD 图表默认折叠', async t => 
   }));
 
   initKDControls();
+  invalidateSymbolCache('SPY');
   initStrategyOverlay();
   initMarketChart();
   initApplication();
@@ -731,4 +734,66 @@ test('启动时若缓存的 KD 参数为 1，KD 图表默认折叠', async t => 
   assert.equal($('kd-chart-toggle-label').textContent, '展开图表');
   $('main-kd-tier-factor').value = '1.5';
   $('main-kd-tier-factor').listeners.input();
+});
+
+for (const mode of ['static', 'local']) test(`情绪 CSV 首载失败时仍渲染行情与单标的回测：${mode}`, async t => {
+  trackAppEvents(t);
+  const nodes = new Map();
+  const ctx = canvasContext();
+  const element = () => ({
+    textContent: '', value: '', dataset: {}, hidden: false, open: false,
+    clientWidth: 600, clientHeight: 300, offsetHeight: 0, children: [], listeners: {},
+    style: { setProperty() {} }, classList: { toggle() {}, add() {}, remove() {} },
+    setAttribute() {}, replaceChildren(...values) { this.children = values; },
+    append(value) { this.children.push(value); },
+    addEventListener(key, fn) { this.listeners[key] = fn; },
+    closest(selector) { return selector === 'details' ? this : null; },
+    querySelector() { return element(); }, getContext() { return ctx; },
+    getBoundingClientRect() { return { left: 0, top: 0, width: 600, height: 300 }; }
+  });
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, element());
+    return nodes.get(id);
+  };
+  for (const [key, value] of Object.entries({
+    document: { getElementById: $, createElement: element, createElementNS: element, querySelector() { return null; } },
+    window: { devicePixelRatio: 1 }, devicePixelRatio: 1,
+    ResizeObserver: class { observe() {} },
+    localStorage: { getItem: () => null, setItem() {} }
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  $('symbol').value = 'SPY';
+  $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }];
+  $('range').value = 'sentiment';
+  $('frequency').value = 'daily';
+  $('layout').value = 'expanded';
+  const rows = ['2026-10-15', '2026-10-16', '2026-10-19'].map((date, i) => ({
+    date, open: 100 + i, high: 110 + i, low: 90 + i, close: 100 + i, volume: 10
+  }));
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('fear-greed.csv')) return { ok: false, status: 404 };
+    if (url.includes('spy.json')) {
+      return { ok: true, json: async () => ({ symbol: 'SPY', anchorDate: '2026-10-19', fetchedAt: '2026-10-20T00:00:00Z', rows }) };
+    }
+    return { ok: true, json: async () => url.includes('deployment') ? { mode } : null };
+  });
+
+  invalidateSymbolCache('SPY');
+  initStrategyOverlay();
+  initMarketChart();
+  initApplication();
+  for (let i = 0; i < 20 && (!$('price-asof').textContent.includes('2026-10-19') || !$('status').textContent.includes('无法读取本地数据')); i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+
+  assert.equal($('price-close').textContent, '102.00');
+  assert.equal($('price-observations').textContent, '3 根 K 线');
+  assert.equal($('date-range').textContent, '2026-10-15 – 2026-10-19');
+  assert.equal($('rating').textContent, '情绪指数暂不可用');
+  assert.match($('status').textContent, /无法读取本地数据/);
+  assert.match($('backtest-period').textContent, /SPY · 2026-10-15 — 2026-10-19/);
+  assert.ok($('backtest-results').children.length > 0);
 });

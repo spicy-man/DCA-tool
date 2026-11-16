@@ -20,10 +20,8 @@ export function isStatusComplete(results, expectedDate, extraSymbols = []) {
   if (!Array.isArray(results) || !expectedDate) return false;
   const bySymbol = new Map(results.map(r => [r.symbol, r]));
   const required = ['Fear & Greed', ...SYMBOLS, ...extraSymbols];
-  return required.every(symbol => {
-    const r = bySymbol.get(symbol);
-    return r && r.ok && r.date >= expectedDate;
-  }) && results.every(r => r.ok && r.date >= expectedDate);
+  const isHealthy = r => r && r.ok && r.fresh !== false && !r.missingDates?.length && r.date >= expectedDate;
+  return required.every(symbol => isHealthy(bySymbol.get(symbol))) && results.every(isHealthy);
 }
 
 export function healthSummary(status, now = Date.now()) {
@@ -32,9 +30,9 @@ export function healthSummary(status, now = Date.now()) {
     return '尚无自动更新记录；应有数据截至 ' + expected + '。';
   }
   const description = r => {
-    const fresh = !!r.date && r.date >= expected;
+    const fresh = !!r.date && r.date >= expected && r.fresh !== false && !r.missingDates?.length;
     const state = !r.ok ? '最近更新失败' : !fresh
-      ? (r.expectedDate === expected && r.message ? '来源数据未到齐，等待更新' : '等待更新') : '';
+      ? (r.date && r.date >= expected ? '数据不完整' : r.expectedDate === expected && r.message ? '来源数据未到齐，等待更新' : '等待更新') : '';
     const issue = (r.ok ? r.warning : r.error)
       ?.replace('，已保留原数据；已保留上次有效数据', '，已保留上次有效数据');
     const rawSource = !fresh || !r.ok || r.source === 'whit3rabbit/fear-greed-data'
@@ -57,7 +55,7 @@ export function healthSummary(status, now = Date.now()) {
   const tickerGroups = new Map();
   for (const r of results.filter(r => r.symbol !== 'Fear & Greed')) {
     const validTime = r.checkedAt != null && r.checkedAt !== '' && Number.isFinite(Date.parse(r.checkedAt));
-    const healthy = r.ok && r.date >= expected && !r.warning && validTime;
+    const healthy = r.ok && r.date >= expected && r.fresh !== false && !r.missingDates?.length && !r.warning && validTime;
     const key = healthy
       ? JSON.stringify(['healthy', r.date, r.source])
       : validTime
@@ -104,7 +102,8 @@ export function healthSummary(status, now = Date.now()) {
   }
   const hasAllSymbols = ['Fear & Greed', ...SYMBOLS].every(symbol =>
     status.results.some(r => r.symbol === symbol));
-  const allFresh = hasAllSymbols && status.results.every(r => !!r.date && r.date >= expected);
+  const allFresh = hasAllSymbols && status.results.every(r =>
+    !!r.date && r.date >= expected && r.fresh !== false && !r.missingDates?.length);
   const fundsOk = !fundsIssues.length;
   const complete = allFresh && status.results.every(r => r.ok) && fundsOk;
   const overall = complete
@@ -125,5 +124,6 @@ export function hasBlockingDataGap(status, now = Date.now(), graceMinutes = 120)
   for (const symbol of ['Fear & Greed', ...SYMBOLS]) {
     if (!bySymbol.has(symbol)) return true;
   }
-  return status.results.some(r => !r.ok || !r.date || r.date < requiredDate);
+  return status.results.some(r =>
+    !r.ok || !r.date || r.date < requiredDate || r.fresh === false || !!r.missingDates?.length);
 }

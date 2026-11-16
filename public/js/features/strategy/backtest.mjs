@@ -7,6 +7,8 @@ const backtestScaleStorageKey = 'seeker.backtestScale.v1';
 const backtestSeriesStorageKey = 'seeker.backtestSeries.v1';
 let context = null;
 let shownResult = null;
+let activeStrategy = 'kdFear';
+let strategyViewListener = null;
 let logScale = false;
 let seriesMode = 'equity';
 let replay = null;
@@ -83,9 +85,10 @@ function drawProfitChart(result) {
     add('circle', { cx: x(last.date), cy: y(metric(last)), r: 3, fill: colors[i] });
   }
   let recoveryLabel = null;
-  const kdIndex = result.results.findIndex(strategy => strategy.id === 'kdFear');
-  const combinedIndex = result.results.findIndex(strategy => strategy.id === 'combined');
-  const focusIndex = kdIndex >= 0 ? kdIndex : combinedIndex;
+  const preferredId = (context?.strategy || activeStrategy) === 'combined' ? 'combined' : 'kdFear';
+  let focusIndex = result.results.findIndex(strategy => strategy.id === preferredId);
+  if (focusIndex < 0) focusIndex = result.results.findIndex(strategy => strategy.id === 'combined');
+  if (focusIndex < 0) focusIndex = result.results.findIndex(strategy => strategy.id === 'kdFear');
   const focus = focusIndex >= 0 ? result.results[focusIndex] : null;
   const recovery = replay && focus && findLatestPeakRecovery(focus.curve, seriesMode);
   if (recovery) {
@@ -273,6 +276,7 @@ function resetReplay() {
 }
 
 export function updateBacktest(next) {
+  if (next?.strategy === 'combined' || next?.strategy === 'kdFear') activeStrategy = next.strategy;
   context = next;
   if ($('backtest-replay-start')) $('backtest-replay-start').value = '';
   resetReplay();
@@ -282,6 +286,15 @@ export function initBacktest() {
   pauseReplay();
   replay = null;
   previewIndex = null;
+  if (strategyViewListener) appEvents.removeEventListener(events.strategyView, strategyViewListener);
+  strategyViewListener = event => {
+    const next = event?.detail;
+    if (next !== 'combined' && next !== 'kdFear') return;
+    activeStrategy = next;
+    if (context) context.strategy = next;
+    if (shownResult) drawProfitChart(shownResult);
+  };
+  appEvents.addEventListener(events.strategyView, strategyViewListener);
   const plot = $('backtest-plot');
   plot.addEventListener('pointermove', event => {
     previewIndex = replayIndexAt(event);

@@ -59,7 +59,8 @@ export async function buildSite(){
  if(status){
   const sources=['Fear & Greed',...SYMBOLS];
   status.results=status.results.filter(result=>sources.includes(result.symbol));
-  const complete=symbol=>status.results.some(result=>result.symbol===symbol&&result.ok&&result.date>=status.expectedDate);
+  const complete=symbol=>status.results.some(result=>
+   result.symbol===symbol&&result.ok&&result.fresh!==false&&!result.missingDates?.length&&result.date>=status.expectedDate);
   status.complete=sources.every(complete);
   if(status.requestedSources){
    status.requestedSources=status.requestedSources.filter(symbol=>sources.includes(symbol));

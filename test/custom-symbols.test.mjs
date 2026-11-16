@@ -215,3 +215,30 @@ test('自定义标的增删校验默认标的全集并在 status.json 写入失�
   status = JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8'));
   assert.equal(status.requestedComplete, false);
 });
+
+test('DELETE /api/symbols 不得删除场内基金快照或未登记的任意数据文件', async t => {
+  const dataDir = await directory(t);
+  await writeFile(path.join(dataDir, 'nasdaq100-etfs.json'), '{"version":1,"rows":[]}\n');
+  await writeFile(path.join(dataDir, 'sp500-etfs.json'), '{"version":1,"rows":[]}\n');
+  await writeFile(path.join(dataDir, 'fake.json'), '{"keep":true}\n');
+  const server = createServer({
+    dataDir,
+    addSymbol: (symbol, options) => addCustomSymbol(symbol, { ...options, now, fetchText: async () => JSON.stringify(yahoo(symbol)) })
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const base = 'http://127.0.0.1:' + server.address().port;
+
+  for (const reserved of ['NASDAQ100-ETFS', 'SP500-ETFS']) {
+    const delRes = await fetch(base + '/api/symbols', { method: 'DELETE', body: JSON.stringify({ symbol: reserved }) });
+    assert.equal(delRes.status, 400);
+    const postRes = await fetch(base + '/api/symbols', { method: 'POST', body: JSON.stringify({ symbol: reserved }) });
+    assert.equal(postRes.status, 400);
+  }
+  const unregistered = await fetch(base + '/api/symbols', { method: 'DELETE', body: JSON.stringify({ symbol: 'FAKE' }) });
+  assert.equal(unregistered.status, 200);
+  assert.equal(await readFile(path.join(dataDir, 'nasdaq100-etfs.json'), 'utf8'), '{"version":1,"rows":[]}\n');
+  assert.equal(await readFile(path.join(dataDir, 'sp500-etfs.json'), 'utf8'), '{"version":1,"rows":[]}\n');
+  assert.equal(await readFile(path.join(dataDir, 'fake.json'), 'utf8'), '{"keep":true}\n');
+});

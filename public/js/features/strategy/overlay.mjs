@@ -231,7 +231,8 @@ export function updateSignals(data, next, { syncBacktest = true } = {}) {
   if (syncBacktest) {
     updateBacktest({
       rows: data.rows, monthlySignals, kdSignals, fearSignals: fear.signals,
-      range: next, baseAmount: state.baseAmount, symbol: data.symbol, sentiment: sentimentRows
+      range: next, baseAmount: state.baseAmount, symbol: data.symbol, sentiment: sentimentRows,
+      strategy: viewStrategy
     });
   }
   allCurrent = history.filter(r => r.date >= next.start && r.date <= next.end);
@@ -1164,7 +1165,7 @@ export function initStrategyOverlay() {
       viewStrategy=strategy;syncStatusSwitch();
       try{localStorage.setItem(strategyViewKey,viewStrategy);}catch{}
       updateSignals(market,settings,{syncBacktest:false});
-      appEvents.dispatchEvent(new CustomEvent(events.strategyView));
+      appEvents.dispatchEvent(new CustomEvent(events.strategyView,{detail:viewStrategy}));
     });
   }
   invalidatePortfolioMarketCache();

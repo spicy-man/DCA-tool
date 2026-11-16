@@ -1,6 +1,14 @@
 # 更新记录
 
-目前系统版本为 **v2.2.10** (更新日期: 2026-11-16)。
+目前系统版本为 **v2.2.11** (更新日期: 2026-11-16)。
+
+## 🔧 v2.2.11 修复标的删除校验、首载降级、缺日与未来日期防护及前高修复联动 [FIX]
+
+- **自定义标的删除校验与保留快照保护**：在 [symbols.mjs](./server/symbols.mjs) 与 [updater.mjs](./server/updater.mjs) 中新增 `isReservedSymbolFile` 保护 `custom-symbols.json`、`status.json` 及 `FUND_GROUPS` 基金快照（`nasdaq100-etfs.json`、`sp500-etfs.json`），`removeCustomSymbol` 在锁内校验目标是否已登记于自定义列表，防止误删基金快照或未登记文件。
+- **情绪快照首载失败降级渲染**：在 [application.mjs](./public/js/application.mjs) 中将主渲染、时间轴、缩放及恢复刷新门控放宽至依赖行情交易日历，情绪 CSV 不可用时仍正常显示 SPY 等行情图、价格卡片与单标的回测，并提示「情绪指数暂不可用」。
+- **内置标的缺失交易日检查与全链路状态联动**：在 [market.mjs](./public/js/domain/market.mjs) 新增 `findMissingTradingDays` 校验内置标的覆盖区间内的 NYSE 交易日连续性，并在 [updater.mjs](./server/updater.mjs)、[data-health.mjs](./public/js/domain/data-health.mjs)、[symbols.mjs](./server/symbols.mjs)、[build-site.mjs](./scripts/build-site.mjs) 与 [refresh-schedule.mjs](./server/refresh-schedule.mjs) 中同步标记缺日为「数据不完整」且支持定时/补抓恢复。
+- **情绪快照未来日期拦截与旧异常点自愈**：在 [updater.mjs](./server/updater.mjs) 的 `parseCNN` 与 `validateSentimentAge` 中按 UTC 口径拦截未来日期，并在读取本地历史快照时过滤未来异常点，避免历史保护阻断后续正常刷新。
+- **前高修复虚线随当前主策略联动**：在 [overlay.mjs](./public/js/features/strategy/overlay.mjs)、[backtest.mjs](./public/js/features/strategy/backtest.mjs) 与 [index.html](./public/index.html) 中将回测复盘的前高修复虚线与页面说明统一为跟随当前选定主策略（默认「加权K定投＋恐慌加投」为紫红色 `#a64b77`，切换「月跌幅金字塔」时为蓝色 `#2563eb`「月跌幅金字塔＋恐慌加投」）。
 
 ## 🔧 v2.2.10 调整 Logo 视觉重心并刷新图标缓存 [FIX]
 

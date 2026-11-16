@@ -1,6 +1,18 @@
-import { latestClosedSession, periodKey, sessionClose } from './trading-calendar.mjs';
+import { isTradingDay, latestClosedSession, periodKey, sessionClose } from './trading-calendar.mjs';
 
 export const SYMBOLS = ['SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'];
+
+export function findMissingTradingDays(rows) {
+  if (!rows?.length) return [];
+  const dates = new Set(rows.map(row => row.date));
+  const missing = [];
+  const end = Date.parse(rows.at(-1).date + 'T12:00:00Z');
+  for (let time = Date.parse(rows[0].date + 'T12:00:00Z'); time <= end; time += 86400000) {
+    const date = new Date(time).toISOString().slice(0, 10);
+    if (isTradingDay(date) && !dates.has(date)) missing.push(date);
+  }
+  return missing;
+}
 
 // VanEck's ETF replaced Semiconductor HOLDRS on 2011-12-20.
 export const HISTORY_STARTS = { SMH: '2011-12-20' };

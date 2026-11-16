@@ -8,7 +8,7 @@ function appendStaleSources(sources, now, { status, customSymbols = [] }) {
   for (const symbol of ['Fear & Greed', ...SYMBOLS, ...customSymbols]) {
     if (merged.includes(symbol)) continue;
     const record = bySymbol.get(symbol);
-    if (!record || !record.ok || !record.date || record.date < expectedDate) {
+    if (!record || !record.ok || record.fresh === false || record.missingDates?.length || !record.date || record.date < expectedDate) {
       merged.push(symbol);
     }
   }

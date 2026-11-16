@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { healthSummary, formatNewYorkTime } from '../public/js/domain/data-health.mjs';
+import { healthSummary, formatNewYorkTime, isStatusComplete, hasBlockingDataGap } from '../public/js/domain/data-health.mjs';
 
 const now = Date.parse('2026-10-21T00:01:50Z');
 const status = () => ({ results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'].map(symbol => ({
@@ -81,4 +81,13 @@ test('本地已达应有日期但批量刷新失败时：同错合并、去重�
  assert.match(lines[2],/整体数据：已到齐（最近更新失败，继续使用已保存数据）；应有数据截至 2026-10-20/);
  s.results[4].checkedAt='2026-10-20T23:59:00Z';
  assert.equal(healthSummary(s,now).split('\n').length,4);
+});
+
+test('存在 missingDates 或 fresh=false 时判定为不完整并阻断发布', () => {
+ const s = status();
+ s.results[1] = { ...s.results[1], fresh: false, missingDates: ['2026-10-19'], warning: 'Yahoo 日线缺失交易日：2026-10-19' };
+ assert.equal(isStatusComplete(s.results, '2026-10-20'), false);
+ assert.equal(hasBlockingDataGap(s, now), true);
+ assert.match(healthSummary(s, now), /数据不完整.*2026-10-19/);
+ assert.match(healthSummary(s, now), /整体数据：未全部到齐/);
 });

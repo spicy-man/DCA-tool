@@ -3,8 +3,8 @@ import { unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fetchPublicText, yahooURL } from './network.mjs';
-import { normalizeYahoo, SYMBOLS, validSymbol, filterMarketHistory, HISTORY_STARTS } from '../public/js/domain/market.mjs';
-import { readCustomSymbols, writeCustomSymbolsWithStatus, syncRequestedComplete } from './symbols.mjs';
+import { normalizeYahoo, SYMBOLS, validSymbol, filterMarketHistory, HISTORY_STARTS, findMissingTradingDays } from '../public/js/domain/market.mjs';
+import { readCustomSymbols, writeCustomSymbolsWithStatus, syncRequestedComplete, isReservedSymbolFile } from './symbols.mjs';
 import { parseCSV, rating, OFFICIAL_START } from '../public/js/domain/sentiment.mjs';
 import { isStatusComplete } from '../public/js/domain/data-health.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
@@ -64,9 +64,10 @@ const csv = rows =>
   rows.map(r => [r.date, r.score, r.label || rating(r.score)].join(',')).join('\n') +
   '\n';
 
-export function parseCNN(payload) {
+export function parseCNN(payload, now = Date.now()) {
   const entries = payload?.fear_and_greed_historical?.data;
   if (!Array.isArray(entries) || !entries.length) throw Error('CNN 缺少历史数据');
+  const today = new Date(now).toISOString().slice(0, 10);
   // Match fetch_cnn.py (UTC dates, including intraday points) followed by
   // build_combined.py (stable date sort, keep the last entry for each date).
   // Validate every entry before deduplication so a bad point cannot be hidden.
@@ -75,6 +76,7 @@ export function parseCNN(payload) {
     if (!Number.isFinite(entry?.x) || !Number.isFinite(entry?.y) ||
         !Number.isFinite(new Date(entry.x).getTime())) throw Error('CNN 日期或分数无效');
     const date = new Date(entry.x).toISOString().slice(0, 10);
+    if (date > today) throw Error('指数数据包含未来日期');
     const [row] = parseCSV('Date,Fear Greed,Rating\n' +
       [date, entry.y, entry.rating || rating(entry.y)].join(','));
     if (date >= OFFICIAL_START) byDate.set(date, row);
@@ -86,6 +88,9 @@ export function parseCNN(payload) {
 
 function validateSentimentAge(rows, now) {
   const today = new Date(now).toISOString().slice(0, 10);
+  if (rows.at(-1).date > today) {
+    throw Error('指数数据包含未来日期');
+  }
   if ((Date.parse(today) - Date.parse(rows.at(-1).date)) / 86400000 > 7) {
     throw Error('指数数据已超过 7 天未更新');
   }
@@ -102,19 +107,27 @@ async function retry(task, wait) {
   }
 }
 
-async function snapshot(dataDir, symbol) {
+async function snapshot(dataDir, symbol, now = Date.now()) {
   const fileName = symbol === 'Fear & Greed' ? 'fear-greed.csv' : symbol.toLowerCase() + '.json';
   const file = path.join(dataDir, fileName);
   if (symbol === 'Fear & Greed') {
     const text = await readOptional(file);
     if (!text) return null;
-    const rows = parseCSV(text);
+    const today = new Date(now).toISOString().slice(0, 10);
+    const rows = parseCSV(text).filter(row => row.date <= today);
+    if (!rows.length) return null;
     return { date: rows.at(-1).date, count: rows.length };
   }
   const data = await readJsonOptional(file);
   if (!data) return null;
   if (data.symbol !== symbol || !data.rows?.length) throw Error('本地行情格式无效');
-  return { date: data.anchorDate, count: filterMarketHistory(symbol, data.rows).length };
+  const rows = filterMarketHistory(symbol, data.rows);
+  const missingDates = SYMBOLS.includes(symbol) ? findMissingTradingDays(rows) : [];
+  return {
+    date: data.anchorDate,
+    count: rows.length,
+    ...(missingDates.length ? { missingDates } : {})
+  };
 }
 
 async function updateETF(symbol, { dataDir, fetchText, now }) {
@@ -127,7 +140,7 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
     error.publicMessage = sourceFailure('Yahoo Finance', error) + '；已保留上次有效数据';
     throw error;
   }
-  let payload, next, incompleteDates;
+  let payload, next, incompleteDates, missingDates;
   const latest = latestClosedSession(now, 0);
   try {
     payload = JSON.parse(text);
@@ -149,20 +162,39 @@ async function updateETF(symbol, { dataDir, fetchText, now }) {
       const tailIncomplete = new Set(incompleteDates.filter(date => date > next.anchorDate));
       if (tailIncomplete.size && previousRows.some(r => tailIncomplete.has(r.date))) {
         preserveHistory(previousRows.filter(r => !tailIncomplete.has(r.date)), next.rows);
-        return { date: previous.anchorDate, count: previousRows.length, source: 'Yahoo Finance', retained: true };
+        const retainedMissing = SYMBOLS.includes(symbol) ? findMissingTradingDays(previousRows) : [];
+        return {
+          date: previous.anchorDate,
+          count: previousRows.length,
+          source: 'Yahoo Finance',
+          retained: true,
+          ...(retainedMissing.length ? {
+            missingDates: retainedMissing,
+            warning: 'Yahoo 日线缺失交易日：' + retainedMissing.slice(-5).join('、')
+          } : {})
+        };
       }
       preserveHistory(previousRows, next.rows);
     }
+    missingDates = SYMBOLS.includes(symbol) ? findMissingTradingDays(next.rows) : [];
   } catch (error) {
     const message = validationFailure('Yahoo Finance', error);
     error.publicMessage = message.includes('已保留') ? message : message + '；已保留上次有效数据';
     throw error;
   }
   await atomicWrite(file, JSON.stringify(next));
-  return { date: next.anchorDate, count: next.rows.length, source: 'Yahoo Finance',
-    ...(incompleteDates.length ? {
-      warning: 'Yahoo 日线价格或复权价格缺失：' + incompleteDates.slice(-5).join('、')
-    } : {}) };
+  const missingSet = new Set(missingDates);
+  const extraIncomplete = incompleteDates.filter(date => !missingSet.has(date));
+  const warnings = [];
+  if (missingDates.length) warnings.push('Yahoo 日线缺失交易日：' + missingDates.slice(-5).join('、'));
+  if (extraIncomplete.length) warnings.push('Yahoo 日线价格或复权价格缺失：' + extraIncomplete.slice(-5).join('、'));
+  return {
+    date: next.anchorDate,
+    count: next.rows.length,
+    source: 'Yahoo Finance',
+    ...(missingDates.length ? { missingDates } : {}),
+    ...(warnings.length ? { warning: warnings.join('；') } : {})
+  };
 }
 
 function sourceFailure(name, error) {
@@ -176,7 +208,7 @@ function validationFailure(name, error) {
   const reasons = new Set([
     'CNN 缺少历史数据', 'CNN 日期或分数无效', 'CNN 没有可用历史数据',
     'CSV 列名不匹配', 'CSV 数据无效或日期重复', '没有可用数据',
-    '上游缺失已有历史日期，已保留原数据', '指数数据已超过 7 天未更新',
+    '上游缺失已有历史日期，已保留原数据', '指数数据包含未来日期', '指数数据已超过 7 天未更新',
     '缺少 2021 年以前历史存档，请先使用 archive 初始化',
     'Yahoo 行情标识或币种不匹配', '行情缺少 OHLC 或复权因子',
     '行情价格无效或日期重复', 'OHLC 范围异常', '成交量异常', '无完整交易日数据'
@@ -196,7 +228,8 @@ function sentimentFailure(warnings) {
 async function updateSentiment({ dataDir, fetchText, now, sentimentSource, wait }) {
   const file = path.join(dataDir, 'fear-greed.csv');
   const saved = await readOptional(file);
-  const previous = saved ? parseCSV(saved) : [];
+  const today = new Date(now).toISOString().slice(0, 10);
+  const previous = saved ? parseCSV(saved).filter(row => row.date <= today) : [];
   const supplement = await loadHistoricalSupplement();
   let selected;
   let cnnNetworkFailed = false;
@@ -270,7 +303,7 @@ export function refreshAll(options = {}) {
 }
 
 export async function addCustomSymbol(symbol, options = {}) {
-  if (!validSymbol(symbol)) throw Error('请输入有效的美股代码，例如 VOO、AAPL 或 BRK-B');
+  if (!validSymbol(symbol) || isReservedSymbolFile(symbol)) throw Error('请输入有效的美股代码，例如 VOO、AAPL 或 BRK-B');
   const dataDir = path.resolve(options.dataDir || DEFAULT_DATA_DIR);
   const now = options.now ?? Date.now();
   return withDataLock(dataDir, async () => {
@@ -339,7 +372,7 @@ async function run({
     for (const symbol of ['Fear & Greed', ...symbols]) {
       if (sources.includes(symbol)) continue;
       const last = old?.results?.find(r => r.symbol === symbol);
-      if (!last || !last.ok || !last.date || last.date < expectedDate) {
+      if (!last || !last.ok || !last.date || last.date < expectedDate || last.fresh === false || last.missingDates?.length) {
         sources.push(symbol);
       }
     }
@@ -353,12 +386,15 @@ async function run({
         return last || { symbol, ok: false, fresh: false, date: null, checkedAt: null };
       }
       try {
-        const current = await snapshot(dataDir, symbol);
+        const current = await snapshot(dataDir, symbol, now);
         if (
           skipFresh &&
           symbol !== 'Fear & Greed' &&
           current?.date >= expectedDate &&
+          !current?.missingDates?.length &&
           last?.ok &&
+          last.fresh !== false &&
+          !last.missingDates?.length &&
           last.date === current.date &&
           last.expectedDate === expectedDate
         ) {
@@ -369,11 +405,12 @@ async function run({
             ? await updateSentiment(context)
             : await retry(() => updateETF(symbol, context), wait);
         const { retained, ...rest } = value;
+        const fresh = value.date >= expectedDate && !value.missingDates?.length;
         return {
           symbol,
           ...rest,
           ok: true,
-          fresh: value.date >= expectedDate,
+          fresh,
           ...(value.date < expectedDate ? {
             message: (value.warning ? value.warning + '；' : '') +
               '来源有效数据截至 ' + value.date + '，尚缺 ' + expectedDate + ' 的完整数据'
@@ -385,12 +422,12 @@ async function run({
       } catch (error) {
         let cached;
         try {
-          cached = await snapshot(dataDir, symbol);
+          cached = await snapshot(dataDir, symbol, now);
         } catch {}
         return {
           symbol,
           ok: false,
-          fresh: !!cached && cached.date >= expectedDate,
+          fresh: !!cached && cached.date >= expectedDate && !cached.missingDates?.length,
           ...cached,
           expectedDate,
           checkedAt,
@@ -408,7 +445,7 @@ async function run({
     expectedDate,
     requestedSources: sources,
     requestedComplete: results.filter(r => sources.includes(r.symbol))
-      .every(r => r.ok && r.date >= expectedDate),
+      .every(r => r.ok && r.fresh !== false && !r.missingDates?.length && r.date >= expectedDate),
     complete: isStatusComplete(results, expectedDate, customSymbols),
     results
   };

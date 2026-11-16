@@ -676,3 +676,68 @@ test('refreshAll(includeFunds) 将场内基金失败状态落盘至 status.json 
   assert.match(summary, /标普500基金更新失败/);
   assert.doesNotMatch(summary, /整体数据：已到齐/);
 });
+
+test('内置标的漏掉尚未入库的交易日时标记为不完整，并在补齐后恢复到齐', async t => {
+  const d = await dir(t);
+  await writeFile(path.join(d, 'fear-greed.csv'), csv(dates));
+  for (const symbol of SYMBOLS) {
+    await writeFile(path.join(d, symbol.toLowerCase() + '.json'),
+      JSON.stringify(normalizeYahoo(yahoo(symbol, [dates[0]]), symbol, now)));
+  }
+  const gapped = await refreshAll({
+    ...opts(d),
+    fetchText: async url => url.includes('/SPY?')
+      ? JSON.stringify(yahoo('SPY', [dates[0], dates[2]]))
+      : source(url)
+  });
+  const spy = gapped.results.find(r => r.symbol === 'SPY');
+  assert.equal(gapped.complete, false);
+  assert.equal(gapped.requestedComplete, false);
+  assert.equal(spy.ok, true);
+  assert.equal(spy.fresh, false);
+  assert.deepEqual(spy.missingDates, ['2025-01-03']);
+  assert.match(spy.warning, /2025-01-03/);
+  const summary = healthSummary(gapped, now);
+  assert.match(summary, /数据不完整/);
+  assert.match(summary, /整体数据：未全部到齐/);
+
+  const healed = await refreshAll({
+    ...opts(d),
+    skipFresh: true,
+    catchUp: true,
+    sources: ['Fear & Greed'],
+    fetchText: async url => source(url)
+  });
+  assert.equal(healed.complete, true);
+  assert.equal(healed.results.find(r => r.symbol === 'SPY').fresh, true);
+  assert.equal(healed.results.find(r => r.symbol === 'SPY').missingDates, undefined);
+});
+
+for (const sentimentSource of ['cnn', 'archive']) {
+  test(`${sentimentSource} 拒绝未来日期并清理旧快照中已存在的未来异常点`, async t => {
+    const d = await dir(t);
+    await seed(d);
+    const original = await readFile(path.join(d, 'fear-greed.csv'), 'utf8');
+    const future = ['2025-01-02', '2025-01-03', '2025-01-06', '2099-01-01'];
+    const rejected = await refreshAll({
+      ...opts(d),
+      sentimentSource,
+      sources: ['Fear & Greed'],
+      fetchText: async url => url === CNN_URL ? JSON.stringify(cnn(future)) : csv(future)
+    });
+    assert.equal(rejected.results[0].ok, false);
+    assert.match(rejected.results[0].error, /未来日期/);
+    assert.equal(await readFile(path.join(d, 'fear-greed.csv'), 'utf8'), original);
+
+    await writeFile(path.join(d, 'fear-greed.csv'), csv(future));
+    const recovered = await refreshAll({
+      ...opts(d),
+      sentimentSource,
+      sources: ['Fear & Greed'],
+      fetchText: async url => source(url)
+    });
+    assert.equal(recovered.results[0].ok, true);
+    assert.equal(recovered.results[0].date, '2025-01-06');
+    assert.doesNotMatch(await readFile(path.join(d, 'fear-greed.csv'), 'utf8'), /2099-01-01/);
+  });
+}
