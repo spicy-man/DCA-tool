@@ -2,8 +2,8 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-16T07:29:06.791Z",
-  "lastAttemptAt": "2026-11-16T07:29:06.791Z",
+  "checkedAt": "2026-11-16T10:03:44.057Z",
+  "lastAttemptAt": "2026-11-16T10:03:44.057Z",
   "ok": true,
   "rows": [
     {
@@ -16,11 +16,11 @@
       "amount": 320820427,
       "shares": 10684638720,
       "quoteDate": "2026-11-16",
-      "quoteTime": "2026-11-16T07:28:56.000Z",
+      "quoteTime": "2026-11-16T08:11:59.000Z",
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-16T07:29:06.791Z"
+      "profileCheckedAt": "2026-11-16T10:03:44.057Z"
     },
     {
       "code": "513650",
@@ -30,13 +30,13 @@
       "iopv": 1.8294,
       "premium": 6.810976276374769,
       "amount": 656705881,
-      "shares": 5281733888,
+      "shares": 5271734016,
       "quoteDate": "2026-11-16",
-      "quoteTime": "2026-11-16T07:28:57.000Z",
+      "quoteTime": "2026-11-16T08:11:38.000Z",
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-16T07:29:06.791Z"
+      "profileCheckedAt": "2026-11-16T10:03:44.057Z"
     },
     {
       "code": "159612",
@@ -48,11 +48,11 @@
       "amount": 28867099.142,
       "shares": 510898656,
       "quoteDate": "2026-11-16",
-      "quoteTime": "2026-11-16T07:28:30.000Z",
+      "quoteTime": "2026-11-16T07:34:15.000Z",
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-16T07:29:06.791Z"
+      "profileCheckedAt": "2026-11-16T10:03:44.057Z"
     },
     {
       "code": "159655",
@@ -62,13 +62,13 @@
       "iopv": 1.837,
       "premium": 7.240065323897649,
       "amount": 137158470.011,
-      "shares": 2295143040,
+      "shares": 2294143040,
       "quoteDate": "2026-11-16",
-      "quoteTime": "2026-11-16T07:29:00.000Z",
+      "quoteTime": "2026-11-16T07:34:12.000Z",
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-16T07:29:06.791Z"
+      "profileCheckedAt": "2026-11-16T10:03:44.057Z"
     }
   ],
   "performance": {
@@ -76,8 +76,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-13",
-    "checkedAt": "2026-11-16T07:29:06.791Z",
-    "lastAttemptAt": "2026-11-16T07:29:06.791Z",
+    "checkedAt": "2026-11-16T10:03:44.057Z",
+    "lastAttemptAt": "2026-11-16T10:03:44.057Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
