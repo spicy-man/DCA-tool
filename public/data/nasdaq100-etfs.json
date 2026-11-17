@@ -2,8 +2,8 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-17T16:50:20.548Z",
-  "lastAttemptAt": "2026-11-17T16:50:20.548Z",
+  "checkedAt": "2026-11-17T21:30:40.843Z",
+  "lastAttemptAt": "2026-11-17T21:30:40.843Z",
   "ok": true,
   "rows": [
     {
@@ -84,7 +84,7 @@
       "netAssets": 5774000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-17T16:50:20.548Z"
+      "profileCheckedAt": "2026-11-17T21:30:40.843Z"
     },
     {
       "code": "159632",
@@ -100,7 +100,7 @@
       "netAssets": 11808000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-17T16:50:20.548Z"
+      "profileCheckedAt": "2026-11-17T21:30:40.843Z"
     },
     {
       "code": "159513",
@@ -116,7 +116,7 @@
       "netAssets": 8247000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-11-17T16:50:20.548Z"
+      "profileCheckedAt": "2026-11-17T21:30:40.843Z"
     },
     {
       "code": "513100",
@@ -132,7 +132,7 @@
       "netAssets": 19766000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-17T16:50:20.548Z"
+      "profileCheckedAt": "2026-11-17T21:30:40.843Z"
     },
     {
       "code": "513300",
@@ -164,7 +164,7 @@
       "netAssets": 5048000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-17T16:50:20.548Z"
+      "profileCheckedAt": "2026-11-17T21:30:40.843Z"
     },
     {
       "code": "513870",
@@ -204,8 +204,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-16",
-    "checkedAt": "2026-11-17T16:50:20.548Z",
-    "lastAttemptAt": "2026-11-17T16:50:20.548Z",
+    "checkedAt": "2026-11-17T21:30:40.843Z",
+    "lastAttemptAt": "2026-11-17T21:30:40.843Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
