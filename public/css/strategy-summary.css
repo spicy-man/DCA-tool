@@ -15,9 +15,10 @@
 .summary-grid > div { min-width: 0; }
 .summary-grid > div + div { border-left: 1px solid var(--border); padding-left: 24px; }
 .summary-grid h4 { margin: 0 0 5px; font-size: 11px; color: #607487; font-weight: 400; }
-.summary-grid strong { display: block; color: var(--navy); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.funding-grid { grid-template-columns: repeat(4, 1fr); }
-.funding-grid strong { font-size: 22px; }
+.summary-grid strong { display: block; color: var(--navy); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
+#next-plan, #recent-signal { white-space: nowrap; font-size: clamp(14px, 1.5vw, 17px); }
+.funding-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.funding-grid strong { font-size: clamp(17px, 1.7vw, 22px); }
 .summary-grid p { margin-top: 4px; }
 .plan-estimate-row { display: flex; align-items: baseline; gap: 6px; }
 .plan-estimate-help { position: relative; flex: 0 0 auto; color: #607487; font-size: 11px; }
@@ -26,13 +27,22 @@
 .plan-estimate-note { position: fixed; z-index: 5; box-sizing: border-box; width: max-content; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; box-shadow: 0 4px 14px #17364d1a; line-height: 1.7; white-space: pre-line; overflow-wrap: anywhere; }
 .plan-estimate-note::before { content: ''; position: absolute; right: 100%; top: 0; bottom: 0; width: 9px; }
 .summary-footnote { margin-top: 10px; color: #7d8994; }
+@media (max-width: 1024px) {
+  .funding-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
+  .funding-grid > div:nth-child(3) { border-left: 0; padding-left: 0; }
+  .funding-grid > div:nth-child(n+3) { border-top: 1px solid #edf0f3; padding-top: 12px; }
+}
+@media (max-width: 760px) {
+  .status-grid { grid-template-columns: 1fr; gap: 12px; }
+  .status-grid > div + div { border-left: 0; padding-left: 0; border-top: 1px solid #edf0f3; padding-top: 10px; }
+}
 @media (max-width: 600px) {
   .plan-estimate-row p { max-width: calc(100% - 100px); }
   .funding-overview { padding: 14px 12px; }
   .summary-grid { grid-template-columns: 1fr; gap: 12px; }
   .summary-grid > div + div { border-left: 0; padding-left: 0; border-top: 1px solid #edf0f3; padding-top: 10px; }
   .summary-heading p { font-size: 10px; }
-  .summary-grid strong { font-size: 16px; }
+  .summary-grid strong, #next-plan, #recent-signal { font-size: 16px; }
   .funding-grid strong { font-size: 21px; }
 }
 

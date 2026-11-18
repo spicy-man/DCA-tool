@@ -253,7 +253,7 @@ test('国内ETF对比页把溢价率与年费率排在前面且不使用会在iO
   const nodes = new Map();
   const element = () => ({
     textContent: '', value: '', href: '', hidden: false, title: '', children: [], options: [], listeners: {},
-    dataset: {}, classList: { toggle() {} }, setAttribute(name, value) { this['attr:' + name] = value; }, removeAttribute() {}, closest() { return this; },
+    dataset: {}, classList: { toggle() {}, add() {}, remove() {} }, setAttribute(name, value) { this['attr:' + name] = value; }, removeAttribute(name) { delete this['attr:' + name]; }, closest() { return this; },
     replaceChildren(...values) { this.children = values; },
     append(...values) { this.children.push(...values); },
     addEventListener(key, fn) { this.listeners[key] = fn; },
@@ -313,7 +313,11 @@ test('国内ETF对比页把溢价率与年费率排在前面且不使用会在iO
   }
   assert.ok(requested.some(u => u.includes('sp500-etfs.json')));
   assert.equal(doc.title, '标普500 ETF 对比 · 定投助手');
-  assert.equal($('fund-heading').textContent, '标普500 ETF 对比');
+  assert.equal($('fund-heading').textContent, '场内ETF对比');
+  assert.equal($('fund-group-sp500')['attr:aria-current'], 'page');
+  assert.equal($('fund-group-nasdaq100')['attr:aria-current'], undefined);
+  assert.match($('fund-method').textContent, /本页数据仅作国内场内 ETF 对比参考/);
+  assert.doesNotMatch($('fund-method').textContent, /上方美股定投回测/);
   assert.match(metaDesc['attr:content'], /标普500 ETF/);
   assert.equal($('fund-table-scroll')['attr:aria-label'], '标普500 ETF 对比，可横向滚动');
   assert.equal($('benchmark-fee-source').textContent, 'SPY 总费用率：State Street 官方披露');
@@ -332,13 +336,30 @@ test('国内ETF对比页把溢价率与年费率排在前面且不使用会在iO
   assert.equal(headerButtons[1].indicator.textContent, '↑1');
   assert.equal(headerButtons[2].indicator.textContent, '');
 
-  // Unknown query param safely falls back to nasdaq100.
+  // Unknown query param safely falls back to nasdaq100, and clicking group tab switches in-place.
   loc.search = '?group=unknown';
   doc.body.dataset.fundGroup = 'nasdaq100';
   requested.length = 0;
   initFundComparison();
   assert.equal(doc.title, '纳斯达克100 ETF 对比 · 定投助手');
+  assert.equal($('fund-heading').textContent, '场内ETF对比');
+  assert.equal($('fund-group-nasdaq100')['attr:aria-current'], 'page');
+  assert.equal($('fund-group-sp500')['attr:aria-current'], undefined);
   assert.ok(requested.some(u => u.includes('nasdaq100-etfs.json')));
+  requested.length = 0;
+  let prevented = false;
+  $('fund-lowest-name').textContent = 'waiting';
+  $('fund-group-sp500').listeners.click({ button: 0, preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.equal(doc.title, '标普500 ETF 对比 · 定投助手');
+  assert.equal($('fund-group-sp500')['attr:aria-current'], 'page');
+  assert.equal($('fund-group-nasdaq100')['attr:aria-current'], undefined);
+  assert.ok(requested.some(u => u.includes('sp500-etfs.json')));
+  for (let i = 0; i < 20 && !$('fund-lowest-name').textContent.includes('博时'); i++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal($('fund-table').children.length, 1);
+  assert.match($('fund-lowest-name').textContent, /博时/);
 
   // Initial snapshot failure clears loading text in #fund-performance-status.
   $('fund-performance-status').textContent = '正在读取历史涨幅…';

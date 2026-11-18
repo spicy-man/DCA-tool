@@ -26,9 +26,10 @@
 }
 
 .header-layout select {
-  height: 28px;
+  min-height: 28px;
   min-width: 72px;
-  padding: 0 20px 0 8px;
+  line-height: 16px;
+  padding: 5px 20px 5px 8px;
   font-size: 11px;
 }
 
@@ -76,9 +77,10 @@
   }
 
   .header-layout select {
-    height: 26px;
+    min-height: 26px;
     min-width: 0;
-    padding: 0 18px 0 6px;
+    line-height: 16px;
+    padding: 4px 18px 4px 6px;
     font-size: 11px;
   }
 

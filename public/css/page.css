@@ -266,7 +266,10 @@ button:disabled {
 }
 
 select {
-  padding: 0 30px 0 12px;
+  height: auto;
+  min-height: 36px;
+  line-height: 18px;
+  padding: 8px 30px 8px 12px;
   min-width: 103px;
 }
 
@@ -782,8 +785,15 @@ h1 {
   gap: 20px;
 }
 
-.toolbar button,.toolbar select {
+.toolbar button {
   height: 30px;
+}
+
+.toolbar select {
+  min-height: 30px;
+  line-height: 18px;
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 
 .toolbar label {
@@ -822,7 +832,10 @@ h2:not(.eyebrow) {
 }
 
 .symbol-control select {
-  height: 28px;
+  min-height: 28px;
+  line-height: 16px;
+  padding-top: 5px;
+  padding-bottom: 5px;
   font-size: 11px;
   min-width: 166px;
 }
@@ -939,7 +952,10 @@ footer {
   }
 
   .symbol-control select {
-    height: 27px;
+    min-height: 27px;
+    line-height: 16px;
+    padding-top: 4.5px;
+    padding-bottom: 4.5px;
     min-width: 158px;
   }
 
@@ -996,9 +1012,10 @@ footer {
 }
 
 .signal-controls select {
-  height: 28px;
+  min-height: 28px;
   min-width: 62px;
-  padding: 0 5px;
+  line-height: 16px;
+  padding: 5px 18px 5px 6px;
   font-size: 11px;
 }
 
@@ -1161,7 +1178,14 @@ footer {
     margin: 7px 0 4px;
   }
 
-  .signal-controls select,.signal-controls input[type=number] {
+  .signal-controls select {
+    min-height: 26px;
+    line-height: 16px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .signal-controls input[type=number] {
     height: 26px;
   }
 
@@ -1413,8 +1437,11 @@ footer {
 
 .price-title-row .symbol-control select {
   width: 100%;
-  height: 34px;
+  min-height: 34px;
   min-width: 182px;
+  line-height: 20px;
+  padding-top: 6px;
+  padding-bottom: 6px;
   font-size: 14px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -1466,9 +1493,9 @@ footer {
 
 .price-wrap .chart-toolbar select {
   min-width: 76px;
-  height: 30px;
-  padding-left: 9px;
-  padding-right: 23px;
+  min-height: 30px;
+  line-height: 18px;
+  padding: 5px 23px 5px 9px;
 }
 
 .price-wrap .chart-toolbar #range {
@@ -1499,7 +1526,15 @@ footer {
   gap: 6px;
 }
 
-.chart-controls .strategy-row select,.chart-controls .strategy-row input[type=number] {
+.chart-controls .strategy-row select {
+  min-height: 30px;
+  line-height: 18px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: 12px;
+}
+
+.chart-controls .strategy-row input[type=number] {
   height: 30px;
   font-size: 12px;
 }
@@ -1581,7 +1616,10 @@ footer {
   .price-title-row .symbol-control select {
     min-width: 0;
     max-width: 100%;
-    height: 34px;
+    min-height: 34px;
+    line-height: 18px;
+    padding-top: 7px;
+    padding-bottom: 7px;
     font-size: 12px;
   }
 
@@ -1877,8 +1915,9 @@ footer {
   }
 
   .price-card .price-title-row .symbol-control select {
-    height: 30px;
-    padding: 0 20px 0 8px;
+    min-height: 30px;
+    line-height: 18px;
+    padding: 5px 20px 5px 8px;
   }
 
   .price-card #add-symbol {

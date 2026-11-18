@@ -33,7 +33,7 @@
 }
 
 .floating-charts-identity { display: flex; align-items: center; gap: 9px; }
-#floating-charts-symbol { height: 26px; min-width: 78px; padding: 0 20px 0 8px; font-size: 12px; cursor: pointer; }
+#floating-charts-symbol { min-height: 26px; min-width: 78px; line-height: 16px; padding: 4px 20px 4px 8px; font-size: 12px; cursor: pointer; }
 .floating-charts .buy-marker {
   width: 10px; min-width: 10px; height: 10px; padding: 0;
   border-radius: 0; font-size: 0; line-height: 0;

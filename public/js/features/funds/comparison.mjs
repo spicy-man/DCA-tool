@@ -15,22 +15,34 @@ const timeLabel = value => value ? new Date(value).toLocaleString('zh-CN', {
 export function initFundComparison() {
   const $ = id => document.getElementById(id);
   if (!$('fund-table')) return;
-  const queryGroup = new URLSearchParams(globalThis.location?.search || '').get('group');
-  const fallbackGroup = document.body.dataset.fundGroup || 'nasdaq100';
-  const group = getFundGroup(queryGroup && Object.hasOwn(FUND_GROUPS, queryGroup) ? queryGroup : fallbackGroup);
-  const benchmarkInfo = group.benchmark;
-  if (document.body.dataset) document.body.dataset.fundGroup = group.id;
-  const pageTitle = `${group.title} ETF 对比`;
-  document.title = `${pageTitle} · 定投助手`;
-  document.querySelector?.('meta[name="description"]')?.setAttribute('content', `对比国内${group.title} ETF 的参考溢价、年费率、净资产规模、价格与成交额，每日快照。`);
-  $('fund-heading').textContent = pageTitle;
-  $('fund-count').textContent = `${group.funds.length} 只 / ${group.title}`;
-  $('fund-table-scroll')?.setAttribute('aria-label', `${pageTitle}，可横向滚动`);
-  $('fund-method').textContent = `参考溢价＝（最新价 ÷ IOPV − 1）× 100%。跨境 ETF 的 IOPV 有时差与估值局限，非当日最终净值；缺失时显示“—”。净资产规模使用最近披露值，日期逐只标注；国内基金年费率为管理费＋托管费，${benchmarkInfo.symbol} 为总费用率（Expense Ratio）。数据不参与上方美股定投回测。`;
-  $('fund-performance-note').textContent = `近1年、3年、5年均用分红、拆分调整后的前复权价格比值计算累计涨幅，不是年化收益。${benchmarkInfo.symbol} 为美元计价，国内场内 ETF 为人民币计价，不做汇率换算。${benchmarkInfo.symbol} 固定首行，不参与基金排序。`;
-  $('fund-history-source').textContent = `历史前复权行情与 ${benchmarkInfo.symbol}：Yahoo Finance。`;
-  $('benchmark-fee-source').href = benchmarkInfo.source;
-  $('benchmark-fee-source').textContent = `${benchmarkInfo.symbol} 总费用率：${benchmarkInfo.provider} 官方披露`;
+  const resolveGroup = search => {
+    const queryGroup = new URLSearchParams(search || '').get('group');
+    const fallbackGroup = document.body.dataset.fundGroup || 'nasdaq100';
+    return getFundGroup(queryGroup && Object.hasOwn(FUND_GROUPS, queryGroup) ? queryGroup : fallbackGroup);
+  };
+  let group = resolveGroup(globalThis.location?.search);
+  let benchmarkInfo = group.benchmark;
+  const groupLinks = Object.keys(FUND_GROUPS).map(id => [id, $('fund-group-' + id)]).filter(([, node]) => node);
+  function applyGroupMetadata() {
+    benchmarkInfo = group.benchmark;
+    if (document.body.dataset) document.body.dataset.fundGroup = group.id;
+    const pageTitle = `${group.title} ETF 对比`;
+    document.title = `${pageTitle} · 定投助手`;
+    document.querySelector?.('meta[name="description"]')?.setAttribute('content', `对比国内${group.title} ETF 的参考溢价、年费率、净资产规模、价格与成交额，每日快照。`);
+    $('fund-heading').textContent = '场内ETF对比';
+    $('fund-count').textContent = `${group.funds.length} 只 / ${group.title}`;
+    $('fund-table-scroll')?.setAttribute('aria-label', `${pageTitle}，可横向滚动`);
+    $('fund-method').textContent = `参考溢价＝（最新价 ÷ IOPV − 1）× 100%。跨境 ETF 的 IOPV 有时差与估值局限，非当日最终净值；缺失时显示“—”。净资产规模使用最近披露值，日期逐只标注；国内基金年费率为管理费＋托管费，${benchmarkInfo.symbol} 为总费用率（Expense Ratio）。本页数据仅作国内场内 ETF 对比参考，不参与主站美股定投回测。`;
+    $('fund-performance-note').textContent = `近1年、3年、5年均用分红、拆分调整后的前复权价格比值计算累计涨幅，不是年化收益。${benchmarkInfo.symbol} 为美元计价，国内场内 ETF 为人民币计价，不做汇率换算。${benchmarkInfo.symbol} 固定首行，不参与基金排序。`;
+    $('fund-history-source').textContent = `历史前复权行情与 ${benchmarkInfo.symbol}：Yahoo Finance。`;
+    $('benchmark-fee-source').href = benchmarkInfo.source;
+    $('benchmark-fee-source').textContent = `${benchmarkInfo.symbol} 总费用率：${benchmarkInfo.provider} 官方披露`;
+    for (const [id, link] of groupLinks) {
+      if (id === group.id) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    }
+  }
+  applyGroupMetadata();
   let snapshot;
   const primaryControl = $('fund-sort');
   const secondaryControl = $('fund-secondary-sort');
@@ -169,8 +181,9 @@ export function initFundComparison() {
     value.performance?.ok,
     value.performance?.complete
   ]) : null);
-  async function load({ silentOnError = false } = {}) {
+  async function load({ silentOnError = false, animate = false } = {}) {
     const id = ++requestID;
+    const panel = $('fund-comparison');
     try {
       const next = await loadFundSnapshot(group.id);
       if (id !== requestID) return;
@@ -178,11 +191,20 @@ export function initFundComparison() {
       if (silentOnError && snapshot && snapshotKey(next) === snapshotKey(snapshot)) return;
       snapshot = next;
       render();
+      panel?.classList?.remove?.('is-switching');
+      if (animate && panel?.classList) {
+        panel.classList.remove?.('is-revealed');
+        void panel.offsetWidth;
+        panel.classList.add?.('is-revealed');
+      }
     } catch {
       if (id !== requestID) return;
+      panel?.classList?.remove?.('is-switching');
       if (silentOnError && snapshot?.rows?.length) return;
       $('fund-updated').textContent = '基金快照读取失败，请稍后重试或运行基金数据更新。';
       if (!snapshot?.rows?.length) {
+        $('fund-table').replaceChildren();
+        $('fund-benchmark').replaceChildren();
         $('fund-performance-status').textContent = '历史涨幅暂不可用，请先完成基金数据更新。';
       }
       $('fund-empty').hidden = !!snapshot?.rows?.length;
@@ -205,6 +227,31 @@ export function initFundComparison() {
   });
   primaryControl.addEventListener('change', render);
   secondaryControl.addEventListener('change', render);
+  function switchGroup(nextGroupId, { push = true } = {}) {
+    if (!Object.hasOwn(FUND_GROUPS, nextGroupId) || nextGroupId === group.id) return;
+    group = getFundGroup(nextGroupId);
+    snapshot = null;
+    if (push && globalThis.history?.pushState) {
+      globalThis.history.pushState(null, '', `./${group.page}`);
+    }
+    applyGroupMetadata();
+    const panel = $('fund-comparison');
+    panel?.classList?.remove?.('is-revealed');
+    panel?.classList?.add?.('is-switching');
+    $('fund-updated').textContent = '正在读取每日快照…';
+    $('fund-empty').hidden = true;
+    void load({ animate: true });
+  }
+  for (const [id, link] of groupLinks) {
+    link.addEventListener('click', event => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      event.preventDefault();
+      switchGroup(id);
+    });
+  }
+  globalThis.addEventListener?.('popstate', () => {
+    switchGroup(resolveGroup(globalThis.location?.search).id, { push: false });
+  });
   appEvents.addEventListener(events.fundsUpdated, () => load());
   void appUpdates.checkForUpdate();
   void load().finally(() => {

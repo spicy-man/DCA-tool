@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.11** (更新日期: 2026-11-16)。
+目前系统版本为 **v2.2.12** (更新日期: 2026-11-18)。
+
+## 🔧 v2.2.12 优化场内 ETF 对比页分组切换动效、表宽稳定性及全站选框居中对齐 [FIX]
+
+- **场内 ETF 对比页分组切换与表格稳定性**：在 [funds.html](./public/funds.html)、[funds.css](./public/css/funds.css) 与 [comparison.mjs](./public/js/features/funds/comparison.mjs) 中将主标题固定为「场内ETF对比」，右置「标普 500｜纳斯达克 100」等宽切换标签并添加滑动胶囊与内容淡入过渡（切换加载期间保留原表高度不塌陷）；为基金对比页添加 `scrollbar-gutter: stable` 并将对比表设为 `table-layout: fixed` 与固定列宽比例，消除两组切换时的表宽跳动并使 11 列在 `1280px` 桌面端完整展示；同步修正页脚说明文案并补充 [nasdaq-funds.test.mjs](./test/nasdaq-funds.test.mjs) 回归测试。
+- **全站 `<select>` 下拉框垂直居中与间距修正**：在 [page.css](./public/css/page.css)、[header.css](./public/css/header.css)、[floating-charts.css](./public/css/floating-charts.css) 与 [funds.css](./public/css/funds.css) 中改用 `height: auto` 配合 `min-height`、`line-height` 与对称上下内边距，修复主站与基金对比页原生下拉框文字偏上及排序下拉框右侧箭头贴近的问题。
+- **窄卡片指标数字与日期断行防护**：在 [strategy-summary.css](./public/css/strategy-summary.css) 中将 `.summary-grid strong` 的 `overflow-wrap: anywhere` 调整为 `break-word`，为 `#next-plan` / `#recent-signal` 保持单行显示并补充 `.funding-grid`（`<= 1024px` 转为 2×2）与 `.status-grid`（`<= 760px` 转为单列）断点，避免金额小数与星期括号在窄列中被拆行。
 
 ## 🔧 v2.2.11 修复标的删除校验、首载降级、缺日与未来日期防护及前高修复联动 [FIX]
 
