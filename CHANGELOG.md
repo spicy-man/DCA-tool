@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.13** (更新日期: 2026-11-18)。
+目前系统版本为 **v2.2.14** (更新日期: 2026-11-18)。
+
+## 🔧 v2.2.14 收窄周末定时更新窗口并抑制无实质变动提交 [FIX]
+
+- **按跨时区真实交易与兜底窗口收窄定时 Cron**：在 [pages.yml](./.github/workflows/pages.yml)、[refresh-schedule.mjs](./server/refresh-schedule.mjs) 与 [deployment.md](./docs/deployment.md) 中将美东 `10:01`／`16:01`／`22:01` 收窄为工作日（`1-5`），将 `04:01` 改为周二至周六（`2-6`）保留周六晨对周五收盘及情绪修正的最后兜底；国内 ETF 调整为北京时间周二至周六 `09:01` 及周一至周六 `15:01`／`21:01`，移除周日全天与凌晨 `03:01` 空转调度并保留周六对齐 Yahoo 历史收益的窗口。
+- **提交与部署前过滤纯时间戳及停盘份额抖动**：新增 [snapshot-changes.mjs](./server/snapshot-changes.mjs) 与 [filter-snapshot-commits.mjs](./scripts/filter-snapshot-commits.mjs)，在整体状态健康且行情、历史收益与核心来源状态无实质变化时忽略 `checkedAt`、`lastAttemptAt`、`profileCheckedAt` 及同日停盘东财 `shares` 缓存节点抖动并还原基线快照；若定时轮次最终无改动入库则跳过静态构建与 Pages 部署，仅在有实质数据或异常状态变化时正常入库发布。
+- **补充调度与快照变更单元测试**：更新 [refresh-schedule.test.mjs](./test/refresh-schedule.test.mjs) 并新增 [snapshot-changes.test.mjs](./test/snapshot-changes.test.mjs)，覆盖周六晨兜底、非法星期校验及 CRLF/LF 行尾一致性检查。
 
 ## 🔧 v2.2.13 清理历史死代码、失效样式与旧版 VOO 快照 [FIX]
 

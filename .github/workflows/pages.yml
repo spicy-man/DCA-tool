@@ -5,24 +5,22 @@ on:
     paths-ignore:
       - 'public/data/**'
   schedule:
-    # Domestic Nasdaq-100 and S&P 500 ETFs: anchored at 15:01 Beijing time, every six hours.
-    - cron: '1 3 * * *'
+    # Domestic Nasdaq-100 and S&P 500 ETFs: Tue-Sat 09:01 (after US close) and Mon-Sat 15:01/21:01 Beijing time.
+    - cron: '1 9 * * 2-6'
       timezone: Asia/Shanghai
-    - cron: '1 9 * * *'
+    - cron: '1 15 * * 1-6'
       timezone: Asia/Shanghai
-    - cron: '1 15 * * *'
+    - cron: '1 21 * * 1-6'
       timezone: Asia/Shanghai
-    - cron: '1 21 * * *'
-      timezone: Asia/Shanghai
-    # F&G every six hours, anchored at regular close +1 min, including weekends.
+    # F&G Mon-Fri every six hours plus Tue-Sat 04:01 NY catch-up / revision check.
     # Calendar gate selects only close +1/+61 min for ETFs, including early closes.
-    - cron: '1 4 * * *'
+    - cron: '1 4 * * 2-6'
       timezone: America/New_York
-    - cron: '1 10 * * *'
+    - cron: '1 10 * * 1-5'
       timezone: America/New_York
-    - cron: '1 16 * * *'
+    - cron: '1 16 * * 1-5'
       timezone: America/New_York
-    - cron: '1 22 * * *'
+    - cron: '1 22 * * 1-5'
       timezone: America/New_York
     - cron: '1 13 * * 1-5'
       timezone: America/New_York
@@ -63,7 +61,7 @@ jobs:
           REFRESH_SCHEDULE: ${{ github.event.schedule }}
         run: |
           case "$REFRESH_SCHEDULE" in
-            '1 3 * * *'|'1 9 * * *'|'1 15 * * *'|'1 21 * * *')
+            '1 9 * * 2-6'|'1 15 * * 1-6'|'1 21 * * 1-6')
               echo 'funds=true' >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -127,6 +125,7 @@ jobs:
         id: save
         run: |
           node scripts/check-deploy-head.mjs
+          node scripts/filter-snapshot-commits.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add public/data/fear-greed.csv public/data/spy.json public/data/qqq.json public/data/vgt.json public/data/smh.json public/data/brk-b.json
@@ -142,17 +141,25 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m 'Update market snapshots and freshness status'
             git push origin HEAD:refs/heads/main
+            echo 'committed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'committed=false' >> "$GITHUB_OUTPUT"
           fi
       - name: Build static site
+        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
         run: node scripts/build-site.mjs
       - uses: actions/configure-pages@v5
+        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
       - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
         with:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
       - name: Verify main has not advanced before deployment
+        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
         run: node scripts/check-deploy-head.mjs
       - name: Deploy valid data including failure status
+        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
         with:

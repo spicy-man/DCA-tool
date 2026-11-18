@@ -15,11 +15,26 @@ function appendStaleSources(sources, now, { status, customSymbols = [] }) {
   return merged;
 }
 
+function parseWeekdays(spec) {
+  if (spec === '*') return null;
+  const days = new Set();
+  for (const part of spec.split(',')) {
+    const range = /^([0-7])(?:-([0-7]))?$/.exec(part);
+    if (!range) return undefined;
+    const start = Number(range[1]);
+    const end = range[2] === undefined ? start : Number(range[2]);
+    if (start > end) return undefined;
+    for (let day = start; day <= end; day++) days.add(day === 7 ? 0 : day);
+  }
+  return days;
+}
+
 // Each workflow entry has one New York hour. Resolve the planned slot rather
 // than the runner's hour so a delayed job still refreshes the intended sources.
 export function scheduledSources(cron, now = Date.now(), options = {}) {
-  const match = /^1 (4|10|13|14|16|17|22) \* \* (\*|1-5)$/.exec(cron);
-  if (!match) throw Error('未知数据更新时间');
+  const match = /^1 (4|10|13|14|16|17|22) \* \* (\S+)$/.exec(cron);
+  const weekdays = match ? parseWeekdays(match[2]) : undefined;
+  if (!match || weekdays === undefined) throw Error('未知数据更新时间');
   const hour = Number(match[1]);
   let date = nyDate(now);
   for (let i = 0; i < 8; i++) {
@@ -29,7 +44,7 @@ export function scheduledSources(cron, now = Date.now(), options = {}) {
     }).format(noon));
     const planned = noon + (hour - nyHour) * 3600000 + 60000;
     const weekday = new Date(noon).getUTCDay();
-    if (planned <= now && (match[2] === '*' || (weekday >= 1 && weekday <= 5))) {
+    if (planned <= now && (weekdays === null || weekdays.has(weekday))) {
       const sources = [4, 10, 16, 22].includes(hour) ? ['Fear & Greed'] : [];
       const minutesAfterClose = (planned - sessionClose(date)) / 60000;
       if (isTradingDay(date) && [1, 61].includes(minutesAfterClose)) {
