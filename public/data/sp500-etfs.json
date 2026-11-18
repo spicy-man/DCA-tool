@@ -2,8 +2,8 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-17T21:30:53.069Z",
-  "lastAttemptAt": "2026-11-17T21:30:53.069Z",
+  "checkedAt": "2026-11-18T00:39:51.236Z",
+  "lastAttemptAt": "2026-11-18T00:39:51.236Z",
   "ok": true,
   "rows": [
     {
@@ -20,7 +20,7 @@
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-17T21:30:53.069Z"
+      "profileCheckedAt": "2026-11-18T00:39:51.236Z"
     },
     {
       "code": "513650",
@@ -30,13 +30,13 @@
       "iopv": 1.7942,
       "premium": 7.568832906030543,
       "amount": 638496673,
-      "shares": 5291734016,
+      "shares": 5271734016,
       "quoteDate": "2026-11-17",
       "quoteTime": "2026-11-17T08:11:53.000Z",
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-17T21:30:53.069Z"
+      "profileCheckedAt": "2026-11-18T00:39:51.236Z"
     },
     {
       "code": "159612",
@@ -52,7 +52,7 @@
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-17T21:30:53.069Z"
+      "profileCheckedAt": "2026-11-18T00:39:51.236Z"
     },
     {
       "code": "159655",
@@ -62,13 +62,13 @@
       "iopv": 1.8016,
       "premium": 7.515541740674947,
       "amount": 218066133.708,
-      "shares": 2296143040,
+      "shares": 2294143040,
       "quoteDate": "2026-11-17",
       "quoteTime": "2026-11-17T07:34:15.000Z",
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-17T21:30:53.069Z"
+      "profileCheckedAt": "2026-11-18T00:39:51.236Z"
     }
   ],
   "performance": {
@@ -76,15 +76,15 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-16",
-    "checkedAt": "2026-11-17T21:30:53.069Z",
-    "lastAttemptAt": "2026-11-17T21:30:53.069Z",
+    "checkedAt": "2026-11-18T00:39:51.236Z",
+    "lastAttemptAt": "2026-11-18T00:39:51.236Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
       "code": "SPY",
       "currency": "USD",
-      "price": 739.9500122070312,
-      "quoteDate": "2026-11-16",
+      "price": 732.4400024414062,
+      "quoteDate": "2026-11-17",
       "periods": {
         "1": {
           "status": "ok",
@@ -98,7 +98,7 @@
           "years": 3,
           "startDate": "2023-11-16",
           "endDate": "2026-11-16",
-          "return": 70.41580258131282
+          "return": 70.41577862624821
         },
         "5": {
           "status": "ok",
