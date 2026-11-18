@@ -2,73 +2,73 @@
   "version": 1,
   "source": "东方财富 / 天天基金",
   "quoteSource": "东方财富",
-  "checkedAt": "2026-11-18T01:27:20.610Z",
-  "lastAttemptAt": "2026-11-18T01:27:20.610Z",
+  "checkedAt": "2026-11-18T05:01:48.904Z",
+  "lastAttemptAt": "2026-11-18T05:01:48.904Z",
   "ok": true,
   "rows": [
     {
       "code": "513500",
       "manager": "博时",
-      "price": 2.58,
-      "change": 0.27,
+      "price": 2.572,
+      "change": -0.04,
       "iopv": 2.3309,
-      "premium": 10.686859153116824,
-      "amount": 3200748,
+      "premium": 10.343644085975367,
+      "amount": 109767664,
       "shares": 10684638720,
       "quoteDate": "2026-11-18",
-      "quoteTime": "2026-11-18T01:27:01.000Z",
+      "quoteTime": "2026-11-18T05:01:46.000Z",
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-18T01:27:20.610Z"
+      "profileCheckedAt": "2026-11-18T05:01:48.904Z"
     },
     {
       "code": "513650",
       "manager": "南方",
-      "price": 1.931,
-      "change": 0.05,
+      "price": 1.935,
+      "change": 0.26,
       "iopv": 1.7754,
-      "premium": 8.764222147121782,
-      "amount": 4354984,
-      "shares": 5291734016,
+      "premium": 8.989523487664751,
+      "amount": 272090688,
+      "shares": 5301733888,
       "quoteDate": "2026-11-18",
-      "quoteTime": "2026-11-18T01:27:07.000Z",
+      "quoteTime": "2026-11-18T05:01:46.000Z",
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-18T00:39:51.236Z"
+      "profileCheckedAt": "2026-11-18T05:01:48.904Z"
     },
     {
       "code": "159612",
       "manager": "国泰",
-      "price": 2.008,
-      "change": 0,
+      "price": 2.006,
+      "change": -0.1,
       "iopv": 1.8286,
-      "premium": 9.81078420649677,
-      "amount": 670471.2,
+      "premium": 9.701410915454446,
+      "amount": 8723083.178,
       "shares": 510898656,
       "quoteDate": "2026-11-18",
-      "quoteTime": "2026-11-18T01:27:12.000Z",
+      "quoteTime": "2026-11-18T05:01:48.000Z",
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-18T01:27:20.610Z"
+      "profileCheckedAt": "2026-11-18T05:01:48.904Z"
     },
     {
       "code": "159655",
       "manager": "华夏",
-      "price": 1.939,
-      "change": 0.1,
+      "price": 1.937,
+      "change": 0,
       "iopv": 1.7822,
-      "premium": 8.798114689709347,
-      "amount": 1456964.6,
-      "shares": 2296143040,
+      "premium": 8.685893839075298,
+      "amount": 145905433.2,
+      "shares": 2297143040,
       "quoteDate": "2026-11-18",
-      "quoteTime": "2026-11-18T01:27:18.000Z",
+      "quoteTime": "2026-11-18T05:01:48.000Z",
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-18T01:27:20.610Z"
+      "profileCheckedAt": "2026-11-18T05:01:48.904Z"
     }
   ],
   "performance": {
@@ -76,8 +76,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-16",
-    "checkedAt": "2026-11-18T01:27:20.610Z",
-    "lastAttemptAt": "2026-11-18T01:27:20.610Z",
+    "checkedAt": "2026-11-18T05:01:48.904Z",
+    "lastAttemptAt": "2026-11-18T05:01:48.904Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
@@ -91,7 +91,7 @@
           "years": 1,
           "startDate": "2025-11-14",
           "endDate": "2026-11-16",
-          "return": 11.31116605151754
+          "return": 11.311155831418528
         },
         "3": {
           "status": "ok",
@@ -105,7 +105,7 @@
           "years": 5,
           "startDate": "2021-11-16",
           "endDate": "2026-11-16",
-          "return": 68.58474218196864
+          "return": 68.58473046044182
         }
       }
     },
