@@ -7,9 +7,6 @@ import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 const $ = id => document.getElementById(id);
 const storageKey = 'seeker.kd.v1';
 const storageVersion = 2;
-const factorControls = [
-  ['main-kd-tier-factor', 'main-kd-factor-error']
-];
 const number = value => value == null ? '—' : value.toFixed(2);
 const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const multiple = value => value.toLocaleString('en-US', { maximumFractionDigits: 1 }) + 'N';
@@ -49,14 +46,14 @@ function renderTiers() {
     '。若多个计划顺延至同月，单月需求可能更高。';
 }
 
-function syncFactorControls(source) {
-  for (const [id, errorId] of factorControls) {
-    const input = $(id);
-    if (!input) continue;
-    if (id !== source) input.value = String(options.tierFactor);
+function syncFactorControl(preserveInput = false) {
+  const input = $('main-kd-tier-factor');
+  const error = $('main-kd-factor-error');
+  if (input) {
+    if (!preserveInput) input.value = String(options.tierFactor);
     input.setAttribute('aria-invalid', 'false');
-    if ($(errorId)) $(errorId).textContent = '';
   }
+  if (error) error.textContent = '';
 }
 
 function saveOptions() {
@@ -67,7 +64,7 @@ function saveOptions() {
 
 export function setKDTierFactor(value, source) {
   options = { ...options, tierFactor: readKDTierFactor(value) };
-  syncFactorControls(source);
+  syncFactorControl(source === 'main-kd-tier-factor');
   saveOptions();
 }
 
@@ -487,18 +484,19 @@ export function initKDControls() {
       if (!formerDefaults) options = { ...KD_DEFAULTS, tierFactor: previous.tierFactor };
     }
   } catch {}
-  syncFactorControls();
+  syncFactorControl();
   renderTiers();
 
-  for (const [id, errorId] of factorControls) {
-    const input = $(id);
-    if (!input) continue;
-    input.addEventListener('input', () => {
+  const factorInput = $('main-kd-tier-factor');
+  if (factorInput) {
+    factorInput.addEventListener('input', () => {
       try {
-        setKDTierFactor(input.value, id);
+        setKDTierFactor(factorInput.value, 'main-kd-tier-factor');
       } catch (error) {
-        input.setAttribute('aria-invalid', 'true');
-        $(errorId).textContent = error.message + '。仍显示上一次有效参数的结果。';
+        factorInput.setAttribute('aria-invalid', 'true');
+        if ($('main-kd-factor-error')) {
+          $('main-kd-factor-error').textContent = error.message + '。仍显示上一次有效参数的结果。';
+        }
       }
     });
   }

@@ -1,5 +1,4 @@
 import { loadFundSnapshot } from '../../services/data-client.mjs';
-import { appEvents, events } from '../../services/events.mjs';
 import { createAppUpdateWatcher } from '../../ui/app-update.mjs';
 import { sortFunds, FUND_SORT_FIELDS } from '../../domain/nasdaq-funds.mjs';
 import { getFundGroup, FUND_GROUPS } from '../../domain/fund-groups.mjs';
@@ -252,7 +251,6 @@ export function initFundComparison() {
   globalThis.addEventListener?.('popstate', () => {
     switchGroup(resolveGroup(globalThis.location?.search).id, { push: false });
   });
-  appEvents.addEventListener(events.fundsUpdated, () => load());
   void appUpdates.checkForUpdate();
   void load().finally(() => {
     initialLoadSettled = true;

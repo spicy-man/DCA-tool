@@ -111,17 +111,6 @@
   color: #607487;
 }
 
-@media (max-width: 360px) {
-  .brand-identity {
-    gap: 6px;
-  }
-
-  .version-badge {
-    font-size: 9px;
-    padding: 2px 5px;
-  }
-}
-
 #status {
   white-space: pre-line;
 }

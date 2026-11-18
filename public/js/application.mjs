@@ -21,7 +21,6 @@ import { aggregate, selectRange, rating } from './domain/sentiment.mjs';
 
 export function initApplication() {
   const $ = id => document.getElementById(id);
-  const formatDate = d => d;
   const iso = time => new Date(time).toISOString().slice(0, 10);
 
   let rows = [];
@@ -254,7 +253,7 @@ export function initApplication() {
       $('rating').textContent = rows.length ? '当前区间无指数记录' : '情绪指数暂不可用';
     }
 
-    $('date-range').textContent = formatDate(windowRange.start) + ' – ' + formatDate(windowRange.end);
+    $('date-range').textContent = windowRange.start + ' – ' + windowRange.end;
     $('sample-note').textContent =
       $('frequency').value === 'daily'
         ? '日线数据 · 周末及缺失日期不补值'
@@ -367,7 +366,7 @@ export function initApplication() {
       return;
     }
     tooltipContent(tip, {
-      title: formatDate(row?.date || date),
+      title: row?.date || date,
       rows: row ? [
         ['情绪指数', row.score.toFixed(2)],
         ['市场情绪', sentimentLabel(row.score)],
@@ -468,7 +467,6 @@ export function initApplication() {
     } catch (error) {
       $('status').textContent = error.message || '检查失败，已保留本地数据。';
     } finally {
-      appEvents.dispatchEvent(new Event(events.fundsUpdated));
       button.disabled = false;
       button.querySelector('span').textContent = '更新数据';
     }

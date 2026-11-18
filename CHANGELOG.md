@@ -1,6 +1,12 @@
 # 更新记录
 
-目前系统版本为 **v2.2.12** (更新日期: 2026-11-18)。
+目前系统版本为 **v2.2.13** (更新日期: 2026-11-18)。
+
+## 🔧 v2.2.13 清理历史死代码、失效样式与旧版 VOO 快照 [FIX]
+
+- **移除已停用的 VOO 历史快照**：从仓库移除自 `v1.6.0` 切换为 `SPY` 后已不再更新与发布的 [voo.json](./public/data/voo.json)，避免本地添加或删除 `VOO` 自定义标的时与旧快照产生历史校验或工作区冲突。
+- **清理失效与冗余样式规则**：在 [page.css](./public/css/page.css)、[header.css](./public/css/header.css) 与 [funds.css](./public/css/funds.css) 中移除 `.brand-caption`、`.mark svg`、`.price-card>.chart-toolbar`、`.price-card>.accessible-data`、`.fund-heading h2`、移动端 `.toolbar label:last-of-type { display: none; }` 及被后续高权重规则完全覆盖的冗余声明。
+- **精简前端事件与私有残留逻辑**：移除无法跨 HTML 页面送达的 `events.fundsUpdated` 及其在 [events.mjs](./public/js/services/events.mjs)、[application.mjs](./public/js/application.mjs) 与 [comparison.mjs](./public/js/features/funds/comparison.mjs) 中的派发/监听并同步 [architecture.md](./docs/architecture.md)；移除 `application.mjs` 的恒等占位函数 `formatDate`，并将 [kd.mjs](./public/js/features/strategy/kd.mjs) 中退化为单控件数组的 `factorControls` 简化为直接同步 `#main-kd-tier-factor`。
 
 ## 🔧 v2.2.12 优化场内 ETF 对比页分组切换动效、表宽稳定性及全站选框居中对齐 [FIX]
 

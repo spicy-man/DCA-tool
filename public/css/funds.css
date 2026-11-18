@@ -41,7 +41,6 @@ html:has(.fund-page) { scrollbar-gutter: stable; }
 }
 .fund-heading { display: block; }
 .fund-eyebrow { font-size: 11px; letter-spacing: .12em; color: #557b80; }
-.fund-heading h2 { margin: 7px 0 8px; }
 .fund-heading p { margin: 0; font-size: 12px; color: #687a87; line-height: 1.7; }
 .fund-heading label { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; color: #687a87; font-size: 12px; }
 .fund-heading select { margin-left: 0; padding: 8px 26px 8px 10px; }
@@ -63,7 +62,7 @@ html:has(.fund-page) { scrollbar-gutter: stable; }
 .fund-summary strong { display: block; margin: 7px 0; color: #193f4b; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
 #fund-date { font-size: 19px; min-height: 29px; display: flex; align-items: center; }
 .fund-table-scroll { max-height: none; margin: 14px 0; }
-.fund-table { min-width: 1020px; font-size: 12px; white-space: nowrap; }
+.fund-table { font-size: 12px; white-space: nowrap; }
 .fund-page .fund-table { width: 100%; min-width: 1160px; table-layout: fixed; }
 .fund-page .fund-table th:nth-child(1) { width: 16.5%; }
 .fund-page .fund-table th:nth-child(2) { width: 9.3%; }
@@ -104,7 +103,6 @@ html:has(.fund-page) { scrollbar-gutter: stable; }
   .fund-page .fund-heading h1 { font-size: 19px; }
   .fund-swipe { display: block; color: #687a87; font-size: 11px; margin: 14px 0 0; }
   .fund-comparison { padding: 16px 12px; margin-top: 16px; }
-  .fund-heading { display: block; }
   .fund-meta-row { align-items: flex-start; flex-direction: column; gap: 12px; }
   .fund-sort-controls { justify-content: flex-start; }
   .fund-summary { margin-top: 16px; }

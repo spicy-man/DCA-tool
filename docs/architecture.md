@@ -51,7 +51,7 @@ docs/                           架构、部署与代码审查说明
 5. **application** 协调日期范围、两图联动与刷新；**app** 按依赖顺序初始化策略控件、行情视图、弹窗和应用控制器。
 6. **server** 可以依赖 domain，不能依赖浏览器视图；网络层不写快照，所有更新经 updater 调用 storage 完成。
 
-当前两个图表功能各自维护显示数据，application 持有共用时间窗口。跨功能通知统一经应用局部 EventTarget，事件名集中定义于 events.mjs：replayRange、marketCalendar、marketHover、strategySettings、strategyView、sourceHealth、fundsUpdated。禁止向全局 window 添加新的业务事件。
+当前两个图表功能各自维护显示数据，application 持有共用时间窗口。跨功能通知统一经应用局部 EventTarget，事件名集中定义于 events.mjs：replayRange、marketCalendar、marketHover、strategySettings、strategyView、sourceHealth、chartVisibility。禁止向全局 window 添加新的业务事件。
 
 ## 数据流与更新入口
 
@@ -59,7 +59,7 @@ docs/                           架构、部署与代码审查说明
 
 本地更新：页面 → POST /api/refresh → server/updater.mjs 的 refreshAll → network 下载 → domain 校验/计算 → storage 锁和原子替换。命令行和定时任务也调用同一 refreshAll。旧的 refreshETF 独立写入路径已移除，禁止另建绕过锁、历史保护或来源状态记录的写入通道。
 
-主页 QQQ / SPY 行情卡片右下角的主题色链接分别进入 `funds.html?group=nasdaq100` / `funds.html?group=sp500`，二级页面仅初始化基金对比，不加载美股图表与回测。国内基金对比使用独立快照 `nasdaq100-etfs.json` / `sp500-etfs.json` 和 features/funds/comparison.mjs；不加入以美股交易日判断健康度的 results，也不进入美元回测。每日脚本调用 updater 的 refreshFunds，和 refreshAll 共用 withDataLock 与 atomicWrite；本地整体更新通过 includeFunds 在同一锁内更新。行情必须覆盖对应分组配置的全部基金（纳指100 12只、标普500 4只），校验价格、时间、净值与回退字段口径，不接受逐只时间倒退。行情失败保留整份旧快照；规模或费率抓取失败保留此前披露值和日期。浏览器通过 fundsUpdated 重新读取快照。
+主页 QQQ / SPY 行情卡片右下角的主题色链接分别进入 `funds.html?group=nasdaq100` / `funds.html?group=sp500`，二级页面仅初始化基金对比，不加载美股图表与回测。国内基金对比使用独立快照 `nasdaq100-etfs.json` / `sp500-etfs.json` 和 features/funds/comparison.mjs；不加入以美股交易日判断健康度的 results，也不进入美元回测。每日脚本调用 updater 的 refreshFunds，和 refreshAll 共用 withDataLock 与 atomicWrite；本地整体更新通过 includeFunds 在同一锁内更新。行情必须覆盖对应分组配置的全部基金（纳指100 12只、标普500 4只），校验价格、时间、净值与回退字段口径，不接受逐只时间倒退。行情失败保留整份旧快照；规模或费率抓取失败保留此前披露值和日期。独立页通过 visibilitychange 切回前台重新读取快照。
 
 静态站点：刷新图标置灰禁用，提示仅本地部署可更新数据。构建仅复制 public 到 dist，并写入静态部署标记；不需要打包编译 JavaScript。源码不会随服务端模块发布到 Pages。
 
