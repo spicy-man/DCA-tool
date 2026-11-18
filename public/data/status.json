@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-11-17T22:49:21.864Z",
+  "checkedAt": "2026-11-18T03:28:11.061Z",
   "expectedDate": "2026-11-17",
   "requestedSources": [
     "Fear & Greed",
@@ -21,8 +21,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-17",
-      "checkedAt": "2026-11-17T22:49:21.864Z",
-      "lastSuccessAt": "2026-11-17T22:49:21.864Z"
+      "checkedAt": "2026-11-18T03:28:11.061Z",
+      "lastSuccessAt": "2026-11-18T03:28:11.061Z"
     },
     {
       "symbol": "SPY",
@@ -32,8 +32,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-17",
-      "checkedAt": "2026-11-17T22:49:21.864Z",
-      "lastSuccessAt": "2026-11-17T22:49:21.864Z"
+      "checkedAt": "2026-11-18T03:28:11.061Z",
+      "lastSuccessAt": "2026-11-18T03:28:11.061Z"
     },
     {
       "symbol": "QQQ",
@@ -43,8 +43,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-17",
-      "checkedAt": "2026-11-17T22:49:21.864Z",
-      "lastSuccessAt": "2026-11-17T22:49:21.864Z"
+      "checkedAt": "2026-11-18T03:28:11.061Z",
+      "lastSuccessAt": "2026-11-18T03:28:11.061Z"
     },
     {
       "symbol": "VGT",
@@ -54,8 +54,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-17",
-      "checkedAt": "2026-11-17T22:49:21.864Z",
-      "lastSuccessAt": "2026-11-17T22:49:21.864Z"
+      "checkedAt": "2026-11-18T03:28:11.061Z",
+      "lastSuccessAt": "2026-11-18T03:28:11.061Z"
     },
     {
       "symbol": "SMH",
@@ -65,8 +65,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-17",
-      "checkedAt": "2026-11-17T22:49:21.864Z",
-      "lastSuccessAt": "2026-11-17T22:49:21.864Z"
+      "checkedAt": "2026-11-18T03:28:11.061Z",
+      "lastSuccessAt": "2026-11-18T03:28:11.061Z"
     },
     {
       "symbol": "BRK-B",
@@ -76,8 +76,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-17",
-      "checkedAt": "2026-11-17T22:49:21.864Z",
-      "lastSuccessAt": "2026-11-17T22:49:21.864Z"
+      "checkedAt": "2026-11-18T03:28:11.061Z",
+      "lastSuccessAt": "2026-11-18T03:28:11.061Z"
     }
   ]
 }
