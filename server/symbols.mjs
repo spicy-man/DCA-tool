@@ -3,7 +3,10 @@ import { unlink } from 'node:fs/promises';
 import { readOptional, readJsonOptional, atomicWrite, withDataLock } from './storage.mjs';
 import { SYMBOLS, validSymbol } from '../public/js/domain/market.mjs';
 import { FUND_GROUPS } from '../public/js/domain/funds.mjs';
-import { isStatusComplete, isSourceHealthy } from '../public/js/domain/data-health.mjs';
+import { isStatusComplete } from '../public/js/domain/data-health.mjs';
+import { readMergedStatus, syncRequestedComplete } from './data-layer.mjs';
+
+export { syncRequestedComplete };
 
 const RESERVED_FILES = new Set([
   'custom-symbols.json',
@@ -24,13 +27,13 @@ export async function readCustomSymbols(dataDir) {
   return symbols.filter(symbol => !SYMBOLS.includes(symbol));
 }
 
-export async function writeCustomSymbolsWithStatus(dataDir, nextSymbols, updateStatus) {
+export async function writeCustomSymbolsWithStatus(dataDir, nextSymbols, updateStatus, { baseDataDir = null } = {}) {
   const customFile = path.join(dataDir, 'custom-symbols.json');
   const statusFile = path.join(dataDir, 'status.json');
   const prevCustomText = await readOptional(customFile);
   await atomicWrite(customFile, JSON.stringify(nextSymbols) + '\n');
   try {
-    const status = await readJsonOptional(statusFile);
+    const status = await readMergedStatus(dataDir, baseDataDir);
     if (status) {
       updateStatus(status, nextSymbols);
       await atomicWrite(statusFile, JSON.stringify(status, null, 2) + '\n');
@@ -45,14 +48,7 @@ export async function writeCustomSymbolsWithStatus(dataDir, nextSymbols, updateS
   }
 }
 
-export function syncRequestedComplete(status) {
-  if (!Array.isArray(status.requestedSources)) return;
-  status.requestedComplete = status.requestedSources.length > 0
-    ? status.requestedSources.every(symbol => (status.results || []).some(r => r?.symbol === symbol && isSourceHealthy(r, status.expectedDate)))
-    : Boolean(status.complete);
-}
-
-export async function removeCustomSymbol(symbol, { dataDir }) {
+export async function removeCustomSymbol(symbol, { dataDir, baseDataDir = null }) {
   if (!validSymbol(symbol)) throw Error('标的代码无效');
   if (SYMBOLS.includes(symbol)) throw Error('默认标的不可删除');
   if (isReservedSymbolFile(symbol)) throw Error('保留数据文件不可作为标的删除');
@@ -73,7 +69,7 @@ export async function removeCustomSymbol(symbol, { dataDir }) {
         }
         status.complete = isStatusComplete(status.results, status.expectedDate, symbols);
         syncRequestedComplete(status);
-      });
+      }, { baseDataDir });
     } catch (error) {
       if (prevCacheText !== null) await atomicWrite(cacheFile, prevCacheText).catch(() => {});
       throw error;

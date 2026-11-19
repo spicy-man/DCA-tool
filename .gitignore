@@ -2,6 +2,16 @@ node_modules/
 *.tmp
 
 dist/
+.local-data/
 public/data/.refresh.lock
-public/data/custom-symbols.json
+# 忽略本地个人自选股配置与非内置行情快照，仅保留内置追踪 JSON
+public/data/*.json
+!public/data/brk-b.json
+!public/data/nasdaq100-etfs.json
+!public/data/qqq.json
+!public/data/smh.json
+!public/data/sp500-etfs.json
+!public/data/spy.json
+!public/data/status.json
+!public/data/vgt.json
 /Liang-DCA/

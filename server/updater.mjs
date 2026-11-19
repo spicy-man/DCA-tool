@@ -13,8 +13,10 @@ import { loadHistoricalSupplement, mergeHistoricalSupplement } from './sentiment
 import { fetchFundSnapshot } from './fund-quotes.mjs';
 import { fetchFundPerformance } from './fund-performance.mjs';
 import { FUND_GROUPS, getFundGroup } from '../public/js/domain/funds.mjs';
+import { readBuiltinDataText, readBuiltinDataJson, readMergedStatus } from './data-layer.mjs';
 
 export const DEFAULT_DATA_DIR = fileURLToPath(new URL('../public/data/', import.meta.url));
+export const LOCAL_DATA_DIR = fileURLToPath(new URL('../.local-data/', import.meta.url));
 export const ARCHIVE_URL =
   'https://raw.githubusercontent.com/whit3rabbit/fear-greed-data/main/fear-greed.csv';
 export const CNN_URL =
@@ -22,16 +24,16 @@ export const CNN_URL =
 
 const pending = new Map();
 
-async function updateFundGroup({ dataDir, fetchText = fetchPublicText, now = Date.now() }, group) {
+async function updateFundGroup({ dataDir, baseDataDir = null, fetchText = fetchPublicText, now = Date.now() }, group) {
   const file = path.join(dataDir, group.snapshotFile);
-  const previous = await readJsonOptional(file);
+  const previous = await readBuiltinDataJson(dataDir, baseDataDir, group.snapshotFile);
   let next;
   try {
     next = await fetchFundSnapshot({ fetchText, now, previous, funds: group.funds });
     next.performance = await fetchFundPerformance({ fetchText, now, previous: previous?.performance,
       quoteDate: next.rows.map(row => row.quoteDate).sort()[0], funds: group.funds,
       benchmarkSymbol: group.benchmark.symbol, loadBenchmarkSnapshot: async () => {
-        const text = await readOptional(path.join(dataDir, (group.homeSymbol || group.benchmark.symbol).toLowerCase() + '.json'));
+        const text = await readBuiltinDataText(dataDir, baseDataDir, (group.homeSymbol || group.benchmark.symbol).toLowerCase() + '.json');
         return text ? JSON.parse(text) : null;
       } });
   } catch {
@@ -57,7 +59,8 @@ async function updateFunds(options) {
 
 export function refreshFunds(options = {}) {
   const dataDir = path.resolve(options.dataDir || DEFAULT_DATA_DIR);
-  return withDataLock(dataDir, () => updateFunds({ ...options, dataDir }));
+  const baseDataDir = options.baseDataDir ? path.resolve(options.baseDataDir) : null;
+  return withDataLock(dataDir, () => updateFunds({ ...options, dataDir, baseDataDir }));
 }
 const csv = rows =>
   'Date,Fear Greed,Rating\n' +
@@ -107,18 +110,20 @@ async function retry(task, wait) {
   }
 }
 
-async function snapshot(dataDir, symbol, now = Date.now()) {
+async function snapshot(dataDir, symbol, now = Date.now(), baseDataDir = null) {
   const fileName = symbol === 'Fear & Greed' ? 'fear-greed.csv' : symbol.toLowerCase() + '.json';
   const file = path.join(dataDir, fileName);
   if (symbol === 'Fear & Greed') {
-    const text = await readOptional(file);
+    const text = await readBuiltinDataText(dataDir, baseDataDir, fileName);
     if (!text) return null;
     const today = new Date(now).toISOString().slice(0, 10);
     const rows = parseCSV(text).filter(row => row.date <= today);
     if (!rows.length) return null;
     return { date: rows.at(-1).date, count: rows.length };
   }
-  const data = await readJsonOptional(file);
+  const data = SYMBOLS.includes(symbol)
+    ? await readBuiltinDataJson(dataDir, baseDataDir, fileName)
+    : await readJsonOptional(file);
   if (!data) return null;
   if (data.symbol !== symbol || !data.rows?.length) throw Error('本地行情格式无效');
   const rows = filterMarketHistory(symbol, data.rows);
@@ -130,9 +135,12 @@ async function snapshot(dataDir, symbol, now = Date.now()) {
   };
 }
 
-async function updateETF(symbol, { dataDir, fetchText, now }) {
-  const file = path.join(dataDir, symbol.toLowerCase() + '.json');
-  const previous = await readJsonOptional(file);
+async function updateETF(symbol, { dataDir, baseDataDir = null, fetchText, now }) {
+  const fileName = symbol.toLowerCase() + '.json';
+  const file = path.join(dataDir, fileName);
+  const previous = SYMBOLS.includes(symbol)
+    ? await readBuiltinDataJson(dataDir, baseDataDir, fileName)
+    : await readJsonOptional(file);
   let text;
   try {
     text = await fetchText(yahooURL(symbol));
@@ -225,9 +233,9 @@ function sentimentFailure(warnings) {
   return error;
 }
 
-async function updateSentiment({ dataDir, fetchText, now, sentimentSource, wait }) {
+async function updateSentiment({ dataDir, baseDataDir = null, fetchText, now, sentimentSource, wait }) {
   const file = path.join(dataDir, 'fear-greed.csv');
-  const saved = await readOptional(file);
+  const saved = await readBuiltinDataText(dataDir, baseDataDir, 'fear-greed.csv');
   const today = new Date(now).toISOString().slice(0, 10);
   const previous = saved ? parseCSV(saved).filter(row => row.date <= today) : [];
   const supplement = await loadHistoricalSupplement();
@@ -294,8 +302,9 @@ async function updateSentiment({ dataDir, fetchText, now, sentimentSource, wait 
 
 export function refreshAll(options = {}) {
   const dataDir = path.resolve(options.dataDir || DEFAULT_DATA_DIR);
+  const baseDataDir = options.baseDataDir ? path.resolve(options.baseDataDir) : null;
   if (pending.has(dataDir)) return pending.get(dataDir);
-  const promise = withDataLock(dataDir, () => run({ ...options, dataDir })).finally(() =>
+  const promise = withDataLock(dataDir, () => run({ ...options, dataDir, baseDataDir })).finally(() =>
     pending.delete(dataDir)
   );
   pending.set(dataDir, promise);
@@ -305,6 +314,7 @@ export function refreshAll(options = {}) {
 export async function addCustomSymbol(symbol, options = {}) {
   if (!validSymbol(symbol) || isReservedSymbolFile(symbol)) throw Error('请输入有效的美股代码，例如 VOO、AAPL 或 BRK-B');
   const dataDir = path.resolve(options.dataDir || DEFAULT_DATA_DIR);
+  const baseDataDir = options.baseDataDir ? path.resolve(options.baseDataDir) : null;
   const now = options.now ?? Date.now();
   return withDataLock(dataDir, async () => {
     const symbols = await readCustomSymbols(dataDir);
@@ -334,7 +344,7 @@ export async function addCustomSymbol(symbol, options = {}) {
         status.results = [...(status.results || []).filter(r => r.symbol !== symbol), entry];
         status.complete = isStatusComplete(status.results, expectedDate, nextSymbols);
         syncRequestedComplete(status);
-      });
+      }, { baseDataDir });
     } catch (error) {
       if (prevCacheText !== null) await atomicWrite(cacheFile, prevCacheText).catch(() => {});
       else await unlink(cacheFile).catch(() => {});
@@ -346,6 +356,7 @@ export async function addCustomSymbol(symbol, options = {}) {
 
 async function run({
   dataDir,
+  baseDataDir = null,
   fetchText = fetchPublicText,
   now = Date.now(),
   wait = sleep,
@@ -367,7 +378,7 @@ async function run({
   }
   const expectedDate = latestClosedSession(now);
   const checkedAt = new Date(now).toISOString();
-  const old = await readJsonOptional(path.join(dataDir, 'status.json'));
+  const old = await readMergedStatus(dataDir, baseDataDir, customSymbols);
   if (catchUp) {
     for (const symbol of ['Fear & Greed', ...symbols]) {
       if (sources.includes(symbol)) continue;
@@ -377,7 +388,7 @@ async function run({
       }
     }
   }
-  const context = { dataDir, fetchText, now, expectedDate, sentimentSource, wait };
+  const context = { dataDir, baseDataDir, fetchText, now, expectedDate, sentimentSource, wait };
 
   const results = await Promise.all(
     ['Fear & Greed', ...symbols].map(async symbol => {
@@ -386,7 +397,7 @@ async function run({
         return last || { symbol, ok: false, fresh: false, date: null, checkedAt: null };
       }
       try {
-        const current = await snapshot(dataDir, symbol, now);
+        const current = await snapshot(dataDir, symbol, now, baseDataDir);
         if (
           skipFresh &&
           symbol !== 'Fear & Greed' &&
@@ -422,7 +433,7 @@ async function run({
       } catch (error) {
         let cached;
         try {
-          cached = await snapshot(dataDir, symbol, now);
+          cached = await snapshot(dataDir, symbol, now, baseDataDir);
         } catch {}
         return {
           symbol,
@@ -451,12 +462,13 @@ async function run({
   };
   await atomicWrite(path.join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
   if (includeFunds) {
-    const funds = await updateFunds({ dataDir, fetchText, now });
+    const funds = await updateFunds({ dataDir, baseDataDir, fetchText, now });
     const fundErrors = funds.groups.map(g => g.error).filter(Boolean);
     status.funds = {
       ok: funds.groups.every(g => g.ok !== false),
       complete: funds.complete !== false,
       checkedAt: funds.checkedAt || checkedAt,
+      lastAttemptAt: checkedAt,
       performance: {
         ok: funds.groups.every(g => g.performanceOk !== false),
         complete: funds.groups.every(g => g.performanceComplete !== false),

@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { refreshAll, addCustomSymbol } from './updater.mjs';
 import { readCustomSymbols, removeCustomSymbol } from './symbols.mjs';
+import { isBuiltinDataFile, readBuiltinDataText, readMergedStatus } from './data-layer.mjs';
 import { isFundsHealthy, describeFundsIssues } from '../public/js/domain/data-health.mjs';
 
 const root = fileURLToPath(new URL('../public/', import.meta.url));
@@ -31,6 +32,7 @@ const types = {
 export function createServer({
   publicDir = root,
   dataDir = path.join(publicDir, 'data'),
+  baseDataDir = null,
   refresh = refreshAll,
   addSymbol = addCustomSymbol,
   cooldownMs = 60000,
@@ -132,7 +134,7 @@ export function createServer({
         }
         const symbol = typeof value?.symbol === 'string' ? value.symbol.trim().toUpperCase() : '';
         try {
-          const result = await (req.method === 'DELETE' ? removeCustomSymbol : addSymbol)(symbol, { dataDir });
+          const result = await (req.method === 'DELETE' ? removeCustomSymbol : addSymbol)(symbol, { dataDir, baseDataDir });
           lastResult = null;
           send(200, result);
         } catch (error) {
@@ -155,7 +157,7 @@ export function createServer({
         }
 
         if (!active && (!lastResult || Date.now() - lastRun >= cooldownMs)) {
-          active = refresh({ dataDir, includeFunds: true })
+          active = refresh({ dataDir, baseDataDir, includeFunds: true })
             .then(value => {
               if (value.results.length && value.results.every(r => r.ok) && isFundsHealthy(value.funds)) {
                 lastResult = value;
@@ -208,7 +210,24 @@ export function createServer({
         return;
       }
 
-      const data = await readFile(file);
+      let data;
+      if (baseDataDir && base === path.resolve(dataDir)) {
+        if (relative === 'status.json') {
+          const status = await readMergedStatus(dataDir, baseDataDir, await readCustomSymbols(dataDir).catch(() => []));
+          if (!status) {
+            send(404, { error: '文件不存在' });
+            return;
+          }
+          data = JSON.stringify(status, null, 2) + '\n';
+        } else if (isBuiltinDataFile(relative)) {
+          data = await readBuiltinDataText(dataDir, baseDataDir, relative);
+          if (data === null) {
+            send(404, { error: '文件不存在' });
+            return;
+          }
+        }
+      }
+      if (data === undefined) data = await readFile(file);
       res.writeHead(200, {
         'Content-Type': types[path.extname(file)] || 'application/octet-stream',
         'Cache-Control': 'no-cache',

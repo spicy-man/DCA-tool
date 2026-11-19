@@ -71,7 +71,7 @@ export function hasSubstantiveFundChange(previousText, nextText) {
 
 function normalizeStatusFunds(funds) {
   if (!funds) return undefined;
-  const { checkedAt, ...rest } = funds;
+  const { checkedAt, lastAttemptAt, ...rest } = funds;
   return rest;
 }
 

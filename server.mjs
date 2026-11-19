@@ -1,18 +1,25 @@
 import { createServer } from './server/http-server.mjs';
-import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { formatNewYorkTime } from './public/js/domain/data-health.mjs';
-import { DEFAULT_DATA_DIR } from './server/updater.mjs';
+import { DEFAULT_DATA_DIR, LOCAL_DATA_DIR } from './server/updater.mjs';
+import { readMergedStatus } from './server/data-layer.mjs';
+import { readCustomSymbols } from './server/symbols.mjs';
 
 const host = process.env.HOST || '127.0.0.1';
-const dataDir = process.env.DATA_DIR || DEFAULT_DATA_DIR;
+const dataDir = process.env.DATA_DIR || LOCAL_DATA_DIR;
+const baseDataDir = process.env.DATA_DIR ? null : DEFAULT_DATA_DIR;
 const log = message => console.log('[' + formatNewYorkTime(Date.now()) + '] ' + message);
-const server = createServer({ dataDir });
+const server = createServer({ dataDir, baseDataDir });
 
 async function showDataStatus() {
   try {
-    const status = JSON.parse(await readFile(path.join(dataDir, 'status.json'), 'utf8'));
+    const customSymbols = await readCustomSymbols(dataDir).catch(() => []);
+    const status = await readMergedStatus(dataDir, baseDataDir, customSymbols);
+    if (!status) {
+      log('暂无本地数据状态，可在网页点击“检查更新”。');
+      return;
+    }
     log('本地数据快照（上次检查：' + formatNewYorkTime(status.checkedAt) + '）');
     for (const result of status.results || []) {
       const label = result.symbol === 'Fear & Greed' ? '恐慌与贪婪指数' : result.symbol;
