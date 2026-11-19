@@ -19,7 +19,7 @@ import { loadMarket, renderMarket, drawPrice, setMarketHover, invalidateMarket, 
 import { drawKDChart, setKDHover, getKDOptions, invalidateKDChart } from './features/strategy/kd.mjs';
 import { aggregate, selectRange, rating } from './domain/sentiment.mjs';
 
-export function initApplication() {
+export function initApplication({ deploymentInfo } = {}) {
   const $ = id => document.getElementById(id);
   const iso = time => new Date(time).toISOString().slice(0, 10);
 
@@ -402,7 +402,7 @@ export function initApplication() {
   $('chart').addEventListener('pointerleave', hideHover);
 
   const appUpdates = createAppUpdateWatcher();
-  const deploymentReady = getDeploymentInfo();
+  const deploymentReady = deploymentInfo ? Promise.resolve(deploymentInfo) : getDeploymentInfo();
   let loadedHealthKey = null;
   let lastResumeCheck = 0;
   let resumeChecking = false;

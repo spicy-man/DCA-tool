@@ -1,10 +1,10 @@
-import { getDeploymentMode } from '../services/data-client.mjs';
+import { getDeploymentInfo } from '../services/data-client.mjs';
 import { appEvents, events } from '../services/events.mjs';
 import { SYMBOLS } from '../domain/market.mjs';
 import { invalidateSymbolCache } from '../features/market/chart.mjs';
 import { bindDialogExitFallback } from './dialog-utils.mjs';
 
-export async function initSymbolDialog() {
+export async function initSymbolDialog({ deploymentInfo } = {}) {
   const $ = id => document.getElementById(id);
   const select = $('symbol');
   const dialog = $('symbol-dialog');
@@ -85,7 +85,7 @@ export async function initSymbolDialog() {
       setBusy(false);
     }
   }
-  const mode = await getDeploymentMode();
+  const mode = (deploymentInfo ?? await getDeploymentInfo()).mode;
   if (mode !== 'local') return;
   $('add-symbol').disabled = false;
   $('add-symbol-hint').removeAttribute('title');
@@ -94,7 +94,7 @@ export async function initSymbolDialog() {
     const response = await fetch('./data/custom-symbols.json', { cache: 'no-store' });
     if (response.ok) sync(await response.json());
     else if (response.status === 404) sync([]);
-    else if (response.status !== 404) throw Error('无法读取标的列表');
+    else throw Error('无法读取标的列表');
   } catch {
     message.textContent = '自定义标的列表读取失败，请刷新页面后重试。';
   }

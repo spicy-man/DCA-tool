@@ -2,8 +2,8 @@ import path from 'node:path';
 import { unlink } from 'node:fs/promises';
 import { readOptional, readJsonOptional, atomicWrite, withDataLock } from './storage.mjs';
 import { SYMBOLS, validSymbol } from '../public/js/domain/market.mjs';
-import { FUND_GROUPS } from '../public/js/domain/fund-groups.mjs';
-import { isStatusComplete } from '../public/js/domain/data-health.mjs';
+import { FUND_GROUPS } from '../public/js/domain/funds.mjs';
+import { isStatusComplete, isSourceHealthy } from '../public/js/domain/data-health.mjs';
 
 const RESERVED_FILES = new Set([
   'custom-symbols.json',
@@ -47,10 +47,8 @@ export async function writeCustomSymbolsWithStatus(dataDir, nextSymbols, updateS
 
 export function syncRequestedComplete(status) {
   if (!Array.isArray(status.requestedSources)) return;
-  const complete = result =>
-    result && result.ok && result.fresh !== false && !result.missingDates?.length && result.date >= status.expectedDate;
   status.requestedComplete = status.requestedSources.length > 0
-    ? status.requestedSources.every(symbol => (status.results || []).some(r => r?.symbol === symbol && complete(r)))
+    ? status.requestedSources.every(symbol => (status.results || []).some(r => r?.symbol === symbol && isSourceHealthy(r, status.expectedDate)))
     : Boolean(status.complete);
 }
 

@@ -1184,3 +1184,101 @@ test('前高修复虚线跟随当前选定的主策略及对应颜色', async t 
   assert.equal(recoveryLine().getAttribute('stroke'), '#a64b77');
   assert.match(recoveryLine().getAttribute('aria-label'), /加权K定投＋恐慌加投/);
 });
+
+test('market-store 快照优先且拦截陈旧在途请求；切策略不回写失效行情且信号 CSV 保留策略名', async t => {
+  const store = await import('../public/js/services/market-store.mjs');
+  const { loadMarket, hasLoadedMarket, initMarketChart } = await import('../public/js/features/market/chart.mjs');
+  const $ = dom(t);
+  const oldStorage = globalThis.localStorage;
+  const oldResize = globalThis.ResizeObserver;
+  const oldFetch = globalThis.fetch;
+  const oldCreateObjectURL = globalThis.URL.createObjectURL;
+  const oldRevokeObjectURL = globalThis.URL.revokeObjectURL;
+  const saved = new Map([
+    ['seeker.pyramid.v1', JSON.stringify({
+      buyDay: 1, baseAmount: 2000, enabled: true, fearThreshold: 10, fearBuyCount: 0, fearEnabled: false,
+      allocation: { totalAmount: 2000, weights: { SPY: 100 }, fearEnabled: {}, plan: 'pyramidFear' }
+    })]
+  ]);
+  const downloaded = [];
+  globalThis.localStorage = { getItem: k => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v) };
+  globalThis.ResizeObserver = class { observe() {} };
+  globalThis.URL.createObjectURL = () => 'blob:test';
+  globalThis.URL.revokeObjectURL = () => {};
+  const origCreateElement = globalThis.document.createElement;
+  globalThis.document.createElement = tag => {
+    const node = origCreateElement(tag);
+    if (tag === 'a') node.click = () => downloaded.push(node.download);
+    return node;
+  };
+  t.after(() => {
+    globalThis.localStorage = oldStorage;
+    globalThis.ResizeObserver = oldResize;
+    globalThis.fetch = oldFetch;
+    globalThis.URL.createObjectURL = oldCreateObjectURL;
+    globalThis.URL.revokeObjectURL = oldRevokeObjectURL;
+  });
+
+  // 1. market-store: 真实 snapshot 优先于 seededRows，空数组不遮蔽，setMarketSnapshot 淘汰慢在途 ensureMarketSnapshots
+  store.invalidateAllMarketSnapshots({ notify: false });
+  const staleRows = [{ date: '2025-01-02', open: 10, high: 10, low: 10, close: 10 }];
+  const freshRows = [{ date: '2025-01-03', open: 20, high: 20, low: 20, close: 20 }];
+  let resolveSlow;
+  globalThis.fetch = () => new Promise(resolve => {
+    resolveSlow = () => resolve({
+      ok: true,
+      json: async () => ({ symbol: 'QQQ', anchorDate: '2025-01-02', fetchedAt: '2025-01-02T00:00:00Z', rows: staleRows })
+    });
+  });
+  let notifyCount = 0;
+  const off = store.onMarketStoreChange(() => notifyCount++);
+  t.after(off);
+  store.ensureMarketSnapshots(['QQQ']);
+  assert.equal(store.isMarketLoading('QQQ'), true);
+  store.setMarketSnapshot('QQQ', { symbol: 'QQQ', rows: freshRows });
+  assert.equal(store.isMarketLoading('QQQ'), false);
+  assert.equal(notifyCount, 1);
+  store.seedMarketRows('QQQ', staleRows);
+  store.seedMarketRows('QQQ', []);
+  assert.equal(store.getMarketRows('QQQ'), freshRows);
+  resolveSlow();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(store.getMarketRows('QQQ'), freshRows);
+  assert.equal(notifyCount, 1);
+
+  // 2. 主图加载失败后即便 store 中被其他模块写入该标的，hasLoadedMarket 仍为 false
+  $('symbol').options = [{ value: 'SPY', textContent: 'SPY' }];
+  $('symbol').value = 'SPY';
+  $('price-chart').getContext = () => new Proxy({}, {
+    get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {},
+    set: () => true
+  });
+  initStrategyOverlay();
+  initMarketChart();
+  globalThis.fetch = async () => ({ ok: false, status: 500 });
+  await loadMarket(true);
+  assert.equal(hasLoadedMarket(), false);
+  store.setMarketSnapshot('SPY', { symbol: 'SPY', anchorDate: '2025-01-03', fetchedAt: '2025-01-03T00:00:00Z', rows: freshRows });
+  assert.equal(hasLoadedMarket(), false);
+
+  // 3. 旧版 allocation.plan='pyramidFear' 冷启动兼容 + 切策略不回写已清空缓存 + 信号 CSV 文件名包含 viewStrategy
+  $('allocation-open').listeners.click();
+  assert.equal($('allocation-plan-pyramidFear').getAttribute('aria-pressed'), 'true');
+  $('allocation-cancel').listeners.click();
+
+  const signalRows = [
+    { date: '2025-01-02', open: 100, high: 100, low: 100, close: 100 },
+    { date: '2025-01-03', open: 100, high: 100, low: 100, close: 100 }
+  ];
+  store.invalidateAllMarketSnapshots({ notify: false });
+  updateSignals({ symbol: 'SPY', rows: signalRows }, {
+    start: '2025-01-02', end: '2025-01-03', calendar: ['2025-01-02', '2025-01-03'], frequency: 'daily'
+  });
+  store.invalidateAllMarketSnapshots({ notify: false });
+  $('status-strategy-combined').listeners.click();
+  assert.equal(store.getMarketRows('SPY'), null);
+  $('signal-download').listeners.click();
+  $('status-strategy-kdFear').listeners.click();
+  $('signal-download').listeners.click();
+  assert.deepEqual(downloaded, ['SPY-combined-dca-signals.csv', 'SPY-kdFear-dca-signals.csv']);
+});

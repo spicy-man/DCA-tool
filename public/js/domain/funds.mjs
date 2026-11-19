@@ -1,7 +1,17 @@
-// Only ETFs tracking Nasdaq-100; excludes technology-sector indices and LOFs.
-export const QQQ_FEE = Object.freeze({ annualFee: 0.18, checkedAt: '2026-10-26',
-  source: 'https://www.invesco.com/qqq-etf/en/home.html' });
+// Built-in domestic ETF groups, quote normalization, and sorting.
+export const QQQ_FEE = Object.freeze({
+  annualFee: 0.18,
+  checkedAt: '2026-10-26',
+  source: 'https://www.invesco.com/qqq-etf/en/home.html'
+});
 
+export const SPY_FEE = Object.freeze({
+  annualFee: 0.0945,
+  checkedAt: '2026-10-26',
+  source: 'https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy'
+});
+
+// Only ETFs tracking Nasdaq-100; excludes technology-sector indices and LOFs.
 export const NASDAQ_FUNDS = Object.freeze([
   ['159941', '广发'], ['159501', '嘉实'], ['159696', '易方达'],
   ['159659', '招商'], ['159660', '汇添富'], ['159632', '华安'],
@@ -9,9 +19,45 @@ export const NASDAQ_FUNDS = Object.freeze([
   ['513390', '博时'], ['513870', '富国'], ['513110', '华泰柏瑞']
 ].map(([code, manager]) => Object.freeze({ code, manager })));
 
+export const SP500_FUNDS = Object.freeze([
+  ['513500', '博时'], ['513650', '南方'], ['159612', '国泰'], ['159655', '华夏']
+].map(([code, manager]) => Object.freeze({ code, manager })));
+
+export const FUND_GROUPS = Object.freeze({
+  nasdaq100: Object.freeze({
+    id: 'nasdaq100',
+    title: '纳斯达克100',
+    funds: NASDAQ_FUNDS,
+    page: 'funds.html?group=nasdaq100',
+    snapshotFile: 'nasdaq100-etfs.json',
+    homeSymbol: 'QQQ',
+    button: '纳指100 场内 ETF 对比',
+    benchmark: Object.freeze({ symbol: 'QQQ', name: 'Invesco 纳斯达克100 ETF', provider: 'Invesco', ...QQQ_FEE })
+  }),
+  sp500: Object.freeze({
+    id: 'sp500',
+    title: '标普500',
+    funds: SP500_FUNDS,
+    page: 'funds.html?group=sp500',
+    snapshotFile: 'sp500-etfs.json',
+    homeSymbol: 'SPY',
+    button: '标普500 场内 ETF 对比',
+    benchmark: Object.freeze({ symbol: 'SPY', name: 'SPDR 标普500 ETF', provider: 'State Street', ...SPY_FEE })
+  })
+});
+
+export function getFundGroup(id = 'nasdaq100') {
+  if (!Object.hasOwn(FUND_GROUPS, id)) throw Error('未知基金分组');
+  return FUND_GROUPS[id];
+}
+
 export function shanghaiDate(time) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai',
-    year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(time));
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(time));
 }
 
 export function fundNumber(value) {
@@ -42,10 +88,17 @@ export function normalizeFundQuotes(payload, now = Date.now(), funds = NASDAQ_FU
     const iopv = rawIopv > 0 ? rawIopv : null;
     const amount = fundNumber(row.f6);
     const shares = fundNumber(row.f38);
-    return { ...fund, price, change: fundNumber(row.f3), iopv,
+    return {
+      ...fund,
+      price,
+      change: fundNumber(row.f3),
+      iopv,
       premium: premiumRate(price, iopv),
       amount: amount >= 0 ? amount : null,
-      shares: shares > 0 ? shares : null, quoteDate, quoteTime };
+      shares: shares > 0 ? shares : null,
+      quoteDate,
+      quoteTime
+    };
   });
 }
 

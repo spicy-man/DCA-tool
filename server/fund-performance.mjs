@@ -1,4 +1,4 @@
-import { NASDAQ_FUNDS } from '../public/js/domain/nasdaq-funds.mjs';
+import { NASDAQ_FUNDS } from '../public/js/domain/funds.mjs';
 import { yearsBefore, parsePerformanceHistory, parseBenchmarkHistory, calculateFundPerformance } from '../public/js/domain/fund-performance.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
 
@@ -17,12 +17,12 @@ export async function fetchFundPerformance({ fetchText, now, previous, quoteDate
     const load = async (symbol, options) => parsePerformanceHistory(
       JSON.parse(await fetchText(performanceHistoryURL(symbol, now))), options);
     const latest = latestClosedSession(now, 0);
-    const qqq = benchmarkSnapshot
+    const benchmark = benchmarkSnapshot
       ? parseBenchmarkHistory(benchmarkSnapshot, { symbol: benchmarkSymbol, cutoff: latest })
       : await load(benchmarkSymbol, { symbols: [benchmarkSymbol], currency: 'USD', timezone: 'America/New_York', cutoff: latest });
-    const latestPrice = qqq.rows.at(-1);
+    const latestPrice = benchmark.rows.at(-1);
     benchmarkQuote = { code: benchmarkSymbol, currency: 'USD', price: latestPrice.rawClose, quoteDate: latestPrice.date };
-    const cutoff = qqq.rows.map(r => r.date).filter(date => date <= quoteDate).at(-1);
+    const cutoff = benchmark.rows.map(r => r.date).filter(date => date <= quoteDate).at(-1);
     const histories = [];
     // Bound concurrent requests to this public history service.
     for (let i = 0; i < funds.length; i += 3) {
@@ -42,14 +42,14 @@ export async function fetchFundPerformance({ fetchText, now, previous, quoteDate
     const availableDates = histories.filter(row => row.ok)
       .map(row => new Set(row.history.rows.map(price => price.date)));
     if (!availableDates.length) throw Error('没有可用的基金历史行情');
-    const endDate = qqq.rows.map(row => row.date).filter(date => date <= cutoff &&
+    const endDate = benchmark.rows.map(row => row.date).filter(date => date <= cutoff &&
       availableDates.every(dates => dates.has(date))).at(-1);
     if (!endDate || now - Date.parse(endDate) > 15 * 86400000 || (previous?.endDate && endDate < previous.endDate)) {
       throw Error('同期基准日期无效');
     }
     const rows = histories.map(({ history, ...row }) => history
       ? { ...row, periods: calculateFundPerformance(history, endDate) } : row);
-    const benchmarkPeriods = calculateFundPerformance(qqq, endDate);
+    const benchmarkPeriods = calculateFundPerformance(benchmark, endDate);
     return { version: 2, ok: true, complete: Object.values(benchmarkPeriods).every(p => p.status === 'ok') &&
       rows.every(r => r.ok && Object.values(r.periods).every(p => p.status !== 'missing')), endDate, checkedAt, lastAttemptAt: checkedAt,
       source: 'Yahoo Finance', currency: 'native',

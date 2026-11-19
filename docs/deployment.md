@@ -1,71 +1,94 @@
-# 数据更新与部署
+# 数据更新与部署说明
 
-## 运行方式
+- 目标仓库：`https://github.com/spicy-man/DCA-tool`
+- 静态站点：`https://spicy-man.github.io/DCA-tool/`（以仓库 Settings → Pages 实际配置为准）
 
-目标仓库：https://github.com/spicy-man/DCA-tool 。预计 Pages 地址为 https://spicy-man.github.io/DCA-tool/ （以 GitHub 实际发布地址为准）。部署由仓库 main 分支的 GitHub Actions 工作流执行；实际状态可在仓库 Actions 与 Settings → Pages 查看。
+---
 
-### 更新入口
+## 一、本地运行与手动更新命令
 
-基金每日快照同时包含近1/3/5年历史收益及QQQ/SPY固定基准行的数据，基准直接复用本地已缓存的 `qqq.json` / `spy.json` 行情，不重复请求美股基准或汇率。历史收益的共同截止日可能早于当天行情日期（例如北京时间下午美股尚未收盘）；页面分别标明日期。历史行情失败不覆盖此前有效区间；单只历史抓取失败时只禁用该只当期收益比较。基金更新脚本在历史来源失败或区间缺失时也退出 1，以便工作流报告部分失败；不足上市年限是正常状态。
+| 场景 | 命令 | 说明 |
+| :--- | :--- | :--- |
+| 启动本地服务 | `npm start`（或双击 `start.cmd` / `start.command`） | 默认监听 `127.0.0.1:4173`（局域网单人访问可设 `HOST=<局域网IP>` 或 `0.0.0.0`，见下方环境变量表），页面「更新数据」走同源 `POST /api/refresh`（60 秒冷却） |
+| 更新全部数据 | `npm run update-data` | 强制刷新 F&G、全部美股标的及国内两组场内 ETF；来源失败或存在阻塞缺口时退出码 `1` |
+| 定时模式更新 | `node scripts/update-data.mjs --scheduled --catch-up` | `--scheduled` 跳过已新鲜的 ETF（F&G 始终重抓）；`--catch-up` 自动补抓过期或缺失的来源 |
+| 仅更新国内 ETF | `node scripts/update-funds.mjs` | 默认更新纳指 100 与标普 500 两组，可用 `--group=nasdaq100` 或 `--group=sp500` 指定单组 |
+| 构建静态站点 | `npm run build` | 先校验版本一致性，再白名单复制 `public/` 到 `dist/` 并写入静态标记与 `.mjs` `?v=` 参数 |
 
-国内纳指100与标普500 ETF：`node scripts/update-funds.mjs` 单独更新，和现有更新器共用数据锁及原子写入；完整命令更新与本地页面更新也会包含该表。工作流以北京时间周二至周六 09:01（承接前一美股交易日收盘对齐）及周一至周六 15:01、21:01 单独抓取并检验 `public/data/nasdaq100-etfs.json` 与 `public/data/sp500-etfs.json`，不触发美股来源更新；周日及凌晨 03:01 不运行，其他美股定时轮次不抓国内基金。节假日仍可能抓到上一交易日行情，页面始终显示行情日期；调度可能延迟。手动工作流或代码推送也初始化基金快照。抓取失败继续发布旧快照及失败提示，并将基金更新失败报告为工作流失败。
+---
 
-- 本地：运行 node server.mjs，页面“更新数据”通过同源 POST /api/refresh 调用 server/updater.mjs。
-- 命令：node scripts/update-data.mjs；数据不齐或来源失败退出码为 1。所有来源独立校验、独立原子替换，失败源保留原文件。
-- 可选补抓：node scripts/update-data.mjs --scheduled；只有前一轮已成功、实际快照日期满足目标交易日的 ETF 来源才跳过网络，指数始终重新请求。所有自动定时轮次均强制重新请求，包括收盘后两轮联动及每六小时的独立指数更新，以接收上游修订。跳过网络时保留上次实际检查时间。手动运行默认强制重新检查所有来源。
-- REFRESH_SOURCES 可用逗号指定来源（Fear & Greed、SPY、QQQ、VGT、SMH、BRK-B）；未指定时更新全部。未选来源的快照及检查状态保持原样，requestedSources 记录本轮所选来源，requestedComplete 表示本轮来源成功且到齐，complete 按当前目标日期判断全部来源；未选来源仍缺数据时 complete=false，命令仍退出 1，避免 ETF 成功掩盖指数缺失。
-- FEAR_GREED_SOURCE=auto（默认）优先直接请求 CNN graphdata/2021-02-01 历史接口，使用上游 fetch_cnn.py 的完整 User-Agent、Accept、Origin、Referer 配置及 30 秒请求超时；与上游相同支持 CNN_FETCH_USER_AGENT 环境变量，Actions 从同名仓库变量传入，未设置时使用上游默认值；直连 fetch 与代理 curl 使用同一组请求头。仅网络请求失败（含 HTTP 错误）时尝试第三方存档；请求成功但响应解析或历史校验失败时保留本地数据并报告具体原因，不自动切源；有效数据日期滞后时继续使用 CNN 并提示缺失日期。cnn 只用 CNN，archive 只用存档；首次缺少 2021 年以前历史时需显式使用 archive 初始化。可用 GitHub 仓库变量 FEAR_GREED_SOURCE 配置。
-- 指数按上游 fetch_cnn.py + build_combined.py 处理 fear_and_greed_historical.data：所有时间戳取 UTC 日期，包含实时尾点，同日保留响应中最后一条及其评级，不按美股收盘时间过滤。历史接口请求 2021-02-01 起的数据；如果响应范围缩短，更早的本地历史仍保留，响应范围内接收官方修订，若缺少范围内已有日期则拒绝覆盖。CNN 与备用存档均在最新日期超过 7 天时拒绝写入。2021-02-01 前的第三方存档及独立历史补缺保持原有保护。
-- ETF 每个目标交易日首轮重新下载全历史和 Adj Close，重算整段前复权。已有日期丢失（即使总条数不变）、无效 OHLC、重复日期等均拒绝替换。暂时失败最多重试一次；明确返回拒绝访问或限流时不重试、不绕过。
+## 二、数据源与环境变量
 
-### 调度和状态
+| 数据类别 | 主来源 / 备用来源 | 核心规则 |
+| :--- | :--- | :--- |
+| 美股日线（5 只内置 + 自定义） | Yahoo Finance Chart API | 用 `Adj Close` 重算整段前复权；拒绝无效 OHLC、重复日期或已有历史丢失；内置标的若存在缺失交易日会记录告警并在状态中标记不完整 |
+| 恐慌与贪婪指数（F&G） | 主：CNN 官方接口（`2021-02-01` 起）<br>备：`whit3rabbit/fear-greed-data`（含 `2011–2021` 历史） | 仅网络/HTTP 失败时回退备用存档；数据校验失败或日期滞后不自动切源；拒绝未来日期与超 7 天陈旧数据 |
+| 国内场内 ETF（12 纳指 + 4 标普） | 行情：东方财富（备：腾讯财经）<br>规模/费率：天天基金 F10<br>1/3/5 年收益：Yahoo Finance（基准复用本地 `qqq.json`/`spy.json`） | 必须覆盖组内全部基金且时间不倒退；历史收益按中美共同可用截止日对齐；单只历史失败仅禁用该只区间对比 |
 
-.github/workflows/pages.yml 使用 America/New_York 时区自动适配夏冬时，并支持 main 推送与手动执行。K 线仅在交易日收盘后 1 分钟、61 分钟各更新一次：常规为纽约时间 16:01、17:01（北京时间夏令时次日 04:01、05:01，冬令时次日 05:01、06:01）；提前收盘为纽约时间 13:01、14:01。工作流还会在候选时点启动轻量日历检查，但非当日收盘对应时点不抓 K 线、不部署。
+### 可选环境变量（本地 / GitHub Actions Repository Variables）
 
-FNG 在纽约时间工作日每 6 小时（10:01、16:01、22:01）与周二至周六凌晨 04:01 重新抓取，工作日美股节假日仍执行，周六清晨 04:01 保留用于承接周五收盘修订与滞后补抓；周六日其余时段与周一凌晨停跑。除上述固定时点外，FNG 在交易日的两轮 ETF 收盘更新中也一起重新获取：正常收盘为 16:01、17:01，提前收盘为 13:01、14:01；重合时只请求一次。所有这些轮次即使日期已到齐也重新获取，不增加 07:35／08:35／09:35 等额外补抓时段。CNN 仅在网络请求失败时自动回退存档；数据校验失败或日期滞后不自动切源。CNN 与备用存档网络瞬时失败最多重试一次，401/403/418/429 不重试，不轮换请求身份。备用源仍可能滞后或失败，不保证当天数据必定可用。历史修订会覆盖对应日期分数，可能改变历史策略信号；当前快照不是当时可见数据的逐次存档。
+| 变量名 | 默认值 | 用途 |
+| :--- | :--- | :--- |
+| `HOST` | `127.0.0.1` | 本地服务监听地址；受信任局域网单人访问可设为局域网 IP 或 `0.0.0.0`（切勿直接暴露公网） |
+| `PORT` | `4173` | 本地服务监听端口 |
+| `DATA_DIR` | `public/data` | 本地快照与状态文件读写目录 |
+| `FEAR_GREED_SOURCE` | `auto` | `auto`（CNN 优先，网络失败回退存档）/ `cnn`（仅 CNN）/ `archive`（仅存档，首次初始化 2021 前历史需显式指定） |
+| `CNN_FETCH_USER_AGENT` | 内置 Chrome UA | 覆盖请求 CNN 接口时的 `User-Agent` |
+| `REFRESH_SOURCES` | 空（全部） | 逗号分隔指定本轮刷新来源，如 `Fear & Greed,SPY,QQQ` |
+| `MARKET_DATA_PROXY` | 未设置 | 显式代理 URL；未设置时依次读取 `HTTPS_PROXY`/`HTTP_PROXY`/`ALL_PROXY`，Windows 无环境变量时回退读系统注册表代理；设为 `direct` 可强制直连 |
 
-数据目标日期按 America/New_York、周末、常规美股节假日与提前收盘计算；收盘后留 1 分钟缓冲。临时休市规则需要随交易所公告维护，不代表交易所实时日历服务。调度门禁按触发的 cron 时点选择来源，避免任务延迟跨小时后误选来源；GitHub 定时任务可能延迟或丢失，不能保证收盘后精确 1 分钟执行。
+---
 
-public/data/status.json 记录各来源的数据日期、来源、最近检查时间、最近成功时间、fresh 与 ok。下载成功但日期不足，仍标为未到齐并使任务失败。页面显示指数与 ticker 的实际来源、降级原因及实际检查时间；ticker 相同状态合并为一行，不同或异常状态仍分别标出；页面、Actions 汇总及本地日志的时间统一使用 America/New_York，并显示 EST／EDT，并根据当前时间重新判断整体状态，不盲信旧 manifest 的 fresh=true。Actions 汇总分开记录 Pages 部署结果、本轮所选来源结果与全部来源状态；部署成功不会掩盖数据未到齐。日期到齐仅说明来源已提供该日数据，不保证上游以后不修订。
+## 三、GitHub Actions 定时调度一览
 
-同一进程合并并发请求，不同进程通过 public/data/.refresh.lock 排他写入；正常结束释放锁。异常退出若留下锁，必须先确认没有更新进程运行再移除，不能在任务运行中删锁。临时文件使用唯一名称。接口有 60 秒冷却并拒绝跨站调用。本地服务默认仅监听 127.0.0.1；不要直接作为公开 API 使用。
+工作流定义在 [.github/workflows/pages.yml](../.github/workflows/pages.yml)，使用 GitHub 原生时区自动适配夏/冬令时：
 
-### 发布
+| 类别 | 调度时间（当地时区） | 抓取目标 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **美股收盘联动** | 美东周一至周五 `16:01`、`17:01`<br>提前收盘日 `13:01`、`14:01` | 全部美股 ETF + F&G | 日历门禁只在实际交易日收盘 `+1` / `+61` 分钟放行，非收盘槽位直接跳过 |
+| **F&G 定时更新** | 美东周一至周五 `10:01`、`16:01`、`22:01`<br>周二至周六 `04:01` | F&G（配合 `--catch-up` 顺带补抓过期 ETF） | 工作日美股节假日仍跑；周六 `04:01` 承接周五收盘修订与兜底，其余周末停跑 |
+| **国内场内 ETF** | 北京周二至周六 `09:01`<br>周一至周六 `15:01`、`21:01` | `nasdaq100-etfs.json`、`sp500-etfs.json` | 不触发美股更新；周日及凌晨 `03:01` 停跑；周六 `09:01` 用于对齐周五美股基准收盘 |
+| **代码推送 / 手动触发** | 推送 `main` 或手动 `workflow_dispatch` | 全部美股 + F&G + 国内 ETF | 仅 `push` 事件运行全量应用测试；仅 `public/data/**` 变化不触发 `push` 工作流 |
 
-1. 将项目上传到上述仓库的 main 分支（不上传 dist 和临时锁文件）。
-2. 在仓库 Settings → Pages → Build and deployment 中选择 GitHub Actions。
-3. 确保允许工作流写入仓库内容；若 main 保护规则禁止机器人直推，数据持久化步骤会失败，需按仓库规则授权或另行采用数据分支。
-4. 在 Actions 中运行 Update data and deploy Pages，检查更新、保存与部署步骤。定时任务可能延迟，不能承诺准点；GitHub 还可能在公开仓库长期无活动后停用定时任务。需要关注失败通知和页面日期。
+> [!NOTE]
+> `server/refresh-schedule.mjs` 按触发的计划槽位选源，不因 GitHub 定时延迟跨小时而误选；修改 `.github/workflows/pages.yml` 中的美东 cron 小时时，必须同步更新 `server/refresh-schedule.mjs` 的匹配规则。
 
-代码推送到 main 时工作流先运行全部应用测试，再更新数据、保存有效快照与状态、打包并发布；定时（schedule）与手动（workflow_dispatch）触发时跳过应用测试，直接执行数据更新与发布。提交前会过滤仅包含检查时间戳或停盘份额缓存抖动的快照改写（若整体状态健康且无实质数据或状态变化，则恢复为当前 HEAD 快照）；若定时轮次最终无快照改动入库，则跳过本次静态打包与 Pages 部署。来源失败或状态未到齐时仍保留并发布失败状态，随后将任务标记失败；快照保存或推送失败则停止构建和部署，避免发布未入库的数据。部署本身失败时网站仍是上一版本，可从 Actions 查看。Git 推送失败不会强制覆盖远端。自动数据提交不会再次触发本工作流，避免循环。
+---
 
-### 分支、并发与恢复
+## 四、容错、防抖与并发保护
 
-当前采用单主分支的持续部署流程：main 保存代码和行情快照，功能提交推送 main 后自动发布；版本标签及 Release 用于标记软件版本，不单独触发部署。该模式不要求 develop / release 等长期分支，但 main 的任何代码提交都应视为生产候选。
+1. **原子写入与失败保留**：每个来源独立校验、临时文件原子替换；任一来源下载或校验失败均保留旧快照，不中断其他正常来源。
+2. **2 小时收盘宽限 + 自动补抓（`--catch-up`）**：GitHub 定时任务常延迟数小时。收盘后 2 小时内（`hasBlockingDataGap` 默认 `graceMinutes = 120`），若仅 F&G 轮次抢跑而美股尚未到齐，不误报红灯；后续任意定时轮次带 `--catch-up` 会自动补齐过期或缺失的来源。
+3. **无实质变动自动还原（抑制噪音提交）**：`scripts/filter-snapshot-commits.mjs` 在提交前对比 `HEAD`，若整体健康且仅有 `checkedAt`/`profileCheckedAt` 或东财同日盘后 `shares` 缓存抖动，则还原基线文件；定时轮次若最终无改动入库，自动跳过静态构建与 Pages 部署。
+4. **并发与文件锁**：同进程合并并发刷新请求；跨进程通过 `public/data/.refresh.lock` 排他写入。异常退出残留的陈旧锁具备自动回收逻辑，但极端并发回收仍存在竞争边界，切勿在有存活更新进程时手动删锁；若需手工排障，须先确认无更新进程运行再清理残锁。
+5. **瞬时重试与礼貌约束**：网络瞬时失败最多重试 1 次；遇 `401 / 403 / 418 / 429` 立即停止、不重试、不轮换身份。
+6. **本地服务安全边界**：默认仅监听 `127.0.0.1`，写接口校验同源与 `Host` 白名单，仅供个人本地或受信任局域网单人使用，不要直接暴露公网。
 
-发布工作流仅允许 refs/heads/main，且每次运行均重新检出当前 main，包括排队任务和使用本版工作流的重试。任务共享 pages-and-data 并发组并使用 queue: max，避免后来的空日历检查挤掉等待中的代码发布；GitHub 最多允许 100 个待运行任务，执行先后仍以实际入队为准。
+---
 
-保存快照前与部署前分别比较本地 HEAD 和远端 main。远端已经前进、快照推送被拒绝、或无法确认远端时，任务失败并停止发布，不自动合并未经本轮验证的新代码。恢复时使用 Actions 的 Run workflow，选择 main；新任务会读取最新代码和已保存快照。部署门禁与 GitHub Pages 接受部署之间不是跨服务原子事务，但同一并发组内发布串行，新的 main 发布会随后处理。
+## 五、首次部署与故障恢复
 
-GitHub 重跑历史任务沿用历史工作流定义，本次保护不会追溯修改旧任务。不要用旧版本的 Re-run jobs 恢复生产；使用 main 上的 Run workflow。若需回滚，应将所需软件修复或回滚提交推进 main 后发布，保留最新数据与可追溯历史。
+### 首次开启 GitHub Pages
+1. 推送代码到仓库 `main` 分支（不要上传 `dist/` 和锁文件）。
+2. 在仓库 **Settings → Pages → Build and deployment** 选择 **GitHub Actions**。
+3. 确认工作流拥有写入仓库内容权限（若开启 `main` 分支保护禁直推，需为快照机器人配置授权或改用独立数据分支）。
+4. 在 Actions 中手动运行一次 **Update data and deploy Pages** 验证全流程。
 
-代码协作时建议另设只读 pull_request 测试，并将其设为 main 的必需检查。目前仓库工作流只在合入 main 后测试；仅新增 PR 工作流也不会自动开启分支保护。若启用禁止直推的保护规则，还须为机器人快照写入设计明确的授权路径，或将快照迁移到独立数据分支，不能直接开启后使定时更新持续失败。
+### 常见故障恢复
+- **远端 `main` 前进导致保存或部署中止**：工作流在保存快照前与部署前均会核对本地 `HEAD` 与远端 `main`（`scripts/check-deploy-head.mjs`），发现落后立即中止，绝不覆盖新提交。恢复时请到 Actions 页面点击 **Run workflow**（选择 `main`）发起新运行。
+- **切勿点历史任务的 Re-run jobs**：GitHub 重跑旧任务会沿用历史工作流定义，可能绕过最新保护。
+- **回滚生产**：将修复或回滚提交推到 `main` 触发正常发布，保留最新数据快照与可追溯历史。
+- **数据未到齐提示**：Actions 汇总会分开展示部署结果与各来源状态；页面始终按当前纽约时间重新判定新鲜度，不会盲信旧 `status.json`。
 
-node scripts/build-site.mjs 生成 dist/，每次清理并重建这个固定输出目录。dist/deployment.json 标记静态模式，页面刷新图标置灰禁用，提示“仅本地部署可更新数据”。资源均使用相对路径，兼容 /DCA-tool/。页面不包含 GitHub token、上游密钥或代理配置。普通访客不会触发数据源抓取。
+---
 
-### 数据使用条件
+## 六、数据使用合规提醒
 
-低频请求不等于获得采集或再分发许可。当前适配器不提供 Yahoo/CNN 的授权，也不承诺接口稳定可用；公开发布前应确认对应数据使用条件。第三方仓库代码的开源许可不能自动代表原始行情或指数的再分发许可。
+低频定时请求不代表获得上游数据采集或再分发许可；Yahoo Finance、CNN、东方财富、腾讯财经与天天基金接口均可能变更或限流，公开发布前请核对各上游服务条款与 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
 
-参考：
-- https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
-- https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
-- https://www.nyse.com/trade/hours-calendars
-- https://github.com/whit3rabbit/fear-greed-data
-- https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
-
-
-
-## 标普500 ETF 页面
-
-`funds.html?group=sp500` 与纳指分组（`funds.html?group=nasdaq100`）共用同一页面与更新流程（北京时间15:01起每6小时），基准为SPY（直接复用本地 `spy.json`）。`node scripts/update-funds.mjs` 默认更新两组，`public/data/sp500-etfs.json` 会随现有工作流保存、发布；本地完整更新也包含两组。可使用 `--group=sp500` 或 `--group=nasdaq100` 单独更新，仍使用同一数据锁与原子写入。两组独立保留快照，命令按整体 complete 报告部分失败。
+参考链接：
+- [GitHub Pages 自定义工作流文档](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+- [GitHub Actions schedule 触发说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+- [NYSE 交易日历与休市时间](https://www.nyse.com/trade/hours-calendars)
+- [whit3rabbit/fear-greed-data](https://github.com/whit3rabbit/fear-greed-data)
+- [Yahoo 服务条款](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html)

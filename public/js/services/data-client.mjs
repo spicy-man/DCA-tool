@@ -1,6 +1,6 @@
 import { parseCSV } from '../domain/sentiment.mjs';
 import { filterMarketHistory } from '../domain/market.mjs';
-import { getFundGroup } from '../domain/fund-groups.mjs';
+import { getFundGroup } from '../domain/funds.mjs';
 
 export async function loadFundSnapshot(groupId = 'nasdaq100') {
   const group = getFundGroup(groupId);
@@ -43,10 +43,6 @@ export async function getDeploymentInfo() {
   } catch {
     return { mode: 'static', version: null };
   }
-}
-
-export async function getDeploymentMode() {
-  return (await getDeploymentInfo()).mode;
 }
 
 export async function loadSourceHealth() {

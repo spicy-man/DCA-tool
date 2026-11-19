@@ -1,11 +1,12 @@
-import { fundNumber } from './nasdaq-funds.mjs';
+import { fundNumber } from './funds.mjs';
+import { daysInMonth } from './trading-calendar.mjs';
 
 export const PERFORMANCE_YEARS = Object.freeze([1, 3, 5]);
 
 export function yearsBefore(date, years) {
   const [year, month, day] = date.split('-').map(Number);
   const target = year - years;
-  const lastDay = new Date(Date.UTC(target, month, 0)).getUTCDate();
+  const lastDay = daysInMonth(target, month);
   return `${target}-${String(month).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 }
 

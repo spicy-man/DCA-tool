@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { refreshAll, addCustomSymbol } from './updater.mjs';
 import { readCustomSymbols, removeCustomSymbol } from './symbols.mjs';
+import { isFundsHealthy, describeFundsIssues } from '../public/js/domain/data-health.mjs';
 
 const root = fileURLToPath(new URL('../public/', import.meta.url));
 const defaultAppVersion = (() => {
@@ -153,16 +154,6 @@ export function createServer({
           return;
         }
 
-        const isFundsHealthy = funds => {
-          if (!funds) return true;
-          if (funds.ok === false || funds.complete === false) return false;
-          if (funds.performance?.ok === false || funds.performance?.complete === false) return false;
-          if (Array.isArray(funds.groups)) {
-            return funds.groups.every(g => g.ok !== false && g.performanceOk !== false && g.performanceComplete !== false);
-          }
-          return true;
-        };
-
         if (!active && (!lastResult || Date.now() - lastRun >= cooldownMs)) {
           active = refresh({ dataDir, includeFunds: true })
             .then(value => {
@@ -183,22 +174,7 @@ export function createServer({
           .filter(r => !r.ok || !r.fresh)
           .map(r => r.symbol + (r.ok ? ' 数据尚未到齐' : ' 更新失败，已保留本地数据'));
         const funds = status.funds;
-        if (funds) {
-          if (Array.isArray(funds.groups) && funds.groups.length) {
-            for (const group of funds.groups) {
-              const label = group.groupId || '场内基金';
-              if (group.ok === false) errors.push(label + ' 基金更新失败，已保留本地数据');
-              else if (group.performanceOk === false) errors.push(label + ' 基金历史收益更新失败，已保留本地数据');
-              else if (group.performanceComplete === false) errors.push(label + ' 基金历史收益尚未到齐');
-            }
-          } else {
-            if (funds.ok === false || funds.performance?.ok === false) {
-              errors.push('场内基金更新失败，已保留本地数据');
-            } else if (funds.complete === false || funds.performance?.complete === false) {
-              errors.push('场内基金数据尚未到齐');
-            }
-          }
-        }
+        errors.push(...describeFundsIssues(funds, { useGroupTitles: false, incompleteText: '数据尚未到齐' }));
         const fundsAnyOk = !!funds && (
           Array.isArray(funds.groups) && funds.groups.length
             ? funds.groups.some(g => g.ok !== false)

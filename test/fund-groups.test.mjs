@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { FUND_GROUPS, getFundGroup } from '../public/js/domain/fund-groups.mjs';
+import { FUND_GROUPS, getFundGroup } from '../public/js/domain/funds.mjs';
 import { refreshFunds } from '../server/updater.mjs';
 
 const now = Date.parse('2026-10-26T08:00Z');

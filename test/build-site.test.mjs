@@ -12,7 +12,8 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const file of ['scripts/build-site.mjs', 'scripts/version.mjs', 'package.json', 'CHANGELOG.md',
     'public/index.html', 'public/funds.html', 'public/diagram.html',
-    'public/js/funds-page.mjs', 'public/style.css', 'public/js/domain/market.mjs', 'public/js/domain/trading-calendar.mjs']) {
+    'public/js/funds-page.mjs', 'public/style.css', 'public/js/domain/market.mjs',
+    'public/js/domain/trading-calendar.mjs', 'public/js/domain/funds.mjs', 'public/js/domain/data-health.mjs']) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await copyFile(new URL('../' + file, import.meta.url), path.join(root, file));
   }

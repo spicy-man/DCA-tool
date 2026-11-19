@@ -1,8 +1,12 @@
-import { NASDAQ_FUNDS, normalizeFundQuotes, fundNumber, premiumRate } from '../public/js/domain/nasdaq-funds.mjs';
+import { NASDAQ_FUNDS, normalizeFundQuotes, fundNumber, premiumRate } from '../public/js/domain/funds.mjs';
 
 export const fundQuotesURL = (funds = NASDAQ_FUNDS) => 'https://push2delay.eastmoney.com/api/qt/ulist.np/get?' +
-  new URLSearchParams({ fltt: '2', invt: '2', fields: 'f12,f14,f2,f3,f6,f38,f124,f441',
-    secids: funds.map(({ code }) => (code.startsWith('5') ? '1.' : '0.') + code).join(',') });
+  new URLSearchParams({
+    fltt: '2',
+    invt: '2',
+    fields: 'f12,f14,f2,f3,f6,f38,f124,f441',
+    secids: funds.map(({ code }) => (code.startsWith('5') ? '1.' : '0.') + code).join(',')
+  });
 export const FUND_QUOTES_URL = fundQuotesURL();
 export const fundProfileURL = code => `https://fundf10.eastmoney.com/jbgk_${code}.html`;
 export const tencentQuotesURL = (funds = NASDAQ_FUNDS) => 'https://qt.gtimg.cn/q=' + funds
@@ -21,8 +25,15 @@ export function parseTencentQuotes(text, now, funds = NASDAQ_FUNDS) {
     // Guard the undocumented reference-value fields against upstream layout changes.
     if (computed !== null && (published === null || Math.abs(computed - published) > 0.05)) throw Error('备用溢价口径不匹配');
     const amount = fundNumber(fields[57]);
-    return { f12: code, f2: price, f441: iopv, f3: fields[32],
-      f6: amount === null ? null : amount * 10000, f38: fields[72], f124: Date.parse(iso) / 1000 };
+    return {
+      f12: code,
+      f2: price,
+      f441: iopv,
+      f3: fields[32],
+      f6: amount === null ? null : amount * 10000,
+      f38: fields[72],
+      f124: Date.parse(iso) / 1000
+    };
   });
   return normalizeFundQuotes({ rc: 0, data: { diff } }, now, funds);
 }
@@ -61,8 +72,12 @@ export async function fetchFundSnapshot({ fetchText, now, previous, funds = NASD
   const checkedAt = new Date(now).toISOString();
   const enriched = await Promise.all(rows.map(async row => {
     const old = previous?.rows?.find(item => item.code === row.code);
-    let profile = { netAssets: old?.netAssets ?? null, scaleDate: old?.scaleDate ?? null,
-      annualFee: old?.annualFee ?? null, profileCheckedAt: old?.profileCheckedAt ?? null };
+    let profile = {
+      netAssets: old?.netAssets ?? null,
+      scaleDate: old?.scaleDate ?? null,
+      annualFee: old?.annualFee ?? null,
+      profileCheckedAt: old?.profileCheckedAt ?? null
+    };
     try {
       const next = parseFundProfile(await fetchText(fundProfileURL(row.code)));
       if (next.netAssets !== null && next.scaleDate <= row.quoteDate && (!profile.scaleDate || next.scaleDate >= profile.scaleDate)) {
@@ -74,6 +89,13 @@ export async function fetchFundSnapshot({ fetchText, now, previous, funds = NASD
     } catch { /* Quote updates remain usable when profile pages are unavailable. */ }
     return { ...row, ...profile };
   }));
-  return { version: 1, source: quoteSource + ' / 天天基金', quoteSource, checkedAt, lastAttemptAt: checkedAt,
-    ok: true, rows: enriched };
+  return {
+    version: 1,
+    source: quoteSource + ' / 天天基金',
+    quoteSource,
+    checkedAt,
+    lastAttemptAt: checkedAt,
+    ok: true,
+    rows: enriched
+  };
 }

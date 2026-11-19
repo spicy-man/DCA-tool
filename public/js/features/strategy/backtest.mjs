@@ -1,7 +1,8 @@
 import { renderKDReview } from './kd.mjs';
 import { compareStrategies, findLatestPeakRecovery } from '../../domain/backtest.mjs';
 import { appEvents, events } from '../../services/events.mjs';
-import { chartInsets, createTradingScale, createProfitAxis } from '../../charts/geometry.mjs';
+import { formatMoney } from '../../ui/format.mjs';
+import { STRATEGY_COLORS, drawBacktestChart, renderBacktestTable } from './backtest-view.mjs';
 
 const backtestScaleStorageKey = 'seeker.backtestScale.v1';
 const backtestSeriesStorageKey = 'seeker.backtestSeries.v1';
@@ -15,115 +16,67 @@ let replay = null;
 let replayTimer = null;
 let replayFrame = null;
 let previewIndex = null;
-const colors = ['#607487', '#0d9488', '#2563eb', '#c26e2b', '#a64b77'];
-const amount = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const percent = value => value === null ? '—' : (Math.abs(value) < 0.00005 ? 0 : value * 100).toFixed(2) + '%';
-const ratio = value => value === null || !Number.isFinite(value) ? '—' : value.toFixed(2);
 const $ = id => document.getElementById(id);
 
 function drawProfitChart(result) {
   replayFrame = null;
   const svg = $('backtest-plot');
-  svg.replaceChildren();
-  svg.dataset.scale = logScale ? 'log' : 'linear';
-  svg.dataset.series = seriesMode;
-  const showEquity = seriesMode === 'equity';
-  const showPrincipal = showEquity && result.mode === 'equal';
-  $('backtest-principal-legend').hidden = !showPrincipal;
-  const add = (tag, attributes, text) => {
-    const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-    if (text !== undefined) node.textContent = text;
-    svg.append(node);
-    return node;
-  };
-  const metric = point => showEquity ? point.equity : point.profit;
-  const principalCurve = result.results[0].curve;
-  const all = [
-    ...result.results.flatMap(strategy => strategy.curve.map(metric)),
-    ...(showPrincipal ? principalCurve.map(point => point.invested) : [])
-  ];
-  const width = Math.max(320, svg.clientWidth || 980);
-  const height = 280;
-  svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
-  const { left, right } = chartInsets(width);
-  const top = 18;
-  const bottom = height - 42;
-  const pw = width - left - right;
-  const calendar = replay ? replay.dates.slice(0, Math.max(80, replay.maxIndex + 1)) : context?.range?.calendar?.length
-    ? context.range.calendar
-    : principalCurve.map(point => point.date);
-  const scale = createTradingScale(calendar, 'daily', left, pw);
-  const x = scale.x;
-  const axis = createProfitAxis(all, top, bottom, logScale, context?.baseAmount);
-  const y = axis.y;
-  add('title', {}, showEquity
-    ? (showPrincipal ? '五种策略的累计资产与投入本金' : '五种策略的累计资产')
-    : '五种策略的累计盈亏，已扣除累计投入本金');
-  for (const value of axis.ticks) {
-    const py = y(value);
-    add('line', { x1: left, x2: width - right, y1: py, y2: py, stroke: '#e5eaf0', 'stroke-dasharray': '3 4' });
-    add('text', { x: width - right + 10, y: py + 4, 'text-anchor': 'start', fill: '#607487', 'font-size': 11 }, value.toLocaleString('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }));
-  }
-  if (showPrincipal) {
-    const principalPath = principalCurve
-      .map((point, index) => (index ? 'L' : 'M') + x(point.date).toFixed(2) + ',' + y(point.invested).toFixed(2))
-      .join(' ');
-    add('path', {
-      d: principalPath,
-      fill: 'none',
-      stroke: '#94a3b8',
-      'stroke-width': 1.6,
-      'stroke-dasharray': '5 4',
-      'vector-effect': 'non-scaling-stroke'
-    });
-  }
-  for (const [i, strategy] of result.results.entries()) {
-    const path = strategy.curve.map((point, index) => (index ? 'L' : 'M') + x(point.date).toFixed(2) + ',' + y(metric(point)).toFixed(2)).join(' ');
-    add('path', { d: path, fill: 'none', stroke: colors[i], 'stroke-width': 2, 'data-strategy': strategy.id, 'aria-label': strategy.name, 'vector-effect': 'non-scaling-stroke' });
-    const last = strategy.curve.at(-1);
-    add('circle', { cx: x(last.date), cy: y(metric(last)), r: 3, fill: colors[i] });
-  }
-  let recoveryLabel = null;
-  const preferredId = (context?.strategy || activeStrategy) === 'combined' ? 'combined' : 'kdFear';
-  let focusIndex = result.results.findIndex(strategy => strategy.id === preferredId);
-  if (focusIndex < 0) focusIndex = result.results.findIndex(strategy => strategy.id === 'combined');
-  if (focusIndex < 0) focusIndex = result.results.findIndex(strategy => strategy.id === 'kdFear');
-  const focus = focusIndex >= 0 ? result.results[focusIndex] : null;
-  const recovery = replay && focus && findLatestPeakRecovery(focus.curve, seriesMode);
-  if (recovery) {
-    const x1 = x(recovery.start);
-    const x2 = x(recovery.end);
-    const py = y(recovery.value);
-    const label = recovery.recovered ? '前高修复 · ' + recovery.days + ' 天' : '未修复 · 已 ' + recovery.days + ' 天';
-    add('line', {
-      x1, x2, y1: py, y2: py, stroke: colors[focusIndex], 'stroke-width': 1.5,
-      'stroke-dasharray': '6 4', 'data-recovery-line': '',
-      'aria-label': focus.name + (showEquity ? '累计资产' : '累计盈亏') + '前高 ' + amount(recovery.value) + '，' + recovery.start + ' 至 ' + recovery.end + '，' + label
-    });
-    for (const px of [x1, x2]) add('circle', { cx: px, cy: py, r: 3, fill: '#fff', stroke: colors[focusIndex], 'stroke-width': 1.5 });
-    const halfLabel = label.length * 5.5 + 4;
-    const labelRight = replay ? Math.min(width - right, x(principalCurve.at(-1).date) - 4) : width - right;
-    recoveryLabel = add('text', {
-      x: Math.max(left + halfLabel, Math.min(labelRight - halfLabel, (x1 + x2) / 2)),
-      y: Math.max(top + 12, py - 9), 'text-anchor': 'middle', fill: colors[focusIndex],
-      'font-size': 11, stroke: '#fff', 'stroke-width': 4, 'paint-order': 'stroke',
-      'stroke-linejoin': 'round', 'data-recovery-label': ''
-    }, label);
-  }
-  if (replay) {
-    const mask = add('rect', { y: top, height: bottom - top, fill: '#fff', 'pointer-events': 'none', 'data-replay-mask': '' });
-    const cursor = add('line', { y1: top, y2: bottom, stroke: '#607487', 'stroke-dasharray': '4 4', 'pointer-events': 'none', 'data-replay-cursor': '' });
-    const dateLabel = add('text', { y: top - 5, fill: '#607487', 'font-size': 11, 'text-anchor': 'middle', 'pointer-events': 'none', 'data-replay-date': '' });
-    // Keep text readable even when only a few days fit left of the cursor.
-    if (recoveryLabel) svg.append(recoveryLabel);
-    replayFrame = { width, height, left, right: width - right, top, bottom, scale, mask, cursor, dateLabel, recoveryLabel };
-    paintReplayCursor();
-  }
-  for (const tick of scale.ticks(width < 500 ? 3 : 6)) {
-    const labelX = Math.max(tick.label.length * 4 + 2, tick.x);
-    add('text', { x: labelX.toFixed(2), y: height - 10, 'text-anchor': 'middle', fill: '#607487', 'font-size': 11 }, tick.label);
-  }
+  const calendar = replay
+    ? replay.dates.slice(0, Math.max(80, replay.maxIndex + 1))
+    : context?.range?.calendar?.length
+      ? context.range.calendar
+      : null;
+
+  drawBacktestChart(svg, result, {
+    seriesMode,
+    logScale,
+    baseAmount: context?.baseAmount,
+    principalLegend: $('backtest-principal-legend'),
+    widthFallback: 980,
+    height: 280,
+    top: 18,
+    bottomPadding: 42,
+    tickLabelOffset: 10,
+    calendar,
+    onAfterSeries({ add, x, y, width, height, left, right, top, bottom, scale, principalCurve, showEquity }) {
+      let recoveryLabel = null;
+      const preferredId = (context?.strategy || activeStrategy) === 'combined' ? 'combined' : 'kdFear';
+      let focusIndex = result.results.findIndex(strategy => strategy.id === preferredId);
+      if (focusIndex < 0) focusIndex = result.results.findIndex(strategy => strategy.id === 'combined');
+      if (focusIndex < 0) focusIndex = result.results.findIndex(strategy => strategy.id === 'kdFear');
+      const focus = focusIndex >= 0 ? result.results[focusIndex] : null;
+      const recovery = replay && focus && findLatestPeakRecovery(focus.curve, seriesMode);
+      if (recovery) {
+        const x1 = x(recovery.start);
+        const x2 = x(recovery.end);
+        const py = y(recovery.value);
+        const label = recovery.recovered ? '前高修复 · ' + recovery.days + ' 天' : '未修复 · 已 ' + recovery.days + ' 天';
+        add('line', {
+          x1, x2, y1: py, y2: py, stroke: STRATEGY_COLORS[focusIndex], 'stroke-width': 1.5,
+          'stroke-dasharray': '6 4', 'data-recovery-line': '',
+          'aria-label': focus.name + (showEquity ? '累计资产' : '累计盈亏') + '前高 ' + formatMoney(recovery.value) + '，' + recovery.start + ' 至 ' + recovery.end + '，' + label
+        });
+        for (const px of [x1, x2]) add('circle', { cx: px, cy: py, r: 3, fill: '#fff', stroke: STRATEGY_COLORS[focusIndex], 'stroke-width': 1.5 });
+        const halfLabel = label.length * 5.5 + 4;
+        const labelRight = replay ? Math.min(width - right, x(principalCurve.at(-1).date) - 4) : width - right;
+        recoveryLabel = add('text', {
+          x: Math.max(left + halfLabel, Math.min(labelRight - halfLabel, (x1 + x2) / 2)),
+          y: Math.max(top + 12, py - 9), 'text-anchor': 'middle', fill: STRATEGY_COLORS[focusIndex],
+          'font-size': 11, stroke: '#fff', 'stroke-width': 4, 'paint-order': 'stroke',
+          'stroke-linejoin': 'round', 'data-recovery-label': ''
+        }, label);
+      }
+      if (replay) {
+        const mask = add('rect', { y: top, height: bottom - top, fill: '#fff', 'pointer-events': 'none', 'data-replay-mask': '' });
+        const cursor = add('line', { y1: top, y2: bottom, stroke: '#607487', 'stroke-dasharray': '4 4', 'pointer-events': 'none', 'data-replay-cursor': '' });
+        const dateLabel = add('text', { y: top - 5, fill: '#607487', 'font-size': 11, 'text-anchor': 'middle', 'pointer-events': 'none', 'data-replay-date': '' });
+        // Keep text readable even when only a few days fit left of the cursor.
+        if (recoveryLabel) svg.append(recoveryLabel);
+        replayFrame = { width, height, left, right: width - right, top, bottom, scale, mask, cursor, dateLabel, recoveryLabel };
+        paintReplayCursor();
+      }
+    }
+  });
 }
 
 function render() {
@@ -157,17 +110,7 @@ function render() {
     }
     renderKDReview({ ...context, range: replayWindow || range }, result);
     $('backtest-period').textContent = context.symbol + ' · ' + result.start + ' — ' + result.end + ' · ' + ((Date.parse(result.end) - Date.parse(result.start)) / (365.25 * 86400000)).toFixed(1) + '年 · 区间开始时持仓为零';
-    for (const [i, strategy] of result.results.entries()) {
-      const tr = document.createElement('tr');
-      const values = [strategy.name, amount(strategy.invested), amount(strategy.cash - strategy.cashInterest), amount(strategy.equity), amount(strategy.profit - strategy.cashInterest), amount(strategy.cashInterest), amount(strategy.profit), percent(strategy.capitalReturn), percent(strategy.xirr), percent(strategy.maxDrawdown), ratio(strategy.sharpe), ratio(strategy.sortino), ratio(strategy.mar), strategy.trades];
-      for (const [j, value] of values.entries()) {
-        const cell = document.createElement(j === 0 ? 'th' : 'td');
-        if (j === 0) { cell.scope = 'row'; cell.style.setProperty('--strategy-color', colors[i]); }
-        cell.textContent = value;
-        tr.append(cell);
-      }
-      $('backtest-results').append(tr);
-    }
+    renderBacktestTable($('backtest-results'), result.results);
     const sentiment = context.sentiment;
     const coverage = sentiment.length ? '指数记录覆盖 ' + sentiment[0].date + ' — ' + sentiment.at(-1).date + '，缺失日期不补造；指数覆盖前的区间不触发恐慌加投。' : '暂无指数数据，恐慌加投未参与。';
     const funding = mode === 'equal'

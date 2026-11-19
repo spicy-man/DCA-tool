@@ -17,7 +17,7 @@ try {
     groups: snapshot.groups,
     error }));
   if (!snapshot.complete) process.exitCode = 1;
-} catch {
-  console.error('基金快照更新失败，请检查数据源连接或更新锁。');
+} catch (error) {
+  console.error('基金快照更新失败，请检查数据源连接或更新锁。', error?.publicMessage || error?.message || error);
   process.exitCode = 1;
 }

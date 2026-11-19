@@ -1,5 +1,6 @@
 import { isTradingDay, latestClosedSession, nyDate, sessionClose } from '../public/js/domain/trading-calendar.mjs';
 import { SYMBOLS } from '../public/js/domain/market.mjs';
+import { isSourceHealthy } from '../public/js/domain/data-health.mjs';
 
 function appendStaleSources(sources, now, { status, customSymbols = [] }) {
   const expectedDate = latestClosedSession(now);
@@ -8,7 +9,7 @@ function appendStaleSources(sources, now, { status, customSymbols = [] }) {
   for (const symbol of ['Fear & Greed', ...SYMBOLS, ...customSymbols]) {
     if (merged.includes(symbol)) continue;
     const record = bySymbol.get(symbol);
-    if (!record || !record.ok || record.fresh === false || record.missingDates?.length || !record.date || record.date < expectedDate) {
+    if (!isSourceHealthy(record, expectedDate)) {
       merged.push(symbol);
     }
   }
@@ -31,6 +32,7 @@ function parseWeekdays(spec) {
 
 // Each workflow entry has one New York hour. Resolve the planned slot rather
 // than the runner's hour so a delayed job still refreshes the intended sources.
+// Keep the regex hours in sync with the America/New_York cron entries in .github/workflows/pages.yml.
 export function scheduledSources(cron, now = Date.now(), options = {}) {
   const match = /^1 (4|10|13|14|16|17|22) \* \* (\S+)$/.exec(cron);
   const weekdays = match ? parseWeekdays(match[2]) : undefined;

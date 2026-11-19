@@ -1,4 +1,4 @@
-import { FUND_GROUPS } from '../domain/fund-groups.mjs';
+import { FUND_GROUPS } from '../domain/funds.mjs';
 
 export function initFundNavigation() {
   const symbol = document.getElementById('symbol');

@@ -1,7 +1,6 @@
 import { loadFundSnapshot } from '../../services/data-client.mjs';
 import { createAppUpdateWatcher } from '../../ui/app-update.mjs';
-import { sortFunds, FUND_SORT_FIELDS } from '../../domain/nasdaq-funds.mjs';
-import { getFundGroup, FUND_GROUPS } from '../../domain/fund-groups.mjs';
+import { sortFunds, FUND_SORT_FIELDS, getFundGroup, FUND_GROUPS } from '../../domain/funds.mjs';
 import { performanceRows } from '../../domain/fund-performance.mjs';
 
 const decimal = (value, digits = 2) => typeof value === 'number' && Number.isFinite(value)

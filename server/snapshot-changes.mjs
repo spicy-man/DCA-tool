@@ -2,7 +2,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { isDeepStrictEqual } from 'node:util';
 import { SYMBOLS } from '../public/js/domain/market.mjs';
-import { FUND_GROUPS } from '../public/js/domain/fund-groups.mjs';
+import { FUND_GROUPS } from '../public/js/domain/funds.mjs';
 import { atomicWrite, readOptional } from './storage.mjs';
 
 export const MARKET_SNAPSHOT_FILES = Object.freeze([
@@ -37,6 +37,7 @@ function normalizeFundSnapshot(snapshot, previous) {
   const rows = (snapshot.rows || []).map(row => {
     const { profileCheckedAt, ...rest } = row;
     const prevRow = prevRowsByCode.get(row.code);
+    // Eastmoney post-close CDN nodes can jitter `shares` even when quoteDate/quoteTime have not changed.
     if (prevRow && prevRow.quoteDate === row.quoteDate && prevRow.quoteTime === row.quoteTime) {
       delete rest.shares;
     }

@@ -1,83 +1,133 @@
-# 架构说明
+# 系统架构说明
 
-项目采用原生 ES Modules，浏览器静态页面与 Node.js 服务共用无环境依赖的领域计算模块。保持零 npm 运行依赖；本地服务与 GitHub Pages 使用同一份前端。
+本项目采用 **Node.js `>=20` + 浏览器原生 ES Modules**，**零第三方 npm 运行依赖**。浏览器端与服务端共用 `public/js/domain/` 里的纯函数计算逻辑；同一份前端同时运行在本地 Node 服务与 GitHub Pages 静态站点两种模式下。
 
-## 目录与职责
+---
+
+## 一、目录与职责地图
 
 ```text
-server.mjs                      本地启动入口，保留 node server.mjs / start.cmd / start.command 用法
+server.mjs                       本地服务启动入口（node server.mjs / start.cmd / start.command）
+data/
+  fear-greed-history-alignment.json  2011–2021 早期恐慌指数缺口补齐表（仅服务端合并使用）
 server/
-  http-server.mjs               静态文件、刷新接口、同源检查和冷却
-  updater.mjs                   唯一数据更新编排入口 refreshAll
-  network.mjs                   HTTP 下载、代理选择和 Yahoo URL
-  storage.mjs                   快照校验、文件锁、原子写入
-  symbols.mjs                   自定义标的读写、校验与删除同步
-  refresh-schedule.mjs          纽约时区定时更新计划门禁
-  sentiment-history.mjs         早期情绪指数历史补缺合并
-  nasdaq-funds.mjs              两组 ETF 共用行情、备用源与披露资料解析
-  fund-performance.mjs         ETF与基准历史下载、原币种1/3/5年累计涨幅与失败保留编排
+  http-server.mjs                静态资源服务、/api/refresh、/api/symbols、同源与冷却保护
+  updater.mjs                    行情/情绪/基金刷新与新增自定义标的编排入口（refreshAll / refreshFunds / addCustomSymbol）
+  storage.mjs                    文件锁（.refresh.lock）、原子写入、历史防回退校验
+  network.mjs                    HTTP/代理下载、CNN 请求头与 Yahoo URL
+  symbols.mjs                    自定义标的读写、保留快照保护与删除同步
+  refresh-schedule.mjs           美东定时更新选源门禁（与 pages.yml cron 对应）
+  snapshot-changes.mjs           提交前过滤纯时间戳与东财盘后 shares 抖动
+  sentiment-history.mjs          早期恐慌指数历史补缺合并
+  fund-quotes.mjs                国内场内 ETF（纳指100 + 标普500）行情、备用源与 F10 费率解析
+  fund-performance.mjs           国内 ETF 与 QQQ/SPY 基准的 1/3/5 年前复权收益计算
 public/
-  index.html                    主页结构和首屏浅色声明
-  funds.html                    国内场内 ETF 对比共享二级页面（按 ?group= 切换分组）
-  diagram.html                  策略逻辑原图查看页面
-  logo.svg                      站点图标
-  style.css                     CSS 加载入口，固定加载顺序
-  css/                          页面布局、页头、弹窗、概览、回测、小窗、基金对比与 KD 样式
+  index.html                     主页结构与首屏浅色声明
+  funds.html                     国内场内 ETF 对比共享页（?group=nasdaq100 | sp500）
+  diagram.html                   策略逻辑原图查看页
+  style.css                      全站 CSS 加载入口（固定级联顺序）
+  css/                           page、header、弹窗、概览、回测、小窗、基金、kd、modern 样式
+  data/                          真实数据快照与来源状态（独立于源码）
+  diagrams/                      策略逻辑 SVG 原图
   js/
-    app.mjs                     主页启动入口：组合并初始化功能
-    funds-page.mjs              基金对比二级页面独立启动入口
-    application.mjs             双图窗口协调、页面控件和状态呈现
-    domain/                     数据解析、复权、聚合、策略、交易日和数据健康计算
-    charts/                     坐标几何、Canvas 情绪图绘制、指针/键盘导航
-    features/market/            行情缓存、K 线视图与行情控件
-    features/strategy/          定投偏好、信号展示、资金统计、回测对比与明细
-    features/funds/             国内场内 ETF 对比表格与排序视图
-    services/data-client.mjs     浏览器 HTTP 请求与部署模式判断
-    services/events.mjs          应用内部事件通道与名称
-    ui/                         术语、Tooltip、策略/欢迎/标的弹窗、图表显隐、导出与桌面小窗
-  data/                         真实快照与来源状态，独立于源码重构
-  diagrams/                     用户提供的逻辑图
-scripts/                        命令行更新和静态构建入口
-test/                           领域、后端、交互及架构边界测试
-docs/                           架构、部署与代码审查说明
+    app.mjs                      主页启动入口（按三阶段顺序初始化各模块）
+    funds-page.mjs               基金对比二级页独立入口
+    application.mjs              三图共享时间窗口、恐慌图控制、折叠动画、刷新与 PWA 恢复
+    domain/                      纯函数领域层：行情复权、交易日历、策略信号、回测、基金、健康度
+    charts/                      坐标几何、Canvas 情绪图绘制、指针/触控/键盘导航
+    features/market/             K 线图绘制与标的切换控件
+    features/strategy/           策略配置（settings）、信号叠加（overlay）、组合弹窗（allocation-dialog）、摘要（summary）、回测（backtest / backtest-view）、加权K（kd）
+    features/funds/              国内场内 ETF 对比表格与双条件排序
+    services/data-client.mjs     浏览器数据请求封装（相对页面路径，兼容 /DCA-tool/）
+    services/market-store.mjs    全站共享的前端行情快照缓存与失效控制
+    services/events.mjs          应用内局部 EventTarget 与事件名清单
+    ui/                          弹窗、Tooltip、格式化（format）、主图显隐、悬浮小窗、PWA 版本提示、CSV 导出等
+scripts/                         命令行入口：更新数据/基金、构建静态站、版本同步、CI 门禁脚本
+test/                            领域、后端、前端回归与架构边界测试
+docs/                            架构、部署说明与审查/技术债台账
 ```
 
-## 依赖方向
+---
 
-1. **domain** 只做计算，不读取 DOM、浏览器存储、网络或磁盘；Node.js 和浏览器均可导入。
-2. **charts** 依赖领域计算与图表几何，绘图函数接收 canvas 和视图数据；导航以回调提交窗口，不自行修改页面筛选器。
-3. **services** 封装浏览器数据访问及应用内通知，不直接修改 DOM。
-4. **features / ui** 负责各自的界面；带界面行为的模块通过 init 函数注册事件，导入阶段不操作 DOM 或发请求。
-5. **application** 协调日期范围、两图联动与刷新；**app** 按依赖顺序初始化策略控件、行情视图、弹窗和应用控制器。
-6. **server** 可以依赖 domain，不能依赖浏览器视图；网络层不写快照，所有更新经 updater 调用 storage 完成。
+## 二、依赖方向与模块边界
 
-当前两个图表功能各自维护显示数据，application 持有共用时间窗口。跨功能通知统一经应用局部 EventTarget，事件名集中定义于 events.mjs：replayRange、marketCalendar、marketHover、strategySettings、strategyView、sourceHealth、chartVisibility。禁止向全局 window 添加新的业务事件。
+### 自动测试守卫的约束（[test/architecture.test.mjs](../test/architecture.test.mjs)）
 
-## 数据流与更新入口
+1. **`domain/` 纯净度**：仅导入 `domain/` 内部模块，不引用 `document`、`localStorage`、`fetch` 或 `process`，Node 与浏览器直接共用。
+2. **前端相对导入不越界**：`public/js/` 内模块只能使用指向 `public/js/` 内部的相对导入，防止浏览器模块引用服务端代码。
+3. **非入口模块零副作用**：除 `app.mjs` 与 `funds-page.mjs` 外，其余前端模块必须可在无 DOM 环境安全导入，统一通过 `init*()` 注册事件与操作 DOM。
 
-浏览器 data-client 读取发布快照 → domain 解析/聚合 → application 与功能模块生成视图 → charts 绘图。URL 相对页面解析，不相对脚本文件解析，兼容 GitHub Pages 的 /DCA-tool/ 子路径。
+### 人工审查遵守的模块边界约定
 
-本地更新：页面 → POST /api/refresh → server/updater.mjs 的 refreshAll → network 下载 → domain 校验/计算 → storage 锁和原子替换。命令行和定时任务也调用同一 refreshAll。旧的 refreshETF 独立写入路径已移除，禁止另建绕过锁、历史保护或来源状态记录的写入通道。
+- **`charts/` 只做几何与绘图**：接收 Canvas 与数据，导航交互通过回调通知外部。
+- **`services/` 只做数据通道**：封装浏览器 `fetch` 与应用内 `EventTarget`，不操作 DOM。
+- **`server/` 统一持锁写盘**：可导入 `domain/`，不依赖浏览器视图；常规数据写盘均经 `updater.mjs`（数据刷新与新增标的）与 `symbols.mjs`（删除标的）调用 `storage.mjs` 持锁并原子替换（`snapshot-changes.mjs` 的默认基线回退路径亦经 `storage.mjs` 的 `atomicWrite`）。
 
-主页 QQQ / SPY 行情卡片右下角的主题色链接分别进入 `funds.html?group=nasdaq100` / `funds.html?group=sp500`，二级页面仅初始化基金对比，不加载美股图表与回测。国内基金对比使用独立快照 `nasdaq100-etfs.json` / `sp500-etfs.json` 和 features/funds/comparison.mjs；不加入以美股交易日判断健康度的 results，也不进入美元回测。每日脚本调用 updater 的 refreshFunds，和 refreshAll 共用 withDataLock 与 atomicWrite；本地整体更新通过 includeFunds 在同一锁内更新。行情必须覆盖对应分组配置的全部基金（纳指100 12只、标普500 4只），校验价格、时间、净值与回退字段口径，不接受逐只时间倒退。行情失败保留整份旧快照；规模或费率抓取失败保留此前披露值和日期。独立页通过 visibilitychange 切回前台重新读取快照。
+### 应用内事件清单（[events.mjs](../public/js/services/events.mjs)）
 
-静态站点：刷新图标置灰禁用，提示仅本地部署可更新数据。构建仅复制 public 到 dist，并写入静态部署标记；不需要打包编译 JavaScript。源码不会随服务端模块发布到 Pages。
+跨模块通知统一走局部 `appEvents`（不向 `window` 派发自定义业务事件），目前共 9 个事件：
+`replayRange`、`marketCalendar`、`marketHover`、`kdHover`、`strategySettings`、`symbolSettings`、`strategyView`、`sourceHealth`、`chartVisibility`。
 
-## 样式与资源
+---
 
-style.css 按 page.css → header.css → strategy-dialog.css → welcome-dialog.css → strategy-summary.css → backtest.css → floating-charts.css → funds.css → kd.css 的顺序加载，保留已有级联结果；页面始终声明浅色模式，背景色不依赖系统偏好。页面样式保留响应式级联顺序，已清理被后续同选择器覆盖的声明；后续视觉整理应配合多尺寸计算样式和截图验证。
+## 三、核心数据流与启动顺序
 
-数据、SVG 原图、来源链接、本地偏好键（如 `seeker.pyramid.v1`、`seeker.kd.v1`、`seeker.symbol.v1` 等 `seeker.*.v1` 系列）和数据文件格式保持稳定。后续改文件位置时，同时更新 ES Module 引用、测试、README 和第三方来源说明；历史 CHANGELOG 中的旧路径保留为当时记录。
+### 1. 读取与更新链路
 
-## 验证与维护
+```mermaid
+flowchart LR
+  subgraph 浏览器读取
+    D["public/data/* 快照"] --> DC["services/data-client.mjs"]
+    DC --> DM["domain/* 纯函数"]
+    DM --> APP["application / features"]
+    APP --> CH["charts / Canvas / SVG"]
+  end
 
-- node --test test/*.test.mjs：测试数据计算、更新保护、导航与模块边界。
-- node scripts/build-site.mjs：固定输出 dist/，只复制 public，不抓取或改写真实数据。
-- 浏览器检查本地模式与静态子路径，覆盖标的/周期、双图窗口、双指缩放、布局、策略偏好、导出和说明弹窗。
-- 调整目录时保持 server.mjs、scripts/ 命令和 GitHub Actions 调用方式兼容；导入模块不应隐式启动服务、访问真实数据或绑定 DOM。
+  subgraph 服务端更新（本地 / CLI / Actions）
+    TR["POST /api/refresh 或 scripts/*"] --> UP["server/updater.mjs"]
+    UP --> NET["server/network.mjs"]
+    NET --> DM2["domain/* 校验计算"]
+    DM2 --> ST["server/storage.mjs（锁 + 原子写）"]
+    ST --> D
+  end
+```
 
-这是小型单页应用的职责分层，不引入框架、数据库或依赖注入容器。若后续新增多个页面，再按实际复用需求演进。
+### 2. 主页启动顺序（[app.mjs](../public/js/app.mjs)）
 
-## 国内基金分组
+1. **阶段 1（环境与选项就绪）**：先绑定弹窗关闭命令（`bindDialogCommands`），再只请求一次 `deployment.json` → 本地模式下 `initSymbolDialog()` 把自定义标的注入 `<select id="symbol">`。
+2. **阶段 2（注册控件与订阅）**：依次初始化 `plan-estimate-help` → `kd` → `backtest` → `overlay` → `allocation-dialog` → `market/chart` → `chart-visibility` → `fund-navigation` → `strategy-dialog`。
+3. **阶段 3（启动拉数与联动）**：`initApplication()` 发起首屏行情/情绪拉取 → 挂载 `floating-charts`（依赖 `chart-visibility` 状态）与 `welcome-dialog`。
 
-`domain/fund-groups.mjs` 固定配置纳指100/QQQ与标普500/SPY的基金名单、基准、费率来源、页面及快照路径。`fund-navigation` 随主页标的切换入口；共享二级页启动器按查询参数 `?group=`（缺省回退 `body[data-fund-group]`）选择配置。网络层仅接受配置内的快照路径，界面校验基准代码，基准历史优先复用本地 `qqq.json` / `spy.json` 快照，历史缓存不跨基准复用。updater 在同一数据锁内逐组校验、原子保存，单组失败保留该组原数据；返回的 groups 和 complete 汇总两组结果，逐组文件不包含汇总状态。静态构建只发布明确列入白名单的两组快照。
+---
+
+## 四、两种运行模式对比
+
+| 维度 | 本地 Node 服务（`npm start`） | GitHub Pages 静态版（`npm run build`） |
+| :--- | :--- | :--- |
+| 运行入口 | `server.mjs`（默认 `127.0.0.1:4173`） | `dist/` 静态文件（兼容 `/DCA-tool/` 子路径） |
+| `deployment.json` | 服务端动态返回 `{ mode: "local", version }` | 构建时写入 `{ mode: "static", version }` |
+| 页面「更新数据」按钮 | 可用（调用同源 `POST /api/refresh`，60 秒冷却） | 置灰禁用，提示仅本地可更新 |
+| 自定义美股标的 | 支持增删（最多 30 个，存 `custom-symbols.json`） | 仅展示 5 只内置标的（构建时过滤个人数据） |
+| 资产缓存控制 | 响应头 `Cache-Control: no-cache` | 构建期为 `.mjs` 自动追加 `?v=<version>` |
+
+---
+
+## 五、国内场内 ETF 对比模块
+
+- **配置唯一来源**：[domain/funds.mjs](../public/js/domain/funds.mjs) 统一定义 `nasdaq100`（12 只，基准 QQQ）与 `sp500`（4 只，基准 SPY）两组名单、费率、页面路径、快照文件名及行情规范化与排序。
+- **独立页面**：主页按当前标的通过 `fund-navigation.mjs` 跳转到 `funds.html?group=nasdaq100` 或 `sp500`，只加载基金对比逻辑，不加载美股 K 线与回测；切回前台时通过 `visibilitychange` 重新读取快照。
+- **数据隔离**：写入独立快照 `nasdaq100-etfs.json` / `sp500-etfs.json`，基准历史直接复用本地 `qqq.json` / `spy.json`；不进入美元回测，但在 `status.json` 中单独记录 `funds` 健康状态。
+- **容错口径**：行情必须覆盖组内全部基金且时间不倒退，失败保留整份旧快照；F10 规模或费率失败保留上次披露值。
+
+---
+
+## 六、样式顺序与本地持久化键
+
+- **CSS 级联顺序**（[public/style.css](../public/style.css)）：`page.css` → `header.css` → `strategy-dialog.css` → `welcome-dialog.css` → `strategy-summary.css` → `backtest.css` → `floating-charts.css` → `funds.css` → `kd.css` → `modern.css`。全站固定浅色主题，不随系统深色模式切换。
+- **稳定 `localStorage` 键**（重构时必须保持向后兼容）：
+  - `seeker.pyramid.v1`：全部定投策略参数、分标的金额与组合配比（历史沿用旧名）
+  - `seeker.kd.v1`：加权K分档系数与参数版本
+  - `seeker.symbol.v1`：当前选中的标的
+  - `seeker.strategyView.v1`：主视图选中的策略（`kdFear` / `combined`）
+  - `seeker.backtestScale.v1` / `seeker.backtestSeries.v1`：回测图对数刻度与资产/盈亏模式
+  - 以及主图显隐、K 线对数刻度、欢迎弹窗已读等 `seeker.*.v1` 偏好键。

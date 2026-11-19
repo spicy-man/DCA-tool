@@ -1,12 +1,56 @@
 import { latestClosedSession } from './trading-calendar.mjs';
 import { SYMBOLS } from './market.mjs';
-
-const fundGroupTitles = Object.freeze({ nasdaq100: '纳斯达克100', sp500: '标普500' });
+import { FUND_GROUPS } from './funds.mjs';
 
 const timeFormat = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
   hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', timeZoneName: 'short'
 });
+
+export function isSourceHealthy(record, expectedDate) {
+  return Boolean(
+    expectedDate &&
+    record &&
+    record.ok &&
+    record.fresh !== false &&
+    !record.missingDates?.length &&
+    record.date &&
+    record.date >= expectedDate
+  );
+}
+
+export function isFundsHealthy(funds) {
+  if (!funds) return true;
+  if (funds.ok === false || funds.complete === false) return false;
+  if (funds.performance?.ok === false || funds.performance?.complete === false) return false;
+  if (Array.isArray(funds.groups)) {
+    return funds.groups.every(g => g.ok !== false && g.performanceOk !== false && g.performanceComplete !== false);
+  }
+  return true;
+}
+
+export function describeFundsIssues(funds, { useGroupTitles = true, incompleteText = '历史收益尚未到齐' } = {}) {
+  if (!funds) return [];
+  const issues = [];
+  if (Array.isArray(funds.groups) && funds.groups.length) {
+    for (const group of funds.groups) {
+      const label = useGroupTitles
+        ? (Object.hasOwn(FUND_GROUPS, group.groupId) ? FUND_GROUPS[group.groupId].title : null) || group.groupId || '场内'
+        : (group.groupId ? group.groupId + ' ' : '场内');
+      if (group.ok === false) issues.push(label + '基金更新失败，已保留本地数据');
+      else if (group.performanceOk === false) issues.push(label + '基金历史收益更新失败，已保留本地数据');
+      else if (group.performanceComplete === false) issues.push(label + '基金历史收益尚未到齐');
+    }
+  }
+  if (!issues.length) {
+    if (funds.ok === false || funds.performance?.ok === false) {
+      issues.push('场内基金更新失败，已保留本地数据');
+    } else if (funds.complete === false || funds.performance?.complete === false) {
+      issues.push('场内基金' + incompleteText);
+    }
+  }
+  return issues;
+}
 
 export function formatNewYorkTime(value) {
   if (value == null || value === '') return '尚未检查';
@@ -20,8 +64,8 @@ export function isStatusComplete(results, expectedDate, extraSymbols = []) {
   if (!Array.isArray(results) || !expectedDate) return false;
   const bySymbol = new Map(results.map(r => [r.symbol, r]));
   const required = ['Fear & Greed', ...SYMBOLS, ...extraSymbols];
-  const isHealthy = r => r && r.ok && r.fresh !== false && !r.missingDates?.length && r.date >= expectedDate;
-  return required.every(symbol => isHealthy(bySymbol.get(symbol))) && results.every(isHealthy);
+  return required.every(symbol => isSourceHealthy(bySymbol.get(symbol), expectedDate)) &&
+    results.every(result => isSourceHealthy(result, expectedDate));
 }
 
 export function healthSummary(status, now = Date.now()) {
@@ -55,7 +99,7 @@ export function healthSummary(status, now = Date.now()) {
   const tickerGroups = new Map();
   for (const r of results.filter(r => r.symbol !== 'Fear & Greed')) {
     const validTime = r.checkedAt != null && r.checkedAt !== '' && Number.isFinite(Date.parse(r.checkedAt));
-    const healthy = r.ok && r.date >= expected && r.fresh !== false && !r.missingDates?.length && !r.warning && validTime;
+    const healthy = isSourceHealthy(r, expected) && !r.warning && validTime;
     const key = healthy
       ? JSON.stringify(['healthy', r.date, r.source])
       : validTime
@@ -76,27 +120,7 @@ export function healthSummary(status, now = Date.now()) {
       return group.map(r => r.symbol).join(' / ') + '：' + description(group[0]) + '；检查：' + checked;
     }));
   }
-  const fundsIssues = (() => {
-    const funds = status.funds;
-    if (!funds) return [];
-    const issues = [];
-    if (Array.isArray(funds.groups) && funds.groups.length) {
-      for (const group of funds.groups) {
-        const label = (Object.hasOwn(fundGroupTitles, group.groupId) ? fundGroupTitles[group.groupId] : null) ||
-          group.groupId || '场内基金';
-        if (group.ok === false) issues.push(label + '基金更新失败，已保留本地数据');
-        else if (group.performanceOk === false) issues.push(label + '基金历史收益更新失败，已保留本地数据');
-        else if (group.performanceComplete === false) issues.push(label + '基金历史收益尚未到齐');
-      }
-    } else {
-      if (funds.ok === false || funds.performance?.ok === false) {
-        issues.push('场内基金更新失败，已保留本地数据');
-      } else if (funds.complete === false || funds.performance?.complete === false) {
-        issues.push('场内基金历史收益尚未到齐');
-      }
-    }
-    return issues;
-  })();
+  const fundsIssues = describeFundsIssues(status.funds);
   if (fundsIssues.length) {
     lines.push('场内基金：' + fundsIssues.join('；'));
   }
@@ -124,6 +148,5 @@ export function hasBlockingDataGap(status, now = Date.now(), graceMinutes = 120)
   for (const symbol of ['Fear & Greed', ...SYMBOLS]) {
     if (!bySymbol.has(symbol)) return true;
   }
-  return status.results.some(r =>
-    !r.ok || !r.date || r.date < requiredDate || r.fresh === false || !!r.missingDates?.length);
+  return status.results.some(r => !isSourceHealthy(r, requiredDate));
 }

@@ -1,8 +1,55 @@
-import { calculatePyramidSignals, daysInMonth, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
+import { calculatePyramidSignals, previousMonthCutoff, pyramidMultiple } from './pyramid-strategy.mjs';
 import { buildPortfolioOrders, comparePortfolioStrategies } from './backtest.mjs';
 import { evaluateFearStrategy } from './fear-strategy.mjs';
 import { calculateKDSignals } from './kd-strategy.mjs';
-import { isTradingDay } from './trading-calendar.mjs';
+import { daysInMonth, isTradingDay } from './trading-calendar.mjs';
+
+export function validTotalAmount(value) {
+  return Number.isFinite(value) && value >= 0.01 && Number.isFinite(value * 3 ** 9);
+}
+
+export function validWeight(value) {
+  return Number.isFinite(value) && value >= 0 && value <= 10000;
+}
+
+// Largest-remainder allocation keeps per-symbol 1N cents summing cleanly to total when weights sum to 100%.
+export function allocateWeightedAmounts(total, entries) {
+  const amounts = new Map();
+  if (!validTotalAmount(total)) return amounts;
+  const positive = entries.filter(entry => entry.weight > 0 && validWeight(entry.weight));
+  if (!positive.length) return amounts;
+  const sumWeight = positive.reduce((sum, entry) => sum + entry.weight, 0);
+  const targetCents = Math.abs(sumWeight - 100) < 1e-6
+    ? Math.round(total * 100)
+    : Math.round(total * sumWeight);
+  if (!Number.isSafeInteger(targetCents)) {
+    for (const entry of positive) {
+      amounts.set(entry.symbol, Math.round(total * entry.weight) / 100);
+    }
+    return amounts;
+  }
+  const parts = positive.map((entry, index) => {
+    const exactCents = total * entry.weight;
+    const floorCents = Math.floor(exactCents);
+    return {
+      symbol: entry.symbol,
+      index,
+      cents: floorCents,
+      remainder: exactCents - floorCents
+    };
+  });
+  const remainderCents = targetCents - parts.reduce((sum, part) => sum + part.cents, 0);
+  if (remainderCents > 0) {
+    const ranked = [...parts].sort((a, b) => (b.remainder - a.remainder) || (a.index - b.index));
+    for (let i = 0; i < remainderCents && i < ranked.length; i++) {
+      ranked[i].cents += 1;
+    }
+  }
+  for (const part of parts) {
+    amounts.set(part.symbol, part.cents / 100);
+  }
+  return amounts;
+}
 
 // Use the next execution's window and only its known daily bars; future prices can change the estimate.
 export function estimateMonthlyBuy(rows, baseAmount, expectedDate, lastExecutionDate) {
@@ -92,9 +139,11 @@ export function summarizeFunding(signals, rows, { start, end }) {
   return { start, end, months, count, total, monthlyAmount, regularAmount, pyramidExtraAmount, monthlyCount, pyramidCount, fearAmount, fearCount, average: total / months, peak, peakMonths, ...summarizeAnnualPeak(monthly) };
 }
 
-export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearThreshold = 10, mode = 'equal', totalBaseAmount = 0, kdOptions = null, plan = 'pyramidFear' }) {
+export function summarizePortfolioFunding({ items, sentiment, buyDay = 1, fearThreshold = 10, mode = 'equal', totalBaseAmount = 0, kdOptions = null, plan = 'combined' }) {
   if (!sentiment?.length || !items?.length) return null;
-  if (!['pyramidFear', 'kdFear'].includes(plan)) throw Error('组合定投方案无效');
+  // Accept legacy 'pyramidFear' alias alongside unified 'combined' strategy ID.
+  if (plan === 'pyramidFear') plan = 'combined';
+  if (!['combined', 'kdFear'].includes(plan)) throw Error('组合定投方案无效');
   if (plan === 'kdFear' && kdOptions === null) throw Error('加权K组合缺少有效参数');
   const fngStart = sentiment[0].date;
   let start = null;

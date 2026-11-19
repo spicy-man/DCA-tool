@@ -8,7 +8,7 @@ import os from 'node:os';
 test('Actions 汇总区分部署、本轮与整体，数据未齐或更新异常均退出失败', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dca-report-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const file of ['scripts/report-data-status.mjs', 'public/js/domain/data-health.mjs', 'public/js/domain/trading-calendar.mjs', 'public/js/domain/market.mjs']) {
+  for (const file of ['scripts/report-data-status.mjs', 'public/js/domain/data-health.mjs', 'public/js/domain/trading-calendar.mjs', 'public/js/domain/market.mjs', 'public/js/domain/funds.mjs']) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await copyFile(new URL('../' + file, import.meta.url), path.join(root, file));
   }

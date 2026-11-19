@@ -1,8 +1,15 @@
 import { appEvents, events } from '../../services/events.mjs';
 import { loadMarketSnapshot } from '../../services/data-client.mjs';
 import {
+  getMarketSnapshot,
+  hasMarketSnapshot,
+  invalidateAllMarketSnapshots,
+  invalidateMarketSymbol,
+  notifyMarketStoreChange,
+  setMarketSnapshot
+} from '../../services/market-store.mjs';
+import {
   updateSignals,
-  invalidatePortfolioMarketCache,
   drawSignalMarkers,
   showMarketTooltip
 } from '../strategy/overlay.mjs';
@@ -22,9 +29,8 @@ import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 const $ = id => document.getElementById(id);
 const symbolStorageKey = 'seeker.symbol.v1';
 const priceScaleStorageKey = 'seeker.priceScale.v1';
-const store = new Map();
-let settings;
-let browsingSettings;
+let viewRange;
+let browsingRange;
 let shown = [];
 let frame;
 let active = -1;
@@ -32,9 +38,10 @@ let hoverDate = null;
 let hoverY = null;
 let loading = false;
 let requestID = 0;
+let loadedSymbol = null;
 let logScale = true;
 
-export async function loadMarket(force = false) {
+export async function loadMarket(force = false, { notifyStoreOnFail = false } = {}) {
   const id = ++requestID;
   const symbol = $('symbol').value;
   loading = true;
@@ -43,19 +50,21 @@ export async function loadMarket(force = false) {
   $('price-asof').textContent = '正在读取 ' + symbol + ' 行情…';
 
   try {
-    if (force || !store.has(symbol)) {
+    if (force || !hasMarketSnapshot(symbol)) {
       const data = await loadMarketSnapshot(symbol);
       if (id !== requestID) return;
-      store.set(symbol, data);
+      setMarketSnapshot(symbol, data);
     }
     if (id !== requestID) return;
     loading = false;
+    loadedSymbol = symbol;
     appEvents.dispatchEvent(
-      new CustomEvent(events.marketCalendar, { detail: store.get(symbol).rows.map(r => r.date) })
+      new CustomEvent(events.marketCalendar, { detail: getMarketSnapshot(symbol).rows.map(r => r.date) })
     );
-    renderMarket(browsingSettings);
+    renderMarket(browsingRange);
   } catch (error) {
     if (id !== requestID) return;
+    loadedSymbol = null;
     $('price-asof').textContent = error.message;
     shown = [];
     $('price-close').textContent = '—';
@@ -65,23 +74,29 @@ export async function loadMarket(force = false) {
     updateSignals(null, null);
     loading = false;
     drawPrice();
+    if (notifyStoreOnFail) notifyMarketStoreChange();
   }
 }
 
 export function hasLoadedMarket() {
-  return store.has($('symbol').value);
+  const symbol = $('symbol').value;
+  return hasMarketSnapshot(symbol) && loadedSymbol === symbol;
 }
 
 export function invalidateSymbolCache(symbol) {
-  store.delete(symbol);
-  invalidatePortfolioMarketCache(symbol);
+  if ($('symbol')?.value === symbol) {
+    requestID++;
+    loading = false;
+    loadedSymbol = null;
+  }
+  invalidateMarketSymbol(symbol);
 }
 
 export async function invalidateMarket({ preserveOnError = false, onCommit = null } = {}) {
   if (!preserveOnError) {
-    store.clear();
-    invalidatePortfolioMarketCache();
-    return loadMarket(true);
+    loadedSymbol = null;
+    invalidateAllMarketSnapshots({ notify: false });
+    return loadMarket(true, { notifyStoreOnFail: true });
   }
   if (loading) return false;
   const id = ++requestID;
@@ -89,15 +104,15 @@ export async function invalidateMarket({ preserveOnError = false, onCommit = nul
   try {
     const data = await loadMarketSnapshot(symbol);
     if (id !== requestID) return false;
-    store.clear();
-    store.set(symbol, data);
-    invalidatePortfolioMarketCache();
+    invalidateAllMarketSnapshots({ notify: false });
+    setMarketSnapshot(symbol, data);
+    loadedSymbol = symbol;
     const dates = data.rows.map(r => r.date);
     if (onCommit) {
-      if (!onCommit(dates)) renderMarket(browsingSettings);
+      if (!onCommit(dates)) renderMarket(browsingRange);
     } else {
       appEvents.dispatchEvent(new CustomEvent(events.marketCalendar, { detail: dates }));
-      renderMarket(browsingSettings);
+      renderMarket(browsingRange);
     }
     return true;
   } catch {
@@ -105,23 +120,23 @@ export async function invalidateMarket({ preserveOnError = false, onCommit = nul
   }
 }
 
-export function renderMarket(next, { syncBacktest = true } = {}) {
-  if (syncBacktest) browsingSettings = next;
-  settings = next;
-  if (!next || loading) return;
+export function renderMarket(nextRange, { syncBacktest = true } = {}) {
+  if (syncBacktest) browsingRange = nextRange;
+  viewRange = nextRange;
+  if (!nextRange || loading) return;
   const symbol = $('symbol').value;
-  const data = store.get(symbol);
+  const data = getMarketSnapshot(symbol);
   if (!data) return;
 
-  updateSignals(data, next, { syncBacktest });
-  const daily = data.rows.filter(r => r.date >= next.start && r.date <= next.end);
-  shown = aggregateOHLC(daily, next.frequency);
+  updateSignals(data, nextRange, { syncBacktest });
+  const daily = data.rows.filter(r => r.date >= nextRange.start && r.date <= nextRange.end);
+  shown = aggregateOHLC(daily, nextRange.frequency);
   active = -1;
   hoverDate = null;
   hoverY = null;
   $('price-tooltip').hidden = true;
-  $('price-title').textContent = symbol + (next.replay ? ' · 日线复盘' : ' · 前复权 K 线');
-  $('price-asof').textContent = next.replay ? '复盘至 ' + next.end : 'Yahoo Finance · 数据截至 ' + data.anchorDate;
+  $('price-title').textContent = symbol + (nextRange.replay ? ' · 日线复盘' : ' · 前复权 K 线');
+  $('price-asof').textContent = nextRange.replay ? '复盘至 ' + nextRange.end : 'Yahoo Finance · 数据截至 ' + data.anchorDate;
 
   const last = shown.at(-1);
   const previous = shown.at(-2);
@@ -132,7 +147,7 @@ export function renderMarket(next, { syncBacktest = true } = {}) {
       : '—'
     : '当前区间无行情';
   $('price-observations').textContent = shown.length.toLocaleString() + ' 根 K 线';
-  $('price-anchor').textContent = `${symbol} 可用历史：${data.rows[0].date} — ${data.anchorDate} · 复权基准：${data.anchorDate} · 更新：${data.fetchedAt.slice(0, 10)}`;
+  $('price-anchor').textContent = `${symbol} 可用历史：${data.rows[0].date} — ${data.anchorDate} · 复权基准：${data.anchorDate} · 更新：${data.fetchedAt?.slice(0, 10) || '—'}`;
   $('price-source').href = 'https://finance.yahoo.com/quote/' + symbol + '/history/';
 
   if ($('price-table').closest('details').open) renderPriceTable();
@@ -155,7 +170,7 @@ function renderPriceTable() {
         const cells = [
           r.date,
           ...[r.open, r.high, r.low, r.close].map(n => n.toFixed(2)),
-          r.volume === null ? '—' : r.volume.toLocaleString()
+          r.volume == null ? '—' : r.volume.toLocaleString()
         ];
         for (const v of cells) {
           const td = document.createElement('td');
@@ -181,7 +196,7 @@ export function drawPrice(crossDate) {
   frame = null;
 
   $('price-empty').hidden = shown.length > 0 || loading;
-  if (!settings || !shown.length) {
+  if (!viewRange || !shown.length) {
     $('signal-layer').replaceChildren();
     $('signal-layer').dataset.layout = '';
     return;
@@ -192,14 +207,14 @@ export function drawPrice(crossDate) {
   const bottom = 32;
   const pw = w - left - right;
   const ph = h - top - bottom;
-  const start = Date.parse(settings.start);
-  const end = Date.parse(settings.end);
+  const start = Date.parse(viewRange.start);
+  const end = Date.parse(viewRange.end);
 
   const lowest = shown.reduce((best, row) => row.low < best.low ? row : best);
   const highest = shown.reduce((best, row) => row.high > best.high ? row : best);
   const priceAxis = createPriceAxis(lowest.low, highest.high, top, ph, logScale);
 
-  const scale = createTradingScale(settings.calendar, settings.frequency, left, pw);
+  const scale = createTradingScale(viewRange.calendar, viewRange.frequency, left, pw);
   const x = scale.x;
   const y = priceAxis.y;
   frame = { left, right, top, bottom, pw, ph, start, end, w, h, x, y, scale, logScale };
@@ -311,13 +326,13 @@ export function drawPrice(crossDate) {
 // Match the selected period exactly; missing sessions must not borrow another day's price.
 export function setMarketHover(date, pointer = null) {
   hoverDate = date;
-  active = date && settings
-    ? shown.findIndex(row => periodKey(row.date, settings.frequency) === periodKey(date, settings.frequency))
+  active = date && viewRange
+    ? shown.findIndex(row => periodKey(row.date, viewRange.frequency) === periodKey(date, viewRange.frequency))
     : -1;
   const row = shown[active];
   hoverY = pointer?.y ?? (row && frame ? frame.y(row.close) : null);
   const tip = $('price-tooltip');
-  if (!date || !frame || !settings) {
+  if (!date || !frame || !viewRange) {
     tip.hidden = true;
     drawPrice();
     return;
@@ -327,7 +342,7 @@ export function setMarketHover(date, pointer = null) {
     y: hoverY ?? frame.top + 50,
     width: frame.w,
     symbol: $('symbol').value,
-    frequency: settings.frequency
+    frequency: viewRange.frequency
   };
   if (row) {
     showMarketTooltip(tip, row, position);
@@ -344,8 +359,8 @@ function hide() {
 }
 
 function renderReplayMarket(event) {
-  if (!browsingSettings || loading) return;
-  const range = event.detail || browsingSettings;
+  if (!browsingRange || loading) return;
+  const range = event.detail || browsingRange;
   renderMarket(range, { syncBacktest: false });
   $('date-range').textContent = range.start + ' – ' + range.end;
 }
@@ -411,16 +426,16 @@ export function initMarketChart() {
 
   $('price-download').addEventListener('click', () => {
     if (!shown.length) return;
-    const data = store.get($('symbol').value);
+    const data = getMarketSnapshot($('symbol').value);
     const csv = formatCSV([
       ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adjustment', 'AnchorDate'],
       ...shown.map(r => [r.date, r.open, r.high, r.low, r.close, r.volume ?? '', 'QFQ', data.anchorDate])
     ]);
-    downloadCSV(data.symbol + '-qfq-' + settings.frequency + '.csv', csv);
+    downloadCSV(data.symbol + '-qfq-' + viewRange.frequency + '.csv', csv);
   });
 
   appEvents.addEventListener(events.strategySettings, () => {
-    if (browsingSettings) renderMarket(browsingSettings);
+    if (browsingRange) renderMarket(browsingRange);
   });
   appEvents.addEventListener(events.strategyView,()=>{hide();drawPrice();});
 

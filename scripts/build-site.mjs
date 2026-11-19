@@ -1,5 +1,7 @@
 import {checkVersion} from './version.mjs';
 import {SYMBOLS} from '../public/js/domain/market.mjs';
+import {FUND_GROUPS} from '../public/js/domain/funds.mjs';
+import {isSourceHealthy} from '../public/js/domain/data-health.mjs';
 import {readFile,writeFile,lstat,rm,cp,mkdir,readdir,realpath} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -7,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 const project=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(project,'dist');
 const dataDir=path.resolve(project,'public','data');
-const publicDataFiles=new Set(['fear-greed.csv','status.json','nasdaq100-etfs.json','sp500-etfs.json',...SYMBOLS.map(s=>s.toLowerCase()+'.json')]);
+const publicDataFiles=new Set(['fear-greed.csv','status.json',...Object.values(FUND_GROUPS).map(g=>g.snapshotFile),...SYMBOLS.map(s=>s.toLowerCase()+'.json')]);
 
 export function versionModuleSpecifiers(source,version){
  return source
@@ -60,7 +62,7 @@ export async function buildSite(){
   const sources=['Fear & Greed',...SYMBOLS];
   status.results=status.results.filter(result=>sources.includes(result.symbol));
   const complete=symbol=>status.results.some(result=>
-   result.symbol===symbol&&result.ok&&result.fresh!==false&&!result.missingDates?.length&&result.date>=status.expectedDate);
+   result.symbol===symbol&&isSourceHealthy(result,status.expectedDate));
   status.complete=sources.every(complete);
   if(status.requestedSources){
    status.requestedSources=status.requestedSources.filter(symbol=>sources.includes(symbol));

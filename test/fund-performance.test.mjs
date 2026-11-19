@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { yearsBefore, parsePerformanceHistory, calculateFundPerformance, performanceRows } from '../public/js/domain/fund-performance.mjs';
 import { fetchFundPerformance } from '../server/fund-performance.mjs';
-import { sortFunds } from '../public/js/domain/nasdaq-funds.mjs';
+import { sortFunds } from '../public/js/domain/funds.mjs';
 
 const dates = ['2021-10-22', '2023-10-23', '2025-10-23', '2026-10-23'];
 const history = (values, firstDate = '2015-01-01') => ({ firstDate, rows: dates.map((date, i) => ({ date, close: values[i] })) });

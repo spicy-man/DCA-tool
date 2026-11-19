@@ -1,4 +1,6 @@
 import {initKDControls} from './features/strategy/kd.mjs';
+import {initBacktest} from './features/strategy/backtest.mjs';
+import {initAllocationDialog} from './features/strategy/allocation-dialog.mjs';
 import {initFloatingCharts} from './ui/floating-charts.mjs';
 import {initApplication} from './application.mjs';
 import {initMarketChart} from './features/market/chart.mjs';
@@ -10,18 +12,27 @@ import {initSymbolDialog} from './ui/symbol-dialog.mjs';
 import {initFundNavigation} from './ui/fund-navigation.mjs';
 import {initPlanEstimateHelp} from './ui/plan-estimate-help.mjs';
 import {bindDialogCommands} from './ui/dialog-utils.mjs';
+import {getDeploymentInfo} from './services/data-client.mjs';
 
-// Composition root: initialize feature controls before starting data loading.
+// Phase 1: Resolve deployment mode once and populate custom <select id="symbol"> options
+// before strategy/market modules read saved symbol preferences.
 bindDialogCommands();
-await initSymbolDialog();
+const deploymentInfo = await getDeploymentInfo();
+await initSymbolDialog({ deploymentInfo });
+
+// Phase 2: Register controls, views, and event subscribers before triggering data fetches.
+// Note: initChartVisibility() must run before initFloatingCharts().
 initPlanEstimateHelp();
 initKDControls();
-initStrategyOverlay();
+initBacktest();
+initStrategyOverlay({ includeSubmodules: false });
+initAllocationDialog();
 initMarketChart();
 initChartVisibility();
 initFundNavigation();
 const openStrategyDialog = initStrategyDialog();
-initApplication();
 
+// Phase 3: Start data loading, timeline coordination, floating mini-charts, and welcome dialog.
+initApplication({ deploymentInfo });
 initFloatingCharts();
 initWelcomeDialog({ openStrategyDialog });

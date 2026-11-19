@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { healthSummary, formatNewYorkTime, isStatusComplete, hasBlockingDataGap } from '../public/js/domain/data-health.mjs';
+import { healthSummary, formatNewYorkTime, isStatusComplete, hasBlockingDataGap, isSourceHealthy, isFundsHealthy, describeFundsIssues } from '../public/js/domain/data-health.mjs';
 
 const now = Date.parse('2026-10-21T00:01:50Z');
 const status = () => ({ results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'].map(symbol => ({
@@ -90,4 +90,23 @@ test('存在 missingDates 或 fresh=false 时判定为不完整并阻断发布',
  assert.equal(hasBlockingDataGap(s, now), true);
  assert.match(healthSummary(s, now), /数据不完整.*2026-10-19/);
  assert.match(healthSummary(s, now), /整体数据：未全部到齐/);
+});
+
+test('isSourceHealthy 拒绝空 expectedDate，describeFundsIssues 缺 groupId 不拼重词且与 isFundsHealthy 一致', () => {
+ assert.equal(isSourceHealthy({ ok: true, date: '2026-10-20' }, ''), false);
+ assert.equal(isSourceHealthy({ ok: true, date: '2026-10-20' }, null), false);
+ assert.equal(isSourceHealthy({ ok: true, date: null }, '2026-10-20'), false);
+ assert.equal(isSourceHealthy({ ok: true, date: '2026-10-20' }, '2026-10-20'), true);
+
+ const missingId = { ok: false, groups: [{ ok: false }] };
+ assert.deepEqual(describeFundsIssues(missingId), ['场内基金更新失败，已保留本地数据']);
+ assert.deepEqual(describeFundsIssues(missingId, { useGroupTitles: false }), ['场内基金更新失败，已保留本地数据']);
+
+ const mixedTopFail = {
+  ok: false,
+  complete: false,
+  groups: [{ groupId: 'nasdaq100', ok: true, performanceOk: true, performanceComplete: true }]
+ };
+ assert.equal(isFundsHealthy(mixedTopFail), false);
+ assert.deepEqual(describeFundsIssues(mixedTopFail), ['场内基金更新失败，已保留本地数据']);
 });

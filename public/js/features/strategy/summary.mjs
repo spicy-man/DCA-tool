@@ -3,8 +3,8 @@ import { calculatePyramidSignals } from '../../domain/pyramid-strategy.mjs';
 import { resetPlanEstimateHelp } from '../../ui/plan-estimate-help.mjs';
 import { calculateKDSeries, kdMultiple, kdTierLevel, KD_DEFAULTS } from '../../domain/kd-strategy.mjs';
 import { SIGNAL_STRATEGIES, signalName, formatMultiple } from '../../domain/signal-view.mjs';
+import { formatMoney as money } from '../../ui/format.mjs';
 
-const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateWithWeekday = date => date + '（周' + '日一二三四五六'[new Date(date + 'T12:00:00Z').getUTCDay()] + '）';
 const athDrawdownNote = rows => {
   const ath = rows.reduce((peak, row) => Math.max(peak, row.high), 0);

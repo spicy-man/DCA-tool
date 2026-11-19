@@ -1,8 +1,7 @@
 // Pine v6 strategy author: labmem004 (attribution confirmed by the project owner).
 // Original publication URL and license have not yet been recorded; see THIRD_PARTY_NOTICES.md.
-export function daysInMonth(year, month) {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
+import { daysInMonth } from './trading-calendar.mjs';
+export { daysInMonth };
 
 export function previousMonthCutoff(date) {
   const [year, month, day] = date.split('-').map(Number);

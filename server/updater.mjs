@@ -6,13 +6,13 @@ import { fetchPublicText, yahooURL } from './network.mjs';
 import { normalizeYahoo, SYMBOLS, validSymbol, filterMarketHistory, HISTORY_STARTS, findMissingTradingDays } from '../public/js/domain/market.mjs';
 import { readCustomSymbols, writeCustomSymbolsWithStatus, syncRequestedComplete, isReservedSymbolFile } from './symbols.mjs';
 import { parseCSV, rating, OFFICIAL_START } from '../public/js/domain/sentiment.mjs';
-import { isStatusComplete } from '../public/js/domain/data-health.mjs';
+import { isStatusComplete, isSourceHealthy } from '../public/js/domain/data-health.mjs';
 import { latestClosedSession } from '../public/js/domain/trading-calendar.mjs';
 import { readOptional, readJsonOptional, atomicWrite, preserveHistory, withDataLock } from './storage.mjs';
 import { loadHistoricalSupplement, mergeHistoricalSupplement } from './sentiment-history.mjs';
-import { fetchFundSnapshot } from './nasdaq-funds.mjs';
+import { fetchFundSnapshot } from './fund-quotes.mjs';
 import { fetchFundPerformance } from './fund-performance.mjs';
-import { FUND_GROUPS, getFundGroup } from '../public/js/domain/fund-groups.mjs';
+import { FUND_GROUPS, getFundGroup } from '../public/js/domain/funds.mjs';
 
 export const DEFAULT_DATA_DIR = fileURLToPath(new URL('../public/data/', import.meta.url));
 export const ARCHIVE_URL =
@@ -372,7 +372,7 @@ async function run({
     for (const symbol of ['Fear & Greed', ...symbols]) {
       if (sources.includes(symbol)) continue;
       const last = old?.results?.find(r => r.symbol === symbol);
-      if (!last || !last.ok || !last.date || last.date < expectedDate || last.fresh === false || last.missingDates?.length) {
+      if (!isSourceHealthy(last, expectedDate)) {
         sources.push(symbol);
       }
     }
@@ -445,7 +445,7 @@ async function run({
     expectedDate,
     requestedSources: sources,
     requestedComplete: results.filter(r => sources.includes(r.symbol))
-      .every(r => r.ok && r.fresh !== false && !r.missingDates?.length && r.date >= expectedDate),
+      .every(r => isSourceHealthy(r, expectedDate)),
     complete: isStatusComplete(results, expectedDate, customSymbols),
     results
   };

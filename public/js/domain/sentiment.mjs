@@ -1,5 +1,4 @@
-import { daysInMonth } from './pyramid-strategy.mjs';
-import { periodKey } from './trading-calendar.mjs';
+import { daysInMonth, periodKey } from './trading-calendar.mjs';
 
 export const OFFICIAL_START = '2021-02-01';
 

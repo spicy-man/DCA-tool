@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { NASDAQ_FUNDS, normalizeFundQuotes, premiumRate, sortFunds } from '../public/js/domain/nasdaq-funds.mjs';
+import { NASDAQ_FUNDS, normalizeFundQuotes, premiumRate, sortFunds } from '../public/js/domain/funds.mjs';
 import { initFundComparison } from '../public/js/features/funds/comparison.mjs';
-import { FUND_QUOTES_URL, TENCENT_QUOTES_URL, parseFundProfile, parseTencentQuotes, fetchFundSnapshot } from '../server/nasdaq-funds.mjs';
+import { FUND_QUOTES_URL, TENCENT_QUOTES_URL, parseFundProfile, parseTencentQuotes, fetchFundSnapshot } from '../server/fund-quotes.mjs';
 import { refreshFunds } from '../server/updater.mjs';
 
 const now = Date.parse('2026-10-26T08:00:00Z');

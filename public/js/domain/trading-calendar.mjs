@@ -2,6 +2,10 @@
 // Special closures must be maintained when announced.
 const DAY_MS = 86400000;
 const iso = time => new Date(time).toISOString().slice(0, 10);
+
+export function daysInMonth(year, month) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
 const weekday = date => new Date(date + 'T12:00:00Z').getUTCDay();
 const shift = (date, days) => iso(Date.parse(date + 'T12:00:00Z') + days * DAY_MS);
 

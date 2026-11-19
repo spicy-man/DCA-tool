@@ -2,13 +2,13 @@ import { KD_DEFAULTS, normalizeKDOptions, calculateKDSeries, kdMultiple, kdTierL
 import { chartInsets, createTradingScale, chartFont, periodKey } from '../../charts/geometry.mjs';
 import { appEvents, events } from '../../services/events.mjs';
 import { downloadCSV, formatCSV } from '../../ui/download.mjs';
+import { formatMoney as money } from '../../ui/format.mjs';
 import { tooltipContent, positionTooltip } from '../../ui/tooltip.mjs';
 
 const $ = id => document.getElementById(id);
 const storageKey = 'seeker.kd.v1';
 const storageVersion = 2;
 const number = value => value == null ? '—' : value.toFixed(2);
-const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const multiple = value => value.toLocaleString('en-US', { maximumFractionDigits: 1 }) + 'N';
 
 let options = { ...KD_DEFAULTS };
@@ -56,16 +56,16 @@ function syncFactorControl(preserveInput = false) {
   if (error) error.textContent = '';
 }
 
-function saveOptions() {
+function saveOptions({ notify = true } = {}) {
   renderTiers();
   try { localStorage.setItem(storageKey, JSON.stringify({ ...options, version: storageVersion })); } catch {}
-  appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
+  if (notify) appEvents.dispatchEvent(new CustomEvent(events.strategySettings));
 }
 
-export function setKDTierFactor(value, source) {
+export function setKDTierFactor(value, source, { notify = true } = {}) {
   options = { ...options, tierFactor: readKDTierFactor(value) };
   syncFactorControl(source === 'main-kd-tier-factor');
-  saveOptions();
+  saveOptions({ notify });
 }
 
 function chartContext(canvas) {
@@ -479,6 +479,7 @@ export function initKDControls() {
     if (saved) {
       const { version, ...storedOptions } = saved;
       const previous = normalizeKDOptions({ tierFactor: 2, ...storedOptions });
+      // Migrate legacy v1 default settings (40/60, tierFactor 2) to current defaults (80/20, 1.5).
       const formerDefaults = version === undefined && previous.monthWeight === 40 && previous.quarterWeight === 60 &&
         previous.period === 9 && previous.signal === 3 && previous.tierFactor === 2;
       if (!formerDefaults) options = { ...KD_DEFAULTS, tierFactor: previous.tierFactor };
