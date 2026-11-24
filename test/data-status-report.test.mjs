@@ -18,8 +18,8 @@ test('Actions 汇总区分部署、本轮与整体，数据未齐或更新异常
     results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'].map(symbol => ({ symbol, ok: true,
       date: symbol === 'Fear & Greed' ? '2026-10-19' : '2026-10-20', checkedAt: '2026-10-20T23:35:37Z' })) };
   const summary = path.join(root, 'summary.md');
-  const run = outcome => spawnSync(process.execPath, [path.join(root, 'scripts/report-data-status.mjs')], {
-    encoding: 'utf8', windowsHide: true, env: { ...process.env, DEPLOY_OUTCOME: 'success', UPDATE_OUTCOME: outcome, GITHUB_STEP_SUMMARY: summary }
+  const run = (outcome, extraEnv = {}) => spawnSync(process.execPath, [path.join(root, 'scripts/report-data-status.mjs')], {
+    encoding: 'utf8', windowsHide: true, env: { ...process.env, DEPLOY_OUTCOME: 'success', UPDATE_OUTCOME: outcome, GITHUB_STEP_SUMMARY: summary, ...extraEnv }
   });
   const save = () => writeFile(path.join(root, 'public/data/status.json'), JSON.stringify(status));
   await save();
@@ -66,4 +66,22 @@ test('Actions 汇总区分部署、本轮与整体，数据未齐或更新异常
   await writeFile(path.join(root, 'public/data/status.json'), JSON.stringify(graceStatus));
   result = run('success');
   assert.equal(result.status, 1);
+
+  // STATUS_FILE 优先覆盖还原后的旧 public/data/status.json，准确汇报本轮状态
+  const tempStatusFile = path.join(root, 'run-status.json');
+  const freshRunStatus = {
+    checkedAt: '2026-10-20T21:30:00Z',
+    expectedDate: '2026-10-20',
+    requestedSources: ['Fear & Greed'],
+    requestedComplete: true,
+    complete: true,
+    results: ['Fear & Greed', 'SPY', 'QQQ', 'VGT', 'SMH', 'BRK-B'].map(symbol => ({
+      symbol, ok: true, date: '2026-10-20', checkedAt: '2026-10-20T21:30:00Z'
+    }))
+  };
+  await writeFile(tempStatusFile, JSON.stringify(freshRunStatus));
+  result = run('success', { STATUS_FILE: tempStatusFile });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /本轮选择：Fear & Greed\n/);
+  assert.match(result.stdout, /整体数据：已到齐/);
 });

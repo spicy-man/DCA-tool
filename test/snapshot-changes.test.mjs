@@ -5,6 +5,7 @@ import path from 'node:path';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import {
   hasSubstantiveFundChange,
+  hasSubstantiveMarketChange,
   hasSubstantiveStatusChange,
   pruneRedundantSnapshotWrites
 } from '../server/snapshot-changes.mjs';
@@ -181,4 +182,132 @@ test('pruneRedundantSnapshotWrites 还原无实质变更的文件，并在真实
   await writeFile(path.join(dir, 'nasdaq100-etfs.json'), baseline['nasdaq100-etfs.json'].replaceAll('\n', '\r\n'));
   const unchangedEol = await pruneRedundantSnapshotWrites({ dataDir: dir, readBaseline: name => baseline[name] ?? null });
   assert.deepEqual(unchangedEol, { marketChanged: false, reverted: [], kept: [] });
+});
+
+function makeMarketSnapshot(overrides = {}) {
+  return JSON.stringify({
+    symbol: 'SPY',
+    currency: 'USD',
+    timezone: 'America/New_York',
+    source: 'Yahoo Finance',
+    fetchedAt: overrides.fetchedAt || '2026-11-24T02:04:18.384Z',
+    anchorDate: overrides.anchorDate || '2026-11-23',
+    anchorFactor: overrides.anchorFactor ?? 1,
+    adjustment: '前复权',
+    rows: overrides.rows || [
+      {
+        date: '1993-01-29',
+        sourceOpen: 43.96875,
+        sourceHigh: 43.96875,
+        sourceLow: 43.75,
+        sourceClose: 43.9375,
+        adjClose: 24.053529739379883,
+        volume: 1003200,
+        factor: 0.5474487565150471,
+        open: 24.070637513020976,
+        high: 24.070637513020976,
+        low: 23.95088309753331,
+        close: 24.053529739379883
+      },
+      {
+        date: '2026-11-23',
+        sourceOpen: 724.33,
+        sourceHigh: 727.98,
+        sourceLow: 713.54,
+        sourceClose: 722.29,
+        adjClose: 722.29,
+        volume: 88150300,
+        factor: 1,
+        open: 724.33,
+        high: 727.98,
+        low: 713.54,
+        close: 722.29
+      }
+    ]
+  });
+}
+
+test('hasSubstantiveMarketChange 忽略 fetchedAt 与 float32 级历史抖动，保留真实价格/成交量/新增日/除权修正', async t => {
+  const base = makeMarketSnapshot();
+  const parsedBase = JSON.parse(base);
+
+  // 1. 仅 fetchedAt 变化 + float32 级微抖动 (rel ~1.36e-6 <= 5e-6)
+  const jitterRows = parsedBase.rows.map((r, i) => i === 0
+    ? {
+        ...r,
+        adjClose: 24.05353355407715,
+        factor: 0.5474488433360375,
+        open: 24.0706413304314,
+        high: 24.0706413304314,
+        low: 23.95088689595164,
+        close: 24.05353355407715
+      }
+    : r);
+  const jitterOnly = makeMarketSnapshot({
+    fetchedAt: '2026-11-24T05:47:04.776Z',
+    rows: jitterRows
+  });
+  assert.equal(hasSubstantiveMarketChange(base, jitterOnly), false);
+
+  // 2. 真实 $0.01 收盘低价修正 (rel ~1.4e-5 > 5e-6)
+  const priceFixed = makeMarketSnapshot({
+    fetchedAt: '2026-11-24T05:03:45.253Z',
+    rows: parsedBase.rows.map((r, i) => i === 1 ? { ...r, sourceLow: 713.53, low: 713.53 } : r)
+  });
+  assert.equal(hasSubstantiveMarketChange(base, priceFixed), true);
+
+  // 3. 真实成交量修正
+  const volumeFixed = makeMarketSnapshot({
+    fetchedAt: '2026-11-24T05:03:45.253Z',
+    rows: parsedBase.rows.map((r, i) => i === 1 ? { ...r, volume: 88150400 } : r)
+  });
+  assert.equal(hasSubstantiveMarketChange(base, volumeFixed), true);
+
+  // 4. 新增交易日
+  const appendedDay = makeMarketSnapshot({
+    anchorDate: '2026-11-24',
+    rows: [...parsedBase.rows, { ...parsedBase.rows[1], date: '2026-11-24' }]
+  });
+  assert.equal(hasSubstantiveMarketChange(base, appendedDay), true);
+
+  // 5. 真实除权除息 factor 变化 (> 5e-6)
+  const dividendAdjusted = makeMarketSnapshot({
+    rows: parsedBase.rows.map((r, i) => i === 0 ? { ...r, factor: r.factor * 0.995 } : r)
+  });
+  assert.equal(hasSubstantiveMarketChange(base, dividendAdjusted), true);
+
+  // 6. 未知结构或非法 JSON 保守判定为有变更
+  assert.equal(hasSubstantiveMarketChange(base, '{"symbol":"SPY"}\n'), true);
+  assert.equal(hasSubstantiveMarketChange(base, '{invalid-json'), true);
+
+  // 7. 集成验证：pruneRedundantSnapshotWrites 还原无实质变更的 ETF JSON 与 status.json，真实修订时保留
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'dca-market-prune-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const baseline = {
+    'fear-greed.csv': 'Date,Fear Greed,Rating\n2026-11-23,16.9,extreme fear\n',
+    'spy.json': base,
+    'qqq.json': '{"symbol":"QQQ","rows":[]}\n',
+    'vgt.json': '{"symbol":"VGT","rows":[]}\n',
+    'smh.json': '{"symbol":"SMH","rows":[]}\n',
+    'brk-b.json': '{"symbol":"BRK-B","rows":[]}\n',
+    'status.json': makeStatus(),
+    'nasdaq100-etfs.json': makeFund(),
+    'sp500-etfs.json': makeFund()
+  };
+  for (const [name, content] of Object.entries(baseline)) {
+    await writeFile(path.join(dir, name), content);
+  }
+  await writeFile(path.join(dir, 'spy.json'), jitterOnly);
+  await writeFile(path.join(dir, 'status.json'), makeStatus({ checkedAt: '2026-11-24T05:47:04.776Z' }));
+  const revertedRun = await pruneRedundantSnapshotWrites({ dataDir: dir, readBaseline: name => baseline[name] ?? null });
+  assert.equal(revertedRun.marketChanged, false);
+  assert.deepEqual(revertedRun.reverted.sort(), ['spy.json', 'status.json']);
+  assert.equal(await readFile(path.join(dir, 'spy.json'), 'utf8'), base);
+
+  await writeFile(path.join(dir, 'spy.json'), priceFixed);
+  await writeFile(path.join(dir, 'status.json'), makeStatus({ checkedAt: '2026-11-24T05:03:45.253Z' }));
+  const keptRun = await pruneRedundantSnapshotWrites({ dataDir: dir, readBaseline: name => baseline[name] ?? null });
+  assert.equal(keptRun.marketChanged, true);
+  assert.deepEqual(keptRun.reverted, []);
+  assert.deepEqual(keptRun.kept.sort(), ['spy.json', 'status.json']);
 });

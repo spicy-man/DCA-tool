@@ -30,12 +30,19 @@ test('静态构建隔离个人行情和状态，保留公开来源的完整性�
       { symbol: 'VOO', ok: false, date: '2026-10-19' }] };
   const localFile = path.join(dataDir, 'status.json');
   const outputFile = path.join(root, 'dist/data/status.json');
-  const build = () => execFileSync(process.execPath, [path.join(root, 'scripts/build-site.mjs')],
-    { encoding: 'utf8', windowsHide: true });
+  const build = (extraEnv = {}) => execFileSync(process.execPath, [path.join(root, 'scripts/build-site.mjs')],
+    { encoding: 'utf8', windowsHide: true, env: { ...process.env, ...extraEnv } });
   const save = () => writeFile(localFile, JSON.stringify(status));
   await save();
   const original = await readFile(localFile, 'utf8');
   build();
+  assert.deepEqual(JSON.parse(await readFile(path.join(root, 'dist/deployment.json'), 'utf8')),
+    { mode: 'static', version });
+  const upperSha = 'A'.repeat(40);
+  build({ DEPLOY_COMMIT_SHA: `  ${upperSha}  ` });
+  assert.deepEqual(JSON.parse(await readFile(path.join(root, 'dist/deployment.json'), 'utf8')),
+    { mode: 'static', version, commit: upperSha.toLowerCase() });
+  build({ DEPLOY_COMMIT_SHA: 'not-a-sha' });
   assert.deepEqual(JSON.parse(await readFile(path.join(root, 'dist/deployment.json'), 'utf8')),
     { mode: 'static', version });
   assert.ok((await readFile(path.join(root, 'dist/index.html'), 'utf8')).includes(`./js/app.mjs?v=${version}"`));

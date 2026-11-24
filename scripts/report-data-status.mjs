@@ -1,7 +1,8 @@
 import { readFile, appendFile } from 'node:fs/promises';
 import { hasBlockingDataGap, healthSummary } from '../public/js/domain/data-health.mjs';
 
-const status = JSON.parse(await readFile(new URL('../public/data/status.json', import.meta.url), 'utf8'));
+const statusPath = process.env.STATUS_FILE || new URL('../public/data/status.json', import.meta.url);
+const status = JSON.parse(await readFile(statusPath, 'utf8'));
 const blockingGap = hasBlockingDataGap(status, Date.parse(status.checkedAt));
 const summary = [
   '## 数据更新与部署',

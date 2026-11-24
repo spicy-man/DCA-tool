@@ -73,18 +73,22 @@ jobs:
               fi
               ;;
           esac
-  publish:
+  build:
     needs: schedule
     if: github.ref == 'refs/heads/main' && (needs.schedule.outputs.sources != '' || needs.schedule.outputs.funds == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      deployments: read
+      pages: read
+    outputs:
+      should_deploy: ${{ steps.sync.outputs.should_deploy }}
+      head_sha: ${{ steps.save.outputs.head_sha }}
+      artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+      update_outcome: ${{ steps.update.outcome }}
+      funds_outcome: ${{ steps.funds.outcome }}
+      run_status_b64: ${{ steps.save.outputs.run_status_b64 }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -121,9 +125,15 @@ jobs:
         if: needs.schedule.outputs.funds == 'true'
         continue-on-error: true
         run: node scripts/update-funds.mjs
-      - name: Save valid snapshots and source status
+      - name: Prepare snapshots and local commit
         id: save
         run: |
+          if [ -f public/data/status.json ]; then
+            cp public/data/status.json "$RUNNER_TEMP/run-status.json"
+            echo "run_status_b64=$(base64 -w 0 < "$RUNNER_TEMP/run-status.json")" >> "$GITHUB_OUTPUT"
+          else
+            echo 'run_status_b64=' >> "$GITHUB_OUTPUT"
+          fi
           node scripts/check-deploy-head.mjs
           node scripts/filter-snapshot-commits.mjs
           git config user.name 'github-actions[bot]'
@@ -140,38 +150,126 @@ jobs:
           fi
           if ! git diff --cached --quiet; then
             git commit -m 'Update market snapshots and freshness status'
-            git push origin HEAD:refs/heads/main
             echo 'committed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'committed=false' >> "$GITHUB_OUTPUT"
           fi
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Probe live Pages sync on unchanged schedule
+        id: sync_probe
+        if: github.event_name == 'schedule' && steps.save.outputs.committed != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-pages-sync.mjs
+      - name: Decide whether Pages deployment is needed
+        id: sync
+        env:
+          COMMITTED: ${{ steps.save.outputs.committed }}
+          PAGES_OUT_OF_SYNC: ${{ steps.sync_probe.outputs.pages_out_of_sync }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$COMMITTED" = "true" ] || [ "$PAGES_OUT_OF_SYNC" = "true" ]; then
+            echo 'should_deploy=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'should_deploy=false' >> "$GITHUB_OUTPUT"
+          fi
       - name: Build static site
-        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
+        if: steps.sync.outputs.should_deploy == 'true'
+        env:
+          DEPLOY_COMMIT_SHA: ${{ steps.save.outputs.head_sha }}
         run: node scripts/build-site.mjs
-      - uses: actions/configure-pages@v5
-        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
+      - name: Push snapshot commit to main
+        if: steps.save.outputs.committed == 'true'
+        run: git push origin HEAD:refs/heads/main
+      - name: Verify main has not advanced before upload
+        if: steps.sync.outputs.should_deploy == 'true'
+        run: node scripts/check-deploy-head.mjs
       - uses: actions/upload-pages-artifact@v4
-        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
+        if: steps.sync.outputs.should_deploy == 'true'
         with:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
+      - name: Report deployment and all source states
+        if: always() && steps.update.outcome != 'skipped' && (failure() || steps.sync.outputs.should_deploy != 'true')
+        env:
+          DEPLOY_OUTCOME: skipped
+          UPDATE_OUTCOME: ${{ steps.update.outcome }}
+        run: |
+          if [ -f "$RUNNER_TEMP/run-status.json" ]; then
+            export STATUS_FILE="$RUNNER_TEMP/run-status.json"
+          fi
+          node scripts/report-data-status.mjs
+      - name: Report fund update failure
+        if: always() && steps.funds.outcome == 'failure' && (failure() || steps.sync.outputs.should_deploy != 'true')
+        run: |
+          echo '部分基金数据更新失败；页面保留相应的上次有效数据，请核对各区间日期。'
+          exit 1
+  deploy:
+    needs: [schedule, build]
+    if: github.ref == 'refs/heads/main' && needs.build.result == 'success' && needs.build.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.build.outputs.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - name: Verify main has not advanced before deployment
-        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
         run: node scripts/check-deploy-head.mjs
+      - name: Wait for uploaded Pages artifact
+        env:
+          ARTIFACT_NAME: ${{ needs.build.outputs.artifact_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/wait-pages-artifact.mjs
+      - uses: actions/configure-pages@v5
       - name: Deploy valid data including failure status
-        if: github.event_name != 'schedule' || steps.save.outputs.committed == 'true'
         id: deployment
+        continue-on-error: true
         uses: actions/deploy-pages@v4
         with:
-          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact_name: ${{ needs.build.outputs.artifact_name }}
+      - name: Wait and re-verify main before retry
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          sleep 15
+          node scripts/check-deploy-head.mjs
+      - name: Retry Pages deployment after transient failure
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ needs.build.outputs.artifact_name }}
       - name: Report deployment and all source states
-        if: always() && steps.update.outcome != 'skipped'
+        if: always() && needs.build.outputs.update_outcome != 'skipped'
         env:
-          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
-          UPDATE_OUTCOME: ${{ steps.update.outcome }}
-        run: node scripts/report-data-status.mjs
+          PRIMARY_OUTCOME: ${{ steps.deployment.outcome }}
+          RETRY_OUTCOME: ${{ steps.deployment_retry.outcome }}
+          UPDATE_OUTCOME: ${{ needs.build.outputs.update_outcome }}
+          RUN_STATUS_B64: ${{ needs.build.outputs.run_status_b64 }}
+        run: |
+          if [ -n "$RUN_STATUS_B64" ]; then
+            printf '%s' "$RUN_STATUS_B64" | base64 -d > "$RUNNER_TEMP/run-status.json"
+            export STATUS_FILE="$RUNNER_TEMP/run-status.json"
+          fi
+          DEPLOY_OUTCOME="$PRIMARY_OUTCOME"
+          if [ "$PRIMARY_OUTCOME" = "success" ] || [ "$RETRY_OUTCOME" = "success" ]; then
+            DEPLOY_OUTCOME="success"
+          elif [ -n "$RETRY_OUTCOME" ] && [ "$RETRY_OUTCOME" != "skipped" ]; then
+            DEPLOY_OUTCOME="$RETRY_OUTCOME"
+          fi
+          export DEPLOY_OUTCOME
+          node scripts/report-data-status.mjs
       - name: Report fund update failure
-        if: always() && steps.funds.outcome == 'failure'
+        if: always() && needs.build.outputs.funds_outcome == 'failure'
         run: |
           echo '部分基金数据更新失败；页面保留相应的上次有效数据，请核对各区间日期。'
           exit 1

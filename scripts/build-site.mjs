@@ -71,7 +71,10 @@ export async function buildSite(){
   await writeFile(statusFile,JSON.stringify(status,null,2)+'\n');
  }
  await versionAssets(output,version);
- await writeFile(path.join(output,'deployment.json'),JSON.stringify({mode:'static',version})+'\n');
+ const rawCommit=process.env.DEPLOY_COMMIT_SHA?.trim()||'';
+ const commit=/^[0-9a-f]{40}$/i.test(rawCommit)?rawCommit.toLowerCase():'';
+ const deployment={mode:'static',version,...(commit?{commit}:{})};
+ await writeFile(path.join(output,'deployment.json'),JSON.stringify(deployment)+'\n');
  await writeFile(path.join(output,'.nojekyll'),'');
  return output;
 }
