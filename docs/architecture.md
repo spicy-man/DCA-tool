@@ -16,7 +16,7 @@ server/
   storage.mjs                    文件锁（.refresh.lock）、原子写入、历史防回退校验
   network.mjs                    HTTP/代理下载、CNN 请求头与 Yahoo URL
   symbols.mjs                    自定义标的读写、保留快照保护与删除同步
-  refresh-schedule.mjs           美东定时更新选源门禁（与 pages.yml cron 对应）
+  refresh-schedule.mjs           定时更新选源与基金槽位门禁（与 pages.yml cron 对应）
   snapshot-changes.mjs           提交前过滤纯时间戳与东财盘后 shares 抖动
   sentiment-history.mjs          早期恐慌指数历史补缺合并
   fund-quotes.mjs                国内场内 ETF（纳指100 + 标普500）行情、备用源与 F10 费率解析

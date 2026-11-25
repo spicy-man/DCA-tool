@@ -5,28 +5,30 @@ on:
     paths-ignore:
       - 'public/data/**'
   schedule:
-    # Domestic Nasdaq-100 and S&P 500 ETFs: Tue-Sat 09:01 (after US close) and Mon-Sat 15:01/21:01 Beijing time.
-    - cron: '1 9 * * 2-6'
+    # Domestic Nasdaq-100 and S&P 500 ETFs (Beijing time): off-peak minutes; also catch up stale US sources.
+    - cron: '11 9 * * 2-6'
       timezone: Asia/Shanghai
-    - cron: '1 15 * * 1-6'
+    - cron: '17 15 * * 1-6'
       timezone: Asia/Shanghai
-    - cron: '1 21 * * 1-6'
+    - cron: '23 21 * * 1-6'
       timezone: Asia/Shanghai
-    # F&G Mon-Fri every six hours plus Tue-Sat 04:01 NY catch-up / revision check.
-    # Calendar gate selects only close +1/+61 min for ETFs, including early closes.
-    - cron: '1 4 * * 2-6'
+    # F&G Mon-Fri every six hours plus Tue-Sat 04:29 NY overnight/weekend catch-up.
+    # US ETFs refresh at close +13/+79 min (including Jul/Nov/Dec early closes) plus 18:37 NY catch-up guardrail.
+    - cron: '29 4 * * 2-6'
       timezone: America/New_York
-    - cron: '1 10 * * 1-5'
+    - cron: '17 10 * * 1-5'
       timezone: America/New_York
-    - cron: '1 16 * * 1-5'
+    - cron: '13 13 * 7,11,12 1-5'
       timezone: America/New_York
-    - cron: '1 22 * * 1-5'
+    - cron: '19 14 * 7,11,12 1-5'
       timezone: America/New_York
-    - cron: '1 13 * * 1-5'
+    - cron: '13 16 * * 1-5'
       timezone: America/New_York
-    - cron: '1 14 * * 1-5'
+    - cron: '19 17 * * 1-5'
       timezone: America/New_York
-    - cron: '1 17 * * 1-5'
+    - cron: '37 18 * * 1-5'
+      timezone: America/New_York
+    - cron: '23 22 * * 1-5'
       timezone: America/New_York
   workflow_dispatch:
     inputs:
@@ -60,19 +62,12 @@ jobs:
         env:
           REFRESH_SCHEDULE: ${{ github.event.schedule }}
         run: |
-          case "$REFRESH_SCHEDULE" in
-            '1 9 * * 2-6'|'1 15 * * 1-6'|'1 21 * * 1-6')
-              echo 'funds=true' >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
-                node scripts/refresh-schedule.mjs >> "$GITHUB_OUTPUT"
-              else
-                echo 'sources=Fear & Greed,SPY,QQQ,VGT,SMH,BRK-B' >> "$GITHUB_OUTPUT"
-                echo 'funds=true' >> "$GITHUB_OUTPUT"
-              fi
-              ;;
-          esac
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            node scripts/refresh-schedule.mjs >> "$GITHUB_OUTPUT"
+          else
+            echo 'sources=Fear & Greed,SPY,QQQ,VGT,SMH,BRK-B' >> "$GITHUB_OUTPUT"
+            echo 'funds=true' >> "$GITHUB_OUTPUT"
+          fi
   build:
     needs: schedule
     if: github.ref == 'refs/heads/main' && (needs.schedule.outputs.sources != '' || needs.schedule.outputs.funds == 'true')

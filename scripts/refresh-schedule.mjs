@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { scheduledSources } from '../server/refresh-schedule.mjs';
+import { scheduledPlan } from '../server/refresh-schedule.mjs';
 
 async function readJsonOptional(relativePath, fallback) {
   try {
@@ -15,8 +15,10 @@ const customSymbols = Array.isArray(customConfig)
   ? customConfig.map(item => (typeof item === 'string' ? item : item?.symbol)).filter(Boolean)
   : [];
 
-console.log('sources=' + scheduledSources(process.env.REFRESH_SCHEDULE, Date.now(), {
+const plan = scheduledPlan(process.env.REFRESH_SCHEDULE, Date.now(), {
   status,
   customSymbols,
   catchUp: true
-}).join(','));
+});
+console.log('sources=' + plan.sources.join(','));
+console.log('funds=' + (plan.funds ? 'true' : 'false'));

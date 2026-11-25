@@ -41,17 +41,17 @@
 
 ## 三、GitHub Actions 定时调度一览
 
-工作流定义在 [.github/workflows/pages.yml](../.github/workflows/pages.yml)，使用 GitHub 原生时区自动适配夏/冬令时：
+工作流定义在 [.github/workflows/pages.yml](../.github/workflows/pages.yml)，全部 cron 分钟位均错开整点拥堵洪峰并使用 GitHub 原生时区自动适配夏/冬令时：
 
 | 类别 | 调度时间（当地时区） | 抓取目标 | 说明 |
 | :--- | :--- | :--- | :--- |
-| **美股收盘联动** | 美东周一至周五 `16:01`、`17:01`<br>提前收盘日 `13:01`、`14:01` | 全部美股 ETF + F&G | 日历门禁只在实际交易日收盘 `+1` / `+61` 分钟放行，非收盘槽位直接跳过 |
-| **F&G 定时更新** | 美东周一至周五 `10:01`、`16:01`、`22:01`<br>周二至周六 `04:01` | F&G（配合 `--catch-up` 顺带补抓过期 ETF） | 工作日美股节假日仍跑；周六 `04:01` 承接周五收盘修订与兜底，其余周末停跑 |
-| **国内场内 ETF** | 北京周二至周六 `09:01`<br>周一至周六 `15:01`、`21:01` | `nasdaq100-etfs.json`、`sp500-etfs.json` | 不触发美股更新；周日及凌晨 `03:01` 停跑；周六 `09:01` 用于对齐周五美股基准收盘 |
+| **美股收盘联动** | 美东周一至周五 `16:13`、`17:19`<br>提前收盘月（7/11/12 月）`13:13`、`14:19` | 全部美股 ETF + F&G | 收盘后 `+13` / `+79` 分钟两轮抓取（避开收盘 `+1` 分钟结算竞态）；日历门禁只在实际交易日放行，非收盘槽位仅在需要时执行 |
+| **盘后护栏与 F&G** | 美东周一至周五 `10:17`、`16:13`、`18:37`、`22:23`<br>周二至周六 `04:29` | F&G（`18:37` 为纯 `--catch-up` 轻护栏） | 工作日美股节假日仍检查 F&G；`18:37` 贴近 2 小时宽限期后，仅在美股/F&G 过期或失败时触发 `build`；周二至周六 `04:29` 负责 F&G 更新与过期来源兜底（已健康时不重抓 ETF） |
+| **国内场内 ETF** | 北京周二至周六 `09:11`<br>周一至周六 `15:17`、`21:23` | `nasdaq100-etfs.json`、`sp500-etfs.json`（先按需补齐过期美股） | 统一走 `--catch-up`：美股已新鲜时仅更新国内 ETF（0 美股请求）；若美股或前序槽位延误导致 `qqq.json`/`spy.json` 过期，先补抓美股再算国内 ETF 基准对比；周日停跑 |
 | **代码推送 / 手动触发** | 推送 `main` 或手动 `workflow_dispatch` | 全部美股 + F&G + 国内 ETF | 仅 `push` 事件运行全量应用测试；仅 `public/data/**` 变化不触发 `push` 工作流 |
 
 > [!NOTE]
-> `server/refresh-schedule.mjs` 按触发的计划槽位选源，不因 GitHub 定时延迟跨小时而误选；修改 `.github/workflows/pages.yml` 中的美东 cron 小时时，必须同步更新 `server/refresh-schedule.mjs` 的匹配规则。
+> 所有定时槽位均统一由 [server/refresh-schedule.mjs](../server/refresh-schedule.mjs) 与 [scripts/refresh-schedule.mjs](../scripts/refresh-schedule.mjs) 路由，按触发的计划槽位选源，不因 GitHub 定时延迟跨小时而误选；单元测试会直接校验 [.github/workflows/pages.yml](../.github/workflows/pages.yml) 中所有 cron 全局唯一且与调度模块保持同步。
 
 ---
 
