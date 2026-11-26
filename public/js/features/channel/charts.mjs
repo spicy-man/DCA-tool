@@ -3,10 +3,12 @@ import {
   classifyChannelZ,
   createShiftedCustomAnchor,
   formatIsoDateUtc,
+  getFullChannelViewBounds,
   interpolateLnPrice,
   parseIsoDateUtc,
   solveEndpointChannel
 } from '../../domain/log-channel.mjs';
+import { kdMultiple } from '../../domain/kd-strategy.mjs';
 
 const FONT_STACK = '"Inter Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
@@ -66,18 +68,90 @@ function computeLogTicks(yMin, yMax) {
   return out;
 }
 
-function computeYearTicks(startDate, endDate, showProjection, proj12mDate) {
-  const startYear = Number(startDate.slice(0, 4));
-  const lastYear = Number((showProjection ? proj12mDate : endDate).slice(0, 4));
-  const span = Math.max(1, lastYear - startYear);
-  const step = span > 24 ? 4 : (span > 14 ? 2 : 1);
-  const years = [];
-  for (let y = startYear; y <= lastYear; y++) {
-    if (y === startYear || (y - startYear) % step === 0) {
-      years.push(y);
+function computeTimeTicks(baseMs, tMin, tMax, plotW, isMobile = false) {
+  const spanYears = Math.max(0.01, tMax - tMin);
+  const startDate = formatIsoDateUtc(baseMs + tMin * MS_PER_YEAR);
+  const endDate = formatIsoDateUtc(baseMs + tMax * MS_PER_YEAR);
+  const minGapPx = isMobile ? 48 : 58;
+  const raw = [];
+
+  if (spanYears > 4) {
+    const startYear = Number(startDate.slice(0, 4));
+    const lastYear = Number(endDate.slice(0, 4));
+    const step = spanYears > 24 ? 4 : (spanYears > 14 ? 2 : 1);
+    for (let y = startYear; y <= lastYear; y++) {
+      if (y === startYear || (y - startYear) % step === 0) {
+        const t = (parseIsoDateUtc(`${y}-01-01`) - baseMs) / MS_PER_YEAR;
+        if (t >= tMin && t <= tMax) raw.push({ t, label: String(y) });
+      }
+    }
+  } else if (spanYears > 0.35) {
+    const monthStep = spanYears > 1.8 ? 6 : (spanYears > 0.9 ? 3 : (spanYears > 0.5 ? 2 : 1));
+    let y = Number(startDate.slice(0, 4));
+    let m = Number(startDate.slice(5, 7));
+    const endY = Number(endDate.slice(0, 4));
+    const endM = Number(endDate.slice(5, 7));
+    while (y < endY || (y === endY && m <= endM)) {
+      if ((m - 1) % monthStep === 0) {
+        const iso = `${y}-${String(m).padStart(2, '0')}-01`;
+        const t = (parseIsoDateUtc(iso) - baseMs) / MS_PER_YEAR;
+        if (t >= tMin && t <= tMax) {
+          raw.push({ t, label: m === 1 ? String(y) : `${y}-${String(m).padStart(2, '0')}` });
+        }
+      }
+      m++;
+      if (m > 12) {
+        m = 1;
+        y++;
+      }
+    }
+  } else {
+    const stepDays = spanYears > 0.18 ? 14 : 7;
+    const stepYears = stepDays / 365.25;
+    const firstDay = Math.ceil(tMin / stepYears) * stepYears;
+    let prevYear = '';
+    for (let t = firstDay; t <= tMax + 1e-6; t += stepYears) {
+      if (t < tMin) continue;
+      const iso = formatIsoDateUtc(baseMs + t * MS_PER_YEAR);
+      const yr = iso.slice(0, 4);
+      const label = !prevYear || yr !== prevYear ? iso : iso.slice(5);
+      prevYear = yr;
+      raw.push({ t, label });
     }
   }
-  return years;
+
+  const ticks = [];
+  let lastX = -Infinity;
+  for (const tick of raw) {
+    const px = ((tick.t - tMin) / spanYears) * plotW;
+    if (px - lastX >= minGapPx) {
+      ticks.push(tick);
+      lastX = px;
+    }
+  }
+  return ticks;
+}
+
+function findVisiblePointSlice(points, tMin, tMax) {
+  if (!points?.length) return { startIdx: 0, endIdx: -1 };
+  let lo = 0;
+  let hi = points.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].t < tMin) lo = mid + 1;
+    else hi = mid;
+  }
+  const startIdx = Math.max(0, lo - 1);
+
+  lo = startIdx;
+  hi = points.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (points[mid].t > tMax) hi = mid - 1;
+    else lo = mid;
+  }
+  const endIdx = Math.min(points.length - 1, lo + 1);
+  return { startIdx, endIdx };
 }
 
 function formatAxisPrice(val) {
@@ -86,14 +160,15 @@ function formatAxisPrice(val) {
   return val.toFixed(2).replace(/\.?0+$/, '');
 }
 
-export function createChannelGeom(model, { width, isMobile, showProjection }) {
+export function createChannelGeom(model, { width, isMobile, showProjection, viewRange = null }) {
   const padLeft = isMobile ? 40 : 46;
   const padRight = isMobile ? 52 : 70;
   const plotW = Math.max(140, width - padLeft - padRight);
-  const tSpan = Math.max(1, model.dataset.tEnd);
-  const tMin = -tSpan * 0.015;
-  const tMax = showProjection ? model.dataset.tProj + tSpan * 0.015 : model.dataset.tEnd + tSpan * 0.02;
-  return { padLeft, padRight, plotW, tMin, tMax };
+  const fullBounds = getFullChannelViewBounds(model.dataset, showProjection);
+  const isZoomed = Boolean(viewRange && Number.isFinite(viewRange.tMin) && Number.isFinite(viewRange.tMax));
+  const tMin = isZoomed ? viewRange.tMin : fullBounds.tMin;
+  const tMax = isZoomed ? viewRange.tMax : fullBounds.tMax;
+  return { padLeft, padRight, plotW, tMin, tMax, fullBounds, isZoomed };
 }
 
 export function drawLogChannelUpper(
@@ -103,6 +178,7 @@ export function drawLogChannelUpper(
     showOrigLine = false,
     showPivot = false,
     showProjection = true,
+    viewRange = null,
     hoverT = null,
     lockedYBounds = null,
     activeHandle = null,
@@ -110,9 +186,9 @@ export function drawLogChannelUpper(
   } = {}
 ) {
   const isMobile = (globalThis.innerWidth || 1024) < 640;
-  const cssH = isMobile ? 275 : 335;
+  const cssH = isMobile ? 310 : 440;
   const { ctx, width, height } = setupHiDPI(canvas, cssH);
-  const geom = createChannelGeom(model, { width, isMobile, showProjection });
+  const geom = createChannelGeom(model, { width, isMobile, showProjection, viewRange });
   const { padLeft, plotW, tMin, tMax } = geom;
 
   const padTop = 20;
@@ -124,6 +200,7 @@ export function drawLogChannelUpper(
   const tEnd = ds.tEnd;
   const tLineEnd = showProjection ? ds.tProj : tEnd;
   const sigma = model.sigmaUsed;
+  const { startIdx, endIdx } = findVisiblePointSlice(pts, tMin, tMax);
 
   let lnYMin;
   let lnYMax;
@@ -133,26 +210,28 @@ export function drawLogChannelUpper(
   } else {
     lnYMin = Infinity;
     lnYMax = -Infinity;
-    for (let i = 0; i < pts.length; i++) {
+    for (let i = startIdx; i <= endIdx; i++) {
       const v = pts[i].lnP;
       if (v < lnYMin) lnYMin = v;
       if (v > lnYMax) lnYMax = v;
     }
 
+    const tProbeL = Math.max(0, Math.min(tLineEnd, tMin));
+    const tProbeR = Math.max(tProbeL, Math.min(tLineEnd, tMax));
     const probes = [
-      model.lnFit(0) - 2 * sigma,
-      model.lnFit(0) + 2 * sigma,
-      model.lnFit(tLineEnd) - 2 * sigma,
-      model.lnFit(tLineEnd) + 2 * sigma
+      model.lnFit(tProbeL) - 2 * sigma,
+      model.lnFit(tProbeL) + 2 * sigma,
+      model.lnFit(tProbeR) - 2 * sigma,
+      model.lnFit(tProbeR) + 2 * sigma
     ];
     if (showOrigLine) {
-      probes.push(model.origLnFit(0), model.origLnFit(tLineEnd));
+      probes.push(model.origLnFit(tProbeL), model.origLnFit(tProbeR));
     }
     for (const v of probes) {
       if (v < lnYMin) lnYMin = v;
       if (v > lnYMax) lnYMax = v;
     }
-    const span = Math.max(0.2, lnYMax - lnYMin);
+    const span = Math.max(0.1, lnYMax - lnYMin);
     lnYMin -= span * 0.06;
     lnYMax += span * 0.07;
   }
@@ -163,16 +242,20 @@ export function drawLogChannelUpper(
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
 
-  if (showProjection) {
-    const xToday = xOf(tEnd);
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(xToday, padTop, padLeft + plotW - xToday, plotH);
-  }
-
   ctx.save();
   ctx.beginPath();
   ctx.rect(padLeft, padTop, plotW, plotH);
   ctx.clip();
+
+  if (showProjection) {
+    const xTodayBg = xOf(tEnd);
+    const bgLeft = Math.max(padLeft, xTodayBg);
+    const bgRight = padLeft + plotW;
+    if (bgRight > bgLeft) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(bgLeft, padTop, bgRight - bgLeft, plotH);
+    }
+  }
 
   const yTicks = computeLogTicks(Math.exp(lnYMin), Math.exp(lnYMax));
   ctx.strokeStyle = '#eef2f6';
@@ -185,16 +268,13 @@ export function drawLogChannelUpper(
     ctx.stroke();
   }
 
-  const years = computeYearTicks(ds.startDate, ds.endDate, showProjection, ds.proj12mDate);
-  for (const yr of years) {
-    const tYr = (parseIsoDateUtc(`${yr}-01-01`) - ds.baseMs) / MS_PER_YEAR;
-    if (tYr >= tMin && tYr <= tMax) {
-      const x = Math.round(xOf(tYr)) + 0.5;
-      ctx.beginPath();
-      ctx.moveTo(x, padTop);
-      ctx.lineTo(x, padTop + plotH);
-      ctx.stroke();
-    }
+  const timeTicks = computeTimeTicks(ds.baseMs, tMin, tMax, plotW, isMobile);
+  for (const tick of timeTicks) {
+    const x = Math.round(xOf(tick.t)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, padTop + plotH);
+    ctx.stroke();
   }
 
   ctx.fillStyle = 'rgba(104, 127, 142, 0.04)';
@@ -253,7 +333,11 @@ export function drawLogChannelUpper(
   drawBand(-2, '#4d8b78', 1.25, [5, 4]);
   drawBand(1, '#a0b2be', 1.15, [4, 4]);
   drawBand(-1, '#a0b2be', 1.15, [4, 4]);
-  drawBand(0, '#334e5e', 2.2, null);
+  if (activeHandle === 'centerline') {
+    drawBand(0, '#19374a', 2.8, null);
+  } else {
+    drawBand(0, '#334e5e', 2.2, null);
+  }
 
   const xToday = xOf(tEnd);
   ctx.save();
@@ -278,25 +362,28 @@ export function drawLogChannelUpper(
   ctx.fillText(ds.endDate, bx + 4, padTop + 12);
   ctx.restore();
 
-  // Sample daily series efficiently by pixel column when dense
-  ctx.save();
-  ctx.strokeStyle = '#19374a';
-  ctx.lineWidth = 1.5;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  const stride = pts.length > plotW * 2 ? Math.floor(pts.length / (plotW * 1.8)) : 1;
-  for (let i = 0; i < pts.length; i += stride) {
-    const x = xOf(pts[i].t);
-    const y = yOfLn(pts[i].lnP);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  // Sample daily series efficiently over the visible slice
+  const visibleCount = Math.max(0, endIdx - startIdx + 1);
+  if (visibleCount > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#19374a';
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const stride = visibleCount > plotW * 2 ? Math.floor(visibleCount / (plotW * 1.8)) : 1;
+    for (let i = startIdx; i <= endIdx; i += stride) {
+      const x = xOf(pts[i].t);
+      const y = yOfLn(pts[i].lnP);
+      if (i === startIdx) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    if ((endIdx - startIdx) % stride !== 0) {
+      const lastPt = pts[endIdx];
+      ctx.lineTo(xOf(lastPt.t), yOfLn(lastPt.lnP));
+    }
+    ctx.stroke();
+    ctx.restore();
   }
-  if ((pts.length - 1) % stride !== 0) {
-    const lastPt = pts[pts.length - 1];
-    ctx.lineTo(xOf(lastPt.t), yOfLn(lastPt.lnP));
-  }
-  ctx.stroke();
-  ctx.restore();
 
   if (showPivot) {
     const px = xOf(model.pivot.t);
@@ -431,19 +518,17 @@ export function drawLogChannelUpper(
   ctx.font = `11px ${FONT_STACK}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  for (const yr of years) {
-    const tYr = (parseIsoDateUtc(`${yr}-01-01`) - ds.baseMs) / MS_PER_YEAR;
-    if (tYr >= tMin && tYr <= tMax) {
-      const x = xOf(tYr);
-      ctx.fillText(String(yr), x, padTop + plotH + 7);
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.beginPath();
-      ctx.moveTo(x, padTop + plotH);
-      ctx.lineTo(x, padTop + plotH + 4);
-      ctx.stroke();
-    }
+  for (const tick of timeTicks) {
+    const x = xOf(tick.t);
+    ctx.fillText(tick.label, x, padTop + plotH + 7);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.beginPath();
+    ctx.moveTo(x, padTop + plotH);
+    ctx.lineTo(x, padTop + plotH + 4);
+    ctx.stroke();
   }
 
+  const tLabelRight = Math.max(0, Math.min(tLineEnd, tMax));
   const rightLabels = [
     { off: 2, text: '+2σ', color: '#b3675a' },
     { off: 1, text: '+1σ', color: '#7e93a2' },
@@ -456,7 +541,7 @@ export function drawLogChannelUpper(
   ctx.textBaseline = 'middle';
   let prevY = -Infinity;
   for (const item of rightLabels) {
-    let y = yOfLn(model.lnFit(tLineEnd) + item.off * sigma);
+    let y = yOfLn(model.lnFit(tLabelRight) + item.off * sigma);
     if (y < prevY + 13) y = prevY + 13;
     if (y >= padTop + 4 && y <= padTop + plotH - 4) {
       ctx.fillStyle = item.color;
@@ -465,14 +550,26 @@ export function drawLogChannelUpper(
     }
   }
 
-  const handles = {
-    left: { x: xOf(0), y: yOfLn(model.lnFit(0)), t: 0, lnP: model.lnFit(0) },
-    right: { x: xOf(tLineEnd), y: yOfLn(model.lnFit(tLineEnd)), t: tLineEnd, lnP: model.lnFit(tLineEnd) }
+  const tHandleLeft = Math.max(0, tMin);
+  const tHandleRight = Math.min(tLineEnd, tMax);
+  const makeHandle = t => {
+    const lnP = model.lnFit(t);
+    const y = yOfLn(lnP);
+    return {
+      x: xOf(t),
+      y,
+      t,
+      lnP,
+      visible: y >= padTop - 10 && y <= padTop + plotH + 10
+    };
   };
+  const handles = tHandleRight > tHandleLeft + 0.02
+    ? { left: makeHandle(tHandleLeft), right: makeHandle(tHandleRight) }
+    : { left: null, right: null };
 
   for (const side of ['left', 'right']) {
     const h = handles[side];
-    if (h.y < padTop - 10 || h.y > padTop + plotH + 10) continue;
+    if (!h || !h.visible) continue;
     const isActive = activeHandle === side;
     const isPinned = pinnedHandle === side;
     ctx.save();
@@ -509,10 +606,10 @@ export function drawLogChannelUpper(
     ctx.restore();
   }
 
-  return { ...geom, padTop, plotH, lnYMin, lnYMax, handles };
+  return { ...geom, padTop, plotH, lnYMin, lnYMax, tLineEnd, handles };
 }
 
-export function hitTestChannelHandle(canvas, geom, clientX, clientY) {
+export function hitTestChannelHandle(canvas, geom, clientX, clientY, model = null) {
   if (!canvas || !geom || !geom.handles) return null;
   const rect = canvas.getBoundingClientRect();
   const x = clientX - rect.left;
@@ -520,7 +617,7 @@ export function hitTestChannelHandle(canvas, geom, clientX, clientY) {
   const hitRadius = 16;
   for (const side of ['left', 'right']) {
     const h = geom.handles[side];
-    if (!h) continue;
+    if (!h || h.visible === false) continue;
     if (Math.hypot(x - h.x, y - h.y) <= hitRadius) return side;
   }
   if (
@@ -529,6 +626,14 @@ export function hitTestChannelHandle(canvas, geom, clientX, clientY) {
     y >= geom.padTop &&
     y <= geom.padTop + geom.plotH
   ) {
+    if (model && Number.isFinite(geom.lnYMin) && Number.isFinite(geom.lnYMax) && geom.lnYMax > geom.lnYMin) {
+      const tAtX = geom.tMin + ((x - geom.padLeft) / geom.plotW) * (geom.tMax - geom.tMin);
+      const maxChannelT = Number.isFinite(geom.tLineEnd) ? geom.tLineEnd : (geom.handles?.right?.t ?? Infinity);
+      if (tAtX >= 0 && tAtX <= maxChannelT) {
+        const centerY = geom.padTop + ((geom.lnYMax - model.lnFit(tAtX)) / (geom.lnYMax - geom.lnYMin)) * geom.plotH;
+        if (Math.abs(y - centerY) <= 12) return 'centerline';
+      }
+    }
     return 'body';
   }
   return null;
@@ -597,12 +702,12 @@ export function computeDragOffsetPct(geom, startClientY, currentClientY, startOf
 export function drawLogChannelLower(
   canvas,
   model,
-  { showProjection = true, hoverT = null, geom = null } = {}
+  { showProjection = true, viewRange = null, hoverT = null, geom = null } = {}
 ) {
   const isMobile = (globalThis.innerWidth || 1024) < 640;
   const cssH = isMobile ? 160 : 185;
   const { ctx, width, height } = setupHiDPI(canvas, cssH);
-  const effectiveGeom = geom || createChannelGeom(model, { width, isMobile, showProjection });
+  const effectiveGeom = geom || createChannelGeom(model, { width, isMobile, showProjection, viewRange });
   const { padLeft, plotW, tMin, tMax } = effectiveGeom;
 
   const padTop = 12;
@@ -617,10 +722,11 @@ export function drawLogChannelLower(
   const toZ = r => (hasSigma ? r / sigma : 0);
   const zSeries = res.map(toZ);
   const tEnd = ds.tEnd;
+  const { startIdx, endIdx } = findVisiblePointSlice(pts, tMin, tMax);
 
   let minZ = -2.35;
   let maxZ = 2.35;
-  for (let i = 0; i < zSeries.length; i++) {
+  for (let i = startIdx; i <= endIdx; i++) {
     if (zSeries[i] < minZ) minZ = zSeries[i];
     if (zSeries[i] > maxZ) maxZ = zSeries[i];
   }
@@ -634,16 +740,20 @@ export function drawLogChannelLower(
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
 
-  if (showProjection) {
-    const xToday = xOf(tEnd);
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(xToday, padTop, padLeft + plotW - xToday, plotH);
-  }
-
   ctx.save();
   ctx.beginPath();
   ctx.rect(padLeft, padTop, plotW, plotH);
   ctx.clip();
+
+  if (showProjection) {
+    const xTodayBg = xOf(tEnd);
+    const bgLeft = Math.max(padLeft, xTodayBg);
+    const bgRight = padLeft + plotW;
+    if (bgRight > bgLeft) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(bgLeft, padTop, bgRight - bgLeft, plotH);
+    }
+  }
 
   const spanZ = maxZ - minZ;
   const step = spanZ > 8 ? 2 : (spanZ > 4.5 ? 1 : 0.5);
@@ -661,21 +771,20 @@ export function drawLogChannelLower(
     ctx.stroke();
   }
 
-  const years = computeYearTicks(ds.startDate, ds.endDate, showProjection, ds.proj12mDate);
-  for (const yr of years) {
-    const tYr = (parseIsoDateUtc(`${yr}-01-01`) - ds.baseMs) / MS_PER_YEAR;
-    if (tYr >= tMin && tYr <= tMax) {
-      const x = Math.round(xOf(tYr)) + 0.5;
-      ctx.beginPath();
-      ctx.moveTo(x, padTop);
-      ctx.lineTo(x, padTop + plotH);
-      ctx.stroke();
-    }
+  const timeTicks = computeTimeTicks(ds.baseMs, tMin, tMax, plotW, isMobile);
+  for (const tick of timeTicks) {
+    const x = Math.round(xOf(tick.t)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, padTop + plotH);
+    ctx.stroke();
   }
 
-  const stride = pts.length > plotW * 2 ? Math.floor(pts.length / (plotW * 1.8)) : 1;
+  const visibleCount = Math.max(0, endIdx - startIdx + 1);
+  const stride = visibleCount > plotW * 2 ? Math.floor(visibleCount / (plotW * 1.8)) : 1;
 
   function fillResidualSide(thresholdZ, isAbove, color) {
+    if (visibleCount <= 0) return;
     ctx.save();
     ctx.beginPath();
     if (isAbove) {
@@ -686,14 +795,14 @@ export function drawLogChannelLower(
     ctx.clip();
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(xOf(pts[0].t), yOf(thresholdZ));
-    for (let i = 0; i < pts.length; i += stride) {
+    ctx.moveTo(xOf(pts[startIdx].t), yOf(thresholdZ));
+    for (let i = startIdx; i <= endIdx; i += stride) {
       ctx.lineTo(xOf(pts[i].t), yOf(zSeries[i]));
     }
-    if ((pts.length - 1) % stride !== 0) {
-      ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(zSeries[pts.length - 1]));
+    if ((endIdx - startIdx) % stride !== 0) {
+      ctx.lineTo(xOf(pts[endIdx].t), yOf(zSeries[endIdx]));
     }
-    ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(thresholdZ));
+    ctx.lineTo(xOf(pts[endIdx].t), yOf(thresholdZ));
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -734,22 +843,24 @@ export function drawLogChannelLower(
   ctx.stroke();
   ctx.restore();
 
-  ctx.save();
-  ctx.strokeStyle = '#19374a';
-  ctx.lineWidth = 1.45;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  for (let i = 0; i < pts.length; i += stride) {
-    const x = xOf(pts[i].t);
-    const y = yOf(zSeries[i]);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  if (visibleCount > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#19374a';
+    ctx.lineWidth = 1.45;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = startIdx; i <= endIdx; i += stride) {
+      const x = xOf(pts[i].t);
+      const y = yOf(zSeries[i]);
+      if (i === startIdx) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    if ((endIdx - startIdx) % stride !== 0) {
+      ctx.lineTo(xOf(pts[endIdx].t), yOf(zSeries[endIdx]));
+    }
+    ctx.stroke();
+    ctx.restore();
   }
-  if ((pts.length - 1) % stride !== 0) {
-    ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(zSeries[pts.length - 1]));
-  }
-  ctx.stroke();
-  ctx.restore();
 
   const lx = xOf(tEnd);
   const ly = yOf(hasSigma ? model.zEnd : 0);
@@ -842,11 +953,8 @@ export function drawLogChannelLower(
   ctx.font = `11px ${FONT_STACK}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  for (const yr of years) {
-    const tYr = (parseIsoDateUtc(`${yr}-01-01`) - ds.baseMs) / MS_PER_YEAR;
-    if (tYr >= tMin && tYr <= tMax) {
-      ctx.fillText(String(yr), xOf(tYr), padTop + plotH + 7);
-    }
+  for (const tick of timeTicks) {
+    ctx.fillText(tick.label, xOf(tick.t), padTop + plotH + 7);
   }
 }
 
@@ -1029,4 +1137,316 @@ export function resolveChannelHover(canvas, geom, model, clientX, showProjection
   const isProjection = targetT > ds.tEnd + 1e-4;
   const dateStr = snappedPoint ? snappedPoint.date : formatIsoDateUtc(ds.baseMs + targetT * MS_PER_YEAR);
   return { targetT, snappedPoint, isProjection, dateStr };
+}
+
+function monotoneTangents(xs, ys) {
+  const n = xs.length;
+  const tangents = new Float64Array(n);
+  if (n < 2) return tangents;
+  const dx = new Float64Array(n - 1);
+  const slopes = new Float64Array(n - 1);
+  for (let i = 0; i < n - 1; i++) {
+    dx[i] = xs[i + 1] - xs[i];
+    slopes[i] = dx[i] > 0 ? (ys[i + 1] - ys[i]) / dx[i] : 0;
+  }
+  tangents[0] = slopes[0];
+  tangents[n - 1] = slopes[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    const d0 = slopes[i - 1];
+    const d1 = slopes[i];
+    if (d0 * d1 <= 0 || dx[i - 1] <= 0 || dx[i] <= 0) {
+      tangents[i] = 0;
+    } else {
+      const w1 = 2 * dx[i] + dx[i - 1];
+      const w2 = dx[i] + 2 * dx[i - 1];
+      tangents[i] = (w1 + w2) / (w1 / d0 + w2 / d1);
+    }
+  }
+  for (let i = 0; i < n - 1; i++) {
+    const d = slopes[i];
+    if (d === 0 || dx[i] <= 0) {
+      tangents[i] = 0;
+      tangents[i + 1] = 0;
+      continue;
+    }
+    const a = tangents[i] / d;
+    const b = tangents[i + 1] / d;
+    const sum = a * a + b * b;
+    if (sum > 9) {
+      const scale = 3 / Math.sqrt(sum);
+      tangents[i] = scale * a * d;
+      tangents[i + 1] = scale * b * d;
+    }
+  }
+  return tangents;
+}
+
+function findNearestKDPoint(points, targetT) {
+  if (!points?.length) return null;
+  if (targetT <= points[0].t) return points[0];
+  if (targetT >= points[points.length - 1].t) return points[points.length - 1];
+  let lo = 0;
+  let hi = points.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].t <= targetT) lo = mid;
+    else hi = mid;
+  }
+  return Math.abs(points[lo].t - targetT) <= Math.abs(points[hi].t - targetT) ? points[lo] : points[hi];
+}
+
+export function drawLogChannelKD(
+  canvas,
+  model,
+  kdData,
+  { showProjection = true, viewRange = null, hoverT = null, hoverDate = null, geom = null, tierFactor = 1.5 } = {}
+) {
+  const isMobile = (globalThis.innerWidth || 1024) < 640;
+  const cssH = isMobile ? 160 : 185;
+  const { ctx, width, height } = setupHiDPI(canvas, cssH);
+  const effectiveGeom = geom || createChannelGeom(model, { width, isMobile, showProjection, viewRange });
+  const { padLeft, plotW, tMin, tMax } = effectiveGeom;
+
+  const padTop = 12;
+  const padBottom = 28;
+  const plotH = height - padTop - padBottom;
+
+  const ds = model.dataset;
+  const tEnd = ds.tEnd;
+  const xOf = t => padLeft + ((t - tMin) / (tMax - tMin)) * plotW;
+  const yOf = k => padTop + ((100 - k) / 100) * plotH;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(padLeft, padTop, plotW, plotH);
+  ctx.clip();
+
+  if (showProjection) {
+    const xTodayBg = xOf(tEnd);
+    const bgLeft = Math.max(padLeft, xTodayBg);
+    const bgRight = padLeft + plotW;
+    if (bgRight > bgLeft) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(bgLeft, padTop, bgRight - bgLeft, plotH);
+    }
+  }
+
+  // Low-K buy zones
+  ctx.fillStyle = 'rgba(77, 139, 120, 0.08)';
+  ctx.fillRect(padLeft, yOf(30), plotW, yOf(0) - yOf(30));
+  ctx.fillStyle = 'rgba(77, 139, 120, 0.09)';
+  ctx.fillRect(padLeft, yOf(20), plotW, yOf(0) - yOf(20));
+
+  ctx.strokeStyle = '#eef2f6';
+  ctx.lineWidth = 1;
+  for (const tick of [0, 20, 40, 60, 80, 100]) {
+    const y = Math.round(yOf(tick)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(padLeft + plotW, y);
+    ctx.stroke();
+  }
+
+  const timeTicks = computeTimeTicks(ds.baseMs, tMin, tMax, plotW, isMobile);
+  for (const tick of timeTicks) {
+    const x = Math.round(xOf(tick.t)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, padTop + plotH);
+    ctx.stroke();
+  }
+
+  function drawRefLine(val, color, lw, dash) {
+    const y = yOf(val);
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    if (dash) ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(padLeft + plotW, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawRefLine(80, '#c47a6d', 1.1, [4, 4]);
+  drawRefLine(50, '#cbd5e1', 1.0, [3, 3]);
+  drawRefLine(20, '#4d8b78', 1.15, [4, 4]);
+
+  const xToday = xOf(tEnd);
+  ctx.save();
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(xToday, padTop);
+  ctx.lineTo(xToday, padTop + plotH);
+  ctx.stroke();
+  ctx.restore();
+
+  const kdPts = kdData?.points || [];
+  const { startIdx: kdStartIdx, endIdx: kdEndIdx } = findVisiblePointSlice(kdPts, tMin, tMax);
+  const visibleKdPts = kdEndIdx >= kdStartIdx ? kdPts.slice(kdStartIdx, kdEndIdx + 1) : [];
+  if (visibleKdPts.length) {
+    const xs = new Float64Array(visibleKdPts.length);
+    for (let i = 0; i < visibleKdPts.length; i++) {
+      xs[i] = xOf(visibleKdPts[i].t);
+    }
+
+    const curveSpecs = [
+      ['monthK', '#0d9488', 1.1],
+      ['quarterK', '#2563eb', 1.1],
+      ['weightedK', '#c26e2b', 2.0]
+    ];
+
+    for (const [key, color, lineWidth] of curveSpecs) {
+      const ys = new Float64Array(visibleKdPts.length);
+      for (let i = 0; i < visibleKdPts.length; i++) ys[i] = yOf(visibleKdPts[i][key]);
+      const tangents = monotoneTangents(xs, ys);
+      ctx.save();
+      if (xs.length === 1) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(xs[0], ys[0], Math.max(2, lineWidth + 0.5), 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(xs[0], ys[0]);
+        for (let i = 0; i < xs.length - 1; i++) {
+          const step = xs[i + 1] - xs[i];
+          if (step <= 0) {
+            ctx.lineTo(xs[i + 1], ys[i + 1]);
+            continue;
+          }
+          const third = step / 3;
+          ctx.bezierCurveTo(
+            xs[i] + third,
+            ys[i] + tangents[i] * third,
+            xs[i + 1] - third,
+            ys[i + 1] - tangents[i + 1] * third,
+            xs[i + 1],
+            ys[i + 1]
+          );
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    const latestState = kdData?.latest || kdPts.at(-1);
+    if (latestState && Number.isFinite(latestState.weightedK) && tEnd >= tMin && tEnd <= tMax) {
+      const lx = xOf(tEnd);
+      const ly = yOf(latestState.weightedK);
+      ctx.fillStyle = '#c26e2b';
+      ctx.beginPath();
+      ctx.arc(lx, ly, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      ctx.save();
+      const valTxt = latestState.weightedK.toFixed(1);
+      ctx.font = `700 10.5px ${FONT_STACK}`;
+      const bw = ctx.measureText(valTxt).width + 10;
+      const bh = 18;
+      let bx = showProjection ? lx + 7 : lx - bw - 7;
+      if (bx + bw > padLeft + plotW - 3) bx = lx - bw - 7;
+      const by = Math.max(padTop + 4, Math.min(padTop + plotH - bh - 4, ly - bh / 2));
+      ctx.fillStyle = '#c26e2b';
+      drawRoundRect(ctx, bx, by, bw, bh, 4);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(valTxt, bx + 5, by + bh / 2);
+      ctx.restore();
+    }
+  }
+
+  if (hoverT !== null && hoverT >= tMin && hoverT <= tMax) {
+    const hx = xOf(hoverT);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(25, 55, 74, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(hx, padTop);
+    ctx.lineTo(hx, padTop + plotH);
+    ctx.stroke();
+
+    if (hoverT >= 0 && hoverT <= tEnd && kdPts.length) {
+      const hState = (hoverDate && kdData?.byDate?.get(hoverDate)) || findNearestKDPoint(kdPts, hoverT);
+      if (hState) {
+        for (const [key, color, radius, bordered] of [
+          ['monthK', '#0d9488', 2.5, false],
+          ['quarterK', '#2563eb', 2.5, false],
+          ['weightedK', '#c26e2b', 4, true]
+        ]) {
+          ctx.beginPath();
+          ctx.arc(hx, yOf(hState[key]), radius, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          if (bordered) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(padLeft + 0.5, padTop + 0.5, plotW, plotH);
+
+  ctx.fillStyle = '#475569';
+  ctx.font = `11px ${FONT_STACK}`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const tick of [0, 20, 40, 60, 80, 100]) {
+    const y = yOf(tick);
+    if (y >= padTop + 4 && y <= padTop + plotH - 4) {
+      ctx.fillText(String(tick), padLeft - 7, y);
+    }
+  }
+
+  const fmtMult = v => kdMultiple(v, tierFactor).toLocaleString('en-US', { maximumFractionDigits: 1 }) + 'N';
+  ctx.font = `600 10px ${FONT_STACK}`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  let prevY = -Infinity;
+  for (const ref of [
+    { val: 95, color: '#94a3b8' },
+    { val: 65, color: '#64748b' },
+    { val: 35, color: '#c26e2b' },
+    { val: 15, color: '#3f7a68' },
+    { val: 5, color: '#065f46' }
+  ]) {
+    let y = yOf(ref.val);
+    if (y < prevY + 12) y = prevY + 12;
+    if (y >= padTop + 4 && y <= padTop + plotH - 4) {
+      ctx.fillStyle = ref.color;
+      ctx.fillText(fmtMult(ref.val), padLeft + plotW + 6, y);
+      prevY = y;
+    }
+  }
+
+  ctx.fillStyle = '#475569';
+  ctx.font = `11px ${FONT_STACK}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const tick of timeTicks) {
+    ctx.fillText(tick.label, xOf(tick.t), padTop + plotH + 7);
+  }
 }

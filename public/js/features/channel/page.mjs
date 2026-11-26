@@ -1,20 +1,44 @@
-import { loadMarketSnapshot } from '../../services/data-client.mjs';
+import {
+  getDeploymentInfo,
+  loadMarketSnapshot,
+  loadSourceHealth,
+  requestSourceRefresh
+} from '../../services/data-client.mjs';
 import { createAppUpdateWatcher } from '../../ui/app-update.mjs';
+import { healthSummary } from '../../domain/data-health.mjs';
+import {
+  bindDialogCommands,
+  bindDialogExitFallback,
+  closeDialog,
+  enableDialogLightDismiss
+} from '../../ui/dialog-utils.mjs';
 import {
   ANCHOR_MODES,
   CHANNEL_ASSETS,
   CHANNEL_SYMBOLS,
+  MIN_CHANNEL_VIEW_SPAN,
   MS_PER_YEAR,
   SAMPLE_WINDOWS,
   buildChannelDataset,
+  buildChannelKDSeries,
+  buildChannelKDTiers,
+  classifyChannelKD,
   classifyChannelZ,
+  constrainChannelView,
   evaluateChannelModel,
+  formatIsoDateUtc,
+  getFullChannelViewBounds,
   interpolateLnPrice,
-  parseIsoDateUtc
+  isValidChannelSymbol,
+  panChannelView,
+  parseIsoDateUtc,
+  zoomChannelView
 } from '../../domain/log-channel.mjs';
+import { kdMultiple, normalizeKDOptions } from '../../domain/kd-strategy.mjs';
 import {
   computeBodyDragAnchor,
   computeEndpointRotate,
+  drawLogChannelKD,
   drawLogChannelLower,
   drawLogChannelUpper,
   drawValuationThermometer,
@@ -22,17 +46,27 @@ import {
   resolveChannelHover
 } from './charts.mjs';
 import {
+  KD_STORAGE_KEY,
   STORAGE_KEY,
   VALID_TABS,
   createDefaultChannelState,
   createDefaultSymbolConfig,
+  loadChannelKDOptions,
   loadChannelState,
   parseChannelState,
   probeChannelStorage,
+  saveChannelKDOptions,
   saveChannelState
 } from './storage.mjs';
 
 const FIXED_PRICE_BASIS = 'totalReturn';
+const SYMBOL_OPTION_LABELS = {
+  SPY: 'SPY · 标普 500',
+  QQQ: 'QQQ · 纳斯达克 100',
+  VGT: 'VGT · 信息技术 ETF',
+  SMH: 'SMH · 半导体 ETF',
+  'BRK-B': 'BRK-B · 伯克希尔 B'
+};
 
 function el(tag, attrs = null, children = []) {
   const node = document.createElement(tag);
@@ -80,11 +114,16 @@ function fmtRatePct(v) {
   return `${rounded < 0 ? '−' : ''}${Math.abs(rounded).toFixed(1)}%`;
 }
 
+function fmtKDMultiple(v) {
+  return Number.isFinite(v) ? `${v.toLocaleString('en-US', { maximumFractionDigits: 1 })}N` : '—';
+}
+
 function resolveTabFromQuery(search) {
   const param = new URLSearchParams(search || '').get('symbol');
   if (!param) return null;
   const upper = param.trim().toUpperCase();
-  return VALID_TABS.has(upper) ? upper : null;
+  if (VALID_TABS.has(upper) || isValidChannelSymbol(upper)) return upper;
+  return null;
 }
 
 function syncQuerySymbol(tab) {
@@ -100,21 +139,44 @@ function syncQuerySymbol(tab) {
 
 export function initLogChannelPage() {
   const $ = id => document.getElementById(id);
-  if (!$('channel-tabs')) return;
+  if (!$('channel-symbol')) return;
 
   const { state, loadedFromKey, storageReadable } = loadChannelState();
   let storageAvailable = storageReadable && probeChannelStorage();
   const queryTab = resolveTabFromQuery(globalThis.location?.search);
-  if (queryTab) state.activeTab = queryTab;
+  let openCompareOnReady = false;
+  if (queryTab === 'COMPARE') {
+    state.activeTab = CHANNEL_SYMBOLS.includes(state.activeTab) || isValidChannelSymbol(state.activeTab) ? state.activeTab : 'SPY';
+    openCompareOnReady = true;
+  } else if (queryTab && (CHANNEL_SYMBOLS.includes(queryTab) || isValidChannelSymbol(queryTab))) {
+    state.activeTab = queryTab;
+  } else if (!CHANNEL_SYMBOLS.includes(state.activeTab) && !isValidChannelSymbol(state.activeTab)) {
+    state.activeTab = 'SPY';
+  }
+  if (!state.symbols[state.activeTab]) {
+    state.symbols[state.activeTab] = createDefaultSymbolConfig(state.activeTab);
+  }
   if (loadedFromKey && loadedFromKey !== STORAGE_KEY && storageAvailable) {
     saveChannelState(state);
   }
 
   const rawSnapshots = new Map();
   const datasets = new Map();
+  const kdSeriesMap = new Map();
   const loadErrors = new Map();
+  let customSymbols = [];
+  const getAllSymbols = () => [...CHANNEL_SYMBOLS, ...customSymbols];
+  let kdOptions = loadChannelKDOptions();
+  let hoverDate = null;
+  let viewRange = null;
   let lastGeom = null;
   let dragState = null;
+  let panState = null;
+  let pinchState = null;
+  const activeTouches = new Map();
+  let wheelPendingView = null;
+  let wheelRaf = 0;
+  let clearHoverTimer = null;
   let hoverHandle = null;
   let lastResumeCheck = 0;
   let resumeChecking = false;
@@ -123,10 +185,23 @@ export function initLogChannelPage() {
   let resetConfirmTimer = null;
   const appUpdates = createAppUpdateWatcher();
 
-  const tabButtons = [...document.querySelectorAll('#channel-tabs [role="tab"]')];
-  const singlePanel = $('channel-single-panel');
-  const comparePanel = $('channel-compare-panel');
-  const loadStatus = $('channel-load-status');
+  const symbolSelect = $('channel-symbol');
+  const btnAddSymbol = $('add-symbol');
+  const addSymbolHint = $('add-symbol-hint');
+  const symbolDialog = $('symbol-dialog');
+  const symbolForm = $('symbol-form');
+  const customSymbolInput = $('custom-symbol');
+  const customSymbolList = $('custom-symbol-list');
+  const symbolMessage = $('symbol-message');
+  const symbolSubmitBtn = $('symbol-submit');
+  const btnCompareOpen = $('btn-compare-open');
+  const compareDialog = $('channel-compare-dialog');
+  const statusEl = $('status');
+  const refreshBtn = $('refresh');
+  const refreshHint = $('refresh-hint');
+  const channelAsof = $('channel-asof');
+  const priceCloseEl = $('channel-price-close');
+  const priceSubEl = $('channel-price-sub');
   const storageBadge = $('channel-storage-badge');
   const btnSymbolReset = $('btn-symbol-reset');
   const btnResetAll = $('btn-reset-slopes');
@@ -134,6 +209,7 @@ export function initLogChannelPage() {
   const chartCard = $('channel-chart-card');
   const upperCanvas = $('channel-upper-canvas');
   const lowerCanvas = $('channel-lower-canvas');
+  const kdCanvas = $('channel-kd-canvas');
   const thermoCanvas = $('channel-thermo-canvas');
 
   const slopeSlider = $('channel-slope-slider');
@@ -154,13 +230,51 @@ export function initLogChannelPage() {
   const chkShowProj = $('chk-show-proj');
   const btnResidualToggle = $('btn-residual-toggle');
   const residualWrap = $('channel-residual-wrap');
+  const btnKDToggle = $('btn-kd-toggle');
+  const kdWrap = $('channel-kd-wrap');
+  const kdTiersEl = $('channel-kd-tiers');
+  const kdFactorInput = $('channel-kd-factor');
+  const kdFactorError = $('channel-kd-factor-error');
+  const btnZoomReset = $('btn-zoom-reset');
+  const zoomRangeEl = $('channel-zoom-range');
+  const chartCanvases = [upperCanvas, lowerCanvas, kdCanvas].filter(Boolean);
 
   const compWindowSelect = $('comp-window-select');
   const compAnchorSelect = $('comp-anchor-select');
+  const compKDFactorInput = $('comp-kd-factor');
+  const compKDFactorError = $('comp-kd-factor-error');
+
+  function syncKDFactorInputs(preserveSourceId = null) {
+    for (const [id, input, errEl] of [
+      ['channel-kd-factor', kdFactorInput, kdFactorError],
+      ['comp-kd-factor', compKDFactorInput, compKDFactorError]
+    ]) {
+      if (!input) continue;
+      if (preserveSourceId !== id) input.value = String(kdOptions.tierFactor);
+      input.setAttribute('aria-invalid', 'false');
+      if (errEl) {
+        errEl.hidden = true;
+        errEl.textContent = '';
+      }
+    }
+  }
+
+  function rebuildKDSeriesOnly() {
+    for (const [sym, ds] of datasets.entries()) {
+      const snap = rawSnapshots.get(sym);
+      if (!snap?.rows?.length) continue;
+      try {
+        kdSeriesMap.set(sym, buildChannelKDSeries(snap.rows, ds, kdOptions));
+      } catch {
+        kdSeriesMap.delete(sym);
+      }
+    }
+  }
 
   function rebuildDatasets() {
     datasets.clear();
-    for (const sym of CHANNEL_SYMBOLS) {
+    kdSeriesMap.clear();
+    for (const sym of getAllSymbols()) {
       const snap = rawSnapshots.get(sym);
       if (!snap?.rows?.length) continue;
       try {
@@ -170,6 +284,11 @@ export function initLogChannelPage() {
           rollingAnchorYears: 7
         });
         datasets.set(sym, ds);
+        try {
+          kdSeriesMap.set(sym, buildChannelKDSeries(snap.rows, ds, kdOptions));
+        } catch {
+          kdSeriesMap.delete(sym);
+        }
         loadErrors.delete(sym);
       } catch (err) {
         loadErrors.set(sym, err?.message || '计算失败');
@@ -249,65 +368,50 @@ export function initLogChannelPage() {
   function syncSharedControls() {
     windowSelect.value = state.windowId;
     compWindowSelect.value = state.windowId;
-    const statSymbols = CHANNEL_SYMBOLS.filter(
-      sym => state.symbols[sym].customAnchor === null && Math.abs(state.symbols[sym].offsetPct) < 0.05
-    );
+    const allSyms = getAllSymbols();
+    if (!allSyms.includes(state.activeTab)) {
+      state.activeTab = CHANNEL_SYMBOLS[0];
+    }
+    symbolSelect.value = state.activeTab;
+    const statSymbols = allSyms.filter(sym => {
+      const cfg = state.symbols[sym] || (state.symbols[sym] = createDefaultSymbolConfig(sym));
+      return cfg.customAnchor === null && Math.abs(cfg.offsetPct) < 0.05;
+    });
     const statModes = new Set(statSymbols.map(sym => state.symbols[sym].anchorMode));
     compAnchorSelect.disabled = statSymbols.length === 0;
     compAnchorSelect.value = statModes.size === 1 ? [...statModes][0] : 'mixed';
-    const hasLoadedActive = state.activeTab !== 'COMPARE' && datasets.has(state.activeTab);
+    const hasLoadedActive = datasets.has(state.activeTab);
     slopeSlider.disabled = !hasLoadedActive;
     offsetSlider.disabled = !hasLoadedActive;
   }
 
   function updateLoadStatus() {
+    if (!channelAsof) return;
     if (!datasets.size && !loadErrors.size) {
-      loadStatus.textContent = '正在读取本地行情快照…';
+      channelAsof.textContent = '正在读取本地行情快照…';
       return;
     }
-    const dates = [...datasets.values()].map(d => d.endDate).sort();
-    const latest = dates.at(-1) || '—';
-    const winLabel = SAMPLE_WINDOWS[state.windowId].label;
-    if (loadErrors.size) {
-      loadStatus.textContent = `已加载 ${datasets.size}/${CHANNEL_SYMBOLS.length} 只标的（截至 ${latest}） · 部分读取失败`;
+    const sym = state.activeTab;
+    const ds = datasets.get(sym);
+    if (ds) {
+      channelAsof.textContent = `Yahoo Finance · 数据截至 ${ds.endDate}`;
+    } else if (loadErrors.has(sym)) {
+      channelAsof.textContent = `${sym} 读取失败：${loadErrors.get(sym)}`;
     } else {
-      loadStatus.textContent = `前复权（含股息） · 截至 ${latest} · ${winLabel}`;
-    }
-  }
-
-  function updateTabsState({ scrollIntoView = false } = {}) {
-    for (const tab of tabButtons) {
-      const tabKey = tab.dataset.tab;
-      const active = tabKey === state.activeTab;
-      tab.setAttribute('aria-selected', String(active));
-      tab.setAttribute('tabindex', active ? '0' : '-1');
-      if (active && scrollIntoView && typeof tab.scrollIntoView === 'function') {
-        tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      }
-    }
-
-    for (const sym of CHANNEL_SYMBOLS) {
-      const m = evaluateSymbol(sym);
-      const zEl = $(`tab-z-${sym}`);
-      if (!zEl) continue;
-      if (!m) {
-        zEl.textContent = loadErrors.has(sym) ? '!' : '—';
-        zEl.className = 'channel-tab-z';
-        continue;
-      }
-      zEl.textContent = fmtSigned(m.zEnd, 2);
-      zEl.className = 'channel-tab-z';
+      channelAsof.textContent = '正在读取本地行情快照…';
     }
   }
 
   function renderSingleView(sym, { lockedYBounds = null } = {}) {
     const m = evaluateSymbol(sym);
-    if (!m) return;
+    if (!m) {
+      if (priceCloseEl) priceCloseEl.textContent = '$—';
+      if (priceSubEl) priceSubEl.textContent = '—';
+      return;
+    }
 
     const ds = m.dataset;
     const st = classifyChannelZ(m.zEnd);
-    const activeTabBtn = $(`tab-btn-${sym}`);
-    if (activeTabBtn) singlePanel.setAttribute('aria-labelledby', activeTabBtn.id);
 
     slopeSlider.min = String(ds.minSlope);
     slopeSlider.max = String(ds.maxSlope);
@@ -380,11 +484,10 @@ export function initLogChannelPage() {
     $('lg-orig-wrap').hidden = !state.showOrigLine;
     $('lg-pivot-wrap').hidden = !state.showPivot;
 
-    // 4-column main-project-style summary strip
+    // Top-right quote block & 4-column summary strip
     const ddPct = m.latestPrice / ds.peakPrice - 1;
-    $('kpi1-label').textContent = `${m.symbol} 最新收盘`;
-    $('kpi1-price').textContent = fmtPrice(m.latestPrice);
-    $('kpi1-foot').textContent = `${ds.endDate} · 距高点 ${fmtPct(ddPct)}`;
+    if (priceCloseEl) priceCloseEl.textContent = fmtPrice(m.latestPrice);
+    if (priceSubEl) priceSubEl.textContent = `距高点 ${fmtPct(ddPct)} · ${st.label}`;
 
     $('kpi2-fit').textContent = fmtPrice(m.fitEnd);
     const anchorTag = m.isCustomAnchored
@@ -403,11 +506,37 @@ export function initLogChannelPage() {
     const spaceM10 = m.priceM10 / m.latestPrice - 1;
     $('kpi4-foot').textContent = `距现价 ${fmtPct(spaceM10)} · −1.5σ ${fmtPrice(m.priceM15)}`;
 
-    // Chart title & residual visibility
+    const kdData = kdSeriesMap.get(sym) || null;
+    const kdLatest = kdData?.latest || null;
+
+    // Chart title & subchart visibility
     $('channel-chart-title').textContent = `${m.symbol} 价格通道（${m.slopePct.toFixed(1)}% · ±1σ / ±2σ）`;
     btnResidualToggle.setAttribute('aria-expanded', String(state.showResidual));
     btnResidualToggle.textContent = state.showResidual ? '收起' : '展开';
     residualWrap.hidden = !state.showResidual;
+
+    if (btnKDToggle && kdWrap) {
+      btnKDToggle.setAttribute('aria-expanded', String(state.showKD));
+      btnKDToggle.textContent = state.showKD ? '收起' : '展开';
+      kdWrap.hidden = !state.showKD;
+    }
+
+    if (kdTiersEl) {
+      const tiers = buildChannelKDTiers(kdOptions.tierFactor, kdLatest?.weightedK ?? null);
+      const tierNodes = tiers.map(tier => {
+        const rangeChildren = [document.createTextNode(tier.rangeLabel)];
+        if (tier.isCurrent) {
+          rangeChildren.push(el('span', { className: 'channel-now-tag', textContent: '当前' }));
+        }
+        return el('div', {
+          className: `channel-kd-tier${tier.isBuyZone ? ' is-buy-tier' : ''}${tier.isCurrent ? ' is-current' : ''}`
+        }, [
+          el('span', { className: 'channel-kd-tier-range' }, rangeChildren),
+          el('strong', { className: 'channel-kd-tier-mult', textContent: fmtKDMultiple(tier.multiple) })
+        ]);
+      });
+      kdTiersEl.replaceChildren(...tierNodes);
+    }
 
     // Entry price matrix
     $('channel-table-subtitle').textContent =
@@ -468,13 +597,70 @@ export function initLogChannelPage() {
     renderDualCharts(m, { lockedYBounds });
   }
 
+  function getActiveFullBounds() {
+    if (state.activeTab === 'COMPARE') return null;
+    const ds = datasets.get(state.activeTab);
+    return ds ? getFullChannelViewBounds(ds, state.showProjection) : null;
+  }
+
+  function updateZoomUI() {
+    const isZoomed = Boolean(viewRange);
+    for (const canvas of chartCanvases) {
+      canvas.classList.toggle('is-pannable', isZoomed);
+    }
+    if (btnZoomReset) btnZoomReset.hidden = !isZoomed;
+    if (zoomRangeEl) {
+      const ds = datasets.get(state.activeTab);
+      if (isZoomed && ds) {
+        const startDate = formatIsoDateUtc(ds.baseMs + Math.max(0, viewRange.tMin) * MS_PER_YEAR).slice(0, 7);
+        const endDate = formatIsoDateUtc(ds.baseMs + viewRange.tMax * MS_PER_YEAR).slice(0, 7);
+        zoomRangeEl.textContent = `${startDate} ~ ${endDate}`;
+        zoomRangeEl.hidden = false;
+      } else {
+        zoomRangeEl.hidden = true;
+        zoomRangeEl.textContent = '';
+      }
+    }
+  }
+
+  function cancelPendingWheel() {
+    if (wheelRaf && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(wheelRaf);
+    }
+    wheelRaf = 0;
+    wheelPendingView = null;
+  }
+
+  function clearScheduledHover() {
+    if (clearHoverTimer) {
+      clearTimeout(clearHoverTimer);
+      clearHoverTimer = null;
+    }
+  }
+
+  function applyViewRange(nextView) {
+    const bounds = getActiveFullBounds();
+    viewRange = bounds ? constrainChannelView(nextView, bounds) : null;
+    hoverHandle = null;
+    upperCanvas.classList.remove('is-handle-hover');
+    state.hoverT = null;
+    hoverDate = null;
+    tooltipEl.hidden = true;
+    updateZoomUI();
+    if (state.activeTab !== 'COMPARE') {
+      renderDualCharts(evaluateSymbol(state.activeTab));
+    }
+  }
+
   function renderDualCharts(model, { lockedYBounds = null } = {}) {
     if (!model) return;
+    updateZoomUI(model.dataset);
     const dragSide = dragState?.mode === 'left' || dragState?.mode === 'right' ? dragState.mode : null;
     lastGeom = drawLogChannelUpper(upperCanvas, model, {
       showOrigLine: state.showOrigLine,
       showPivot: state.showPivot,
       showProjection: state.showProjection,
+      viewRange,
       hoverT: state.hoverT,
       lockedYBounds,
       activeHandle: dragSide || hoverHandle,
@@ -483,14 +669,25 @@ export function initLogChannelPage() {
     if (state.showResidual) {
       drawLogChannelLower(lowerCanvas, model, {
         showProjection: state.showProjection,
+        viewRange,
         hoverT: state.hoverT,
         geom: lastGeom
+      });
+    }
+    if (state.showKD && kdCanvas) {
+      drawLogChannelKD(kdCanvas, model, kdSeriesMap.get(model.symbol) || null, {
+        showProjection: state.showProjection,
+        viewRange,
+        hoverT: state.hoverT,
+        hoverDate,
+        geom: lastGeom,
+        tierFactor: kdOptions.tierFactor
       });
     }
   }
 
   function renderCompareView() {
-    const models = CHANNEL_SYMBOLS.map(evaluateSymbol).filter(Boolean);
+    const models = getAllSymbols().map(evaluateSymbol).filter(Boolean);
     if (!models.length) {
       $('channel-comp-tbody').replaceChildren();
       return;
@@ -500,12 +697,27 @@ export function initLogChannelPage() {
     for (const m of models) {
       if (m.zEnd < bestM.zEnd) bestM = m;
     }
+    let bestKD = null;
+    for (const m of models) {
+      const latest = kdSeriesMap.get(m.symbol)?.latest;
+      if (latest && (!bestKD || latest.weightedK < bestKD.latest.weightedK)) {
+        bestKD = { symbol: m.symbol, latest };
+      }
+    }
     const bestClass = classifyChannelZ(bestM.zEnd);
-    $('comp-best-summary').replaceChildren(
+    const summaryNodes = [
       document.createTextNode('当前安全边际最高：'),
       el('strong', { textContent: bestM.symbol }),
       document.createTextNode(`（z = ${fmtSigned(bestM.zEnd, 2)} · ${bestClass.label}）`)
-    );
+    ];
+    if (bestKD) {
+      summaryNodes.push(
+        document.createTextNode(' ｜ 加权K最低：'),
+        el('strong', { textContent: bestKD.symbol }),
+        document.createTextNode(`（${bestKD.latest.weightedK.toFixed(1)} · ${fmtKDMultiple(bestKD.latest.multiple)}）`)
+      );
+    }
+    $('comp-best-summary').replaceChildren(...summaryNodes);
 
     drawValuationThermometer(thermoCanvas, models);
 
@@ -532,8 +744,8 @@ export function initLogChannelPage() {
         'aria-label': `查看 ${m.symbol} 通道详情`
       }, tickerBtnChildren);
       tickerBtn.addEventListener('click', () => {
-        selectTab(m.symbol, { scrollTab: true });
-        globalThis.scrollTo?.({ top: 0, behavior: 'smooth' });
+        selectSymbol(m.symbol);
+        closeDialog(compareDialog);
       });
 
       const minusBtn = el('button', {
@@ -572,6 +784,15 @@ export function initLogChannelPage() {
         }));
       }
 
+      const kdLatest = kdSeriesMap.get(m.symbol)?.latest || null;
+      const kdCellChildren = kdLatest
+        ? [
+          el('strong', { className: classifyChannelKD(kdLatest.weightedK).valueClass || null, textContent: kdLatest.weightedK.toFixed(1) }),
+          el('span', { className: 'channel-sub-delta', textContent: ` (${fmtKDMultiple(kdLatest.multiple)})` }),
+          el('div', { className: 'channel-hist-note', textContent: `月 ${kdLatest.monthK.toFixed(1)} · 季 ${kdLatest.quarterK.toFixed(1)}` })
+        ]
+        : [el('span', { className: 'channel-sub-delta', textContent: '—' })];
+
       return el('tr', { className: isBest ? 'row-buy' : null }, [
         el('th', { scope: 'row' }, [tickerBtn]),
         el('td', { className: 'is-center' }, [
@@ -588,6 +809,7 @@ export function initLogChannelPage() {
           el('strong', { className: st.valueClass, textContent: fmtPct(m.devPct) }),
           el('span', { className: 'channel-sub-delta', textContent: ` (z=${fmtSigned(m.zEnd, 2)})` })
         ]),
+        el('td', null, kdCellChildren),
         el('td', null, [
           el('strong', { className: 'is-good', textContent: fmtPrice(m.priceM10) }),
           el('span', { className: 'channel-sub-delta', textContent: ` (${fmtPct(sp10)})` })
@@ -601,41 +823,50 @@ export function initLogChannelPage() {
     $('channel-comp-tbody').replaceChildren(...rows);
   }
 
-  function renderAll({ scrollTab = false, lockedYBounds = null } = {}) {
+  function renderAll({ lockedYBounds = null } = {}) {
     syncSharedControls();
     updateLoadStatus();
     updateStorageBadge();
-    updateTabsState({ scrollIntoView: scrollTab });
-
-    const isCompare = state.activeTab === 'COMPARE';
-    singlePanel.hidden = isCompare;
-    comparePanel.hidden = !isCompare;
-    if (isCompare) {
+    renderSingleView(state.activeTab, { lockedYBounds });
+    if (compareDialog?.open) {
       renderCompareView();
-    } else {
-      renderSingleView(state.activeTab, { lockedYBounds });
     }
   }
 
-  function selectTab(tabKey, { scrollTab = false, focusTab = false } = {}) {
-    if (!VALID_TABS.has(tabKey)) return;
+  function selectSymbol(sym) {
+    if (!getAllSymbols().includes(sym)) return;
+    if (!state.symbols[sym]) state.symbols[sym] = createDefaultSymbolConfig(sym);
     const needsDragFlush = Boolean(dragState?.moved);
     dragState = null;
+    panState = null;
+    pinchState = null;
+    activeTouches.clear();
+    cancelPendingWheel();
+    clearScheduledHover();
     hoverHandle = null;
+    viewRange = null;
     clearResetConfirm();
-    state.activeTab = tabKey;
+    state.activeTab = sym;
     state.hoverT = null;
-    upperCanvas.classList.remove('is-handle-hover', 'is-dragging');
+    hoverDate = null;
+    for (const c of chartCanvases) c.classList.remove('is-handle-hover', 'is-dragging', 'is-panning', 'is-pannable');
     tooltipEl.hidden = true;
-    syncQuerySymbol(tabKey);
-    if (needsDragFlush || VALID_TABS.has(tabKey)) {
+    syncQuerySymbol(sym);
+    if (needsDragFlush || getAllSymbols().includes(sym)) {
       persistState();
     }
-    renderAll({ scrollTab });
-    if (focusTab) {
-      const targetBtn = tabButtons.find(btn => btn.dataset.tab === tabKey);
-      targetBtn?.focus?.();
+    renderAll();
+  }
+
+  function openCompareDialog() {
+    if (!compareDialog) return;
+    if (!compareDialog.open) {
+      compareDialog.showModal?.();
     }
+    renderCompareView();
+    globalThis.requestAnimationFrame?.(() => {
+      if (compareDialog.open) renderCompareView();
+    });
   }
 
   function renderTooltip(model, clientX, clientY, hover) {
@@ -657,6 +888,7 @@ export function initLogChannelPage() {
       const z = model.sigmaUsed > 0 ? res / model.sigmaUsed : 0;
       const dev = actP / fitP - 1;
       const zCls = z <= -0.75 ? 'is-good' : (z >= 0.75 ? 'is-hot' : '');
+      const kdState = kdSeriesMap.get(model.symbol)?.byDate.get(hover.dateStr);
       nodes.push(
         el('div', { className: 'channel-tt-row' }, [
           el('span', { textContent: `${model.symbol} 收盘价` }),
@@ -669,7 +901,23 @@ export function initLogChannelPage() {
         el('div', { className: 'channel-tt-row' }, [
           el('span', { textContent: '偏离 / Z 值' }),
           el('strong', { className: zCls || null, textContent: `${fmtPct(dev)} (z=${fmtSigned(z, 2)})` })
-        ]),
+        ])
+      );
+      if (kdState) {
+        const kdMult = kdMultiple(kdState.weightedK, kdOptions.tierFactor);
+        const kdCls = kdState.weightedK < 40 ? 'is-good' : (kdState.weightedK >= 90 ? 'is-hot' : '');
+        nodes.push(
+          el('div', { className: 'channel-tt-row' }, [
+            el('span', { textContent: '加权K / 倍率' }),
+            el('strong', { className: kdCls || null, textContent: `${kdState.weightedK.toFixed(1)} (${fmtKDMultiple(kdMult)})` })
+          ]),
+          el('div', { className: 'channel-tt-row' }, [
+            el('span', { textContent: '月K / 季度K' }),
+            el('span', { textContent: `${kdState.monthK.toFixed(1)} / ${kdState.quarterK.toFixed(1)}` })
+          ])
+        );
+      }
+      nodes.push(
         el('div', { className: 'channel-tt-row channel-tt-foot' }, [
           el('span', { textContent: '−1σ / −2σ' }),
           el('span', { textContent: `${fmtPrice(pM10)} / ${fmtPrice(pM20)}` })
@@ -712,11 +960,13 @@ export function initLogChannelPage() {
   }
 
   function clearHover() {
+    clearScheduledHover();
     const hadHoverHandle = Boolean(hoverHandle);
     hoverHandle = null;
     upperCanvas.classList.remove('is-handle-hover');
     if (state.hoverT === null && !hadHoverHandle) return;
     state.hoverT = null;
+    hoverDate = null;
     tooltipEl.hidden = true;
     if (state.activeTab !== 'COMPARE') {
       renderDualCharts(evaluateSymbol(state.activeTab));
@@ -724,7 +974,8 @@ export function initLogChannelPage() {
   }
 
   function handlePointer(canvas, clientX, clientY) {
-    if (state.activeTab === 'COMPARE' || dragState) return;
+    if (state.activeTab === 'COMPARE' || dragState || panState || pinchState) return;
+    clearScheduledHover();
     const model = evaluateSymbol(state.activeTab);
     if (!model) return;
     const hover = resolveChannelHover(canvas, lastGeom, model, clientX, state.showProjection);
@@ -733,6 +984,7 @@ export function initLogChannelPage() {
       return;
     }
     state.hoverT = hover.targetT;
+    hoverDate = hover.dateStr;
     renderDualCharts(model);
     renderTooltip(model, clientX, clientY, hover);
   }
@@ -754,29 +1006,23 @@ export function initLogChannelPage() {
     renderAll();
   }
 
-  // Tablist click & ARIA keyboard navigation
-  for (const tab of tabButtons) {
-    tab.addEventListener('click', () => {
-      selectTab(tab.dataset.tab, { scrollTab: true });
-    });
-  }
-  $('channel-tabs').addEventListener('keydown', event => {
-    const currentIdx = tabButtons.findIndex(btn => btn.dataset.tab === state.activeTab);
-    if (currentIdx < 0) return;
-    let nextIdx = null;
-    if (event.key === 'ArrowRight') nextIdx = (currentIdx + 1) % tabButtons.length;
-    else if (event.key === 'ArrowLeft') nextIdx = (currentIdx - 1 + tabButtons.length) % tabButtons.length;
-    else if (event.key === 'Home') nextIdx = 0;
-    else if (event.key === 'End') nextIdx = tabButtons.length - 1;
-    if (nextIdx === null) return;
-    event.preventDefault();
-    selectTab(tabButtons[nextIdx].dataset.tab, { scrollTab: true, focusTab: true });
+  // Symbol dropdown & Compare modal
+  symbolSelect.addEventListener('change', event => {
+    selectSymbol(event.target.value);
   });
+  btnCompareOpen?.addEventListener('click', openCompareDialog);
+  if (compareDialog) {
+    enableDialogLightDismiss(compareDialog);
+    bindDialogExitFallback(compareDialog);
+  }
+  bindDialogCommands(document);
 
   // Shared window selects
   function setWindow(id) {
     if (!Object.hasOwn(SAMPLE_WINDOWS, id) || state.windowId === id) return;
     state.windowId = id;
+    cancelPendingWheel();
+    viewRange = null;
     persistState();
     rebuildDatasets();
     renderAll();
@@ -874,8 +1120,13 @@ export function initLogChannelPage() {
   });
   chkShowProj.addEventListener('change', event => {
     state.showProjection = Boolean(event.target.checked);
+    viewRange = constrainChannelView(viewRange, getActiveFullBounds());
     persistState();
     renderAll();
+  });
+
+  btnZoomReset?.addEventListener('click', () => {
+    applyViewRange(null);
   });
 
   btnResidualToggle.addEventListener('click', () => {
@@ -884,12 +1135,40 @@ export function initLogChannelPage() {
     renderAll();
   });
 
+  btnKDToggle?.addEventListener('click', () => {
+    state.showKD = !state.showKD;
+    persistState();
+    renderAll();
+  });
+
+  function bindKDFactorInput(input, errEl, id) {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      try {
+        const next = normalizeKDOptions({ ...kdOptions, tierFactor: Number(input.value) });
+        kdOptions = next;
+        syncKDFactorInputs(id);
+        saveChannelKDOptions(kdOptions);
+        rebuildKDSeriesOnly();
+        renderAll();
+      } catch (err) {
+        input.setAttribute('aria-invalid', 'true');
+        if (errEl) {
+          errEl.hidden = false;
+          errEl.textContent = `${err.message}。仍沿用当前有效系数 ${kdOptions.tierFactor}。`;
+        }
+      }
+    });
+  }
+  bindKDFactorInput(kdFactorInput, kdFactorError, 'channel-kd-factor');
+  bindKDFactorInput(compKDFactorInput, compKDFactorError, 'comp-kd-factor');
+
   // Compare view controls (protect manually anchored symbols)
   compAnchorSelect.addEventListener('change', event => {
     const val = event.target.value;
     if (!Object.hasOwn(ANCHOR_MODES, val)) return;
-    for (const sym of CHANNEL_SYMBOLS) {
-      const cfg = state.symbols[sym];
+    for (const sym of getAllSymbols()) {
+      const cfg = state.symbols[sym] || (state.symbols[sym] = createDefaultSymbolConfig(sym));
       if (cfg.customAnchor !== null || Math.abs(cfg.offsetPct) >= 0.05) continue;
       freezeHistSlope(sym);
       cfg.anchorMode = val;
@@ -908,24 +1187,152 @@ export function initLogChannelPage() {
       return;
     }
     clearResetConfirm();
-    for (const sym of CHANNEL_SYMBOLS) {
+    for (const sym of getAllSymbols()) {
       state.symbols[sym] = createDefaultSymbolConfig(sym);
     }
     persistState();
     renderAll();
   });
 
-  // Mouse/pen drag on upper canvas: drag endpoint handles to rotate, or body to translate vertically
+  function isInsidePlotX(canvas, clientX) {
+    if (!lastGeom) return false;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    return x >= lastGeom.padLeft && x <= lastGeom.padLeft + lastGeom.plotW;
+  }
+
+  function scheduleWheelView(nextView) {
+    wheelPendingView = nextView;
+    if (!wheelRaf && typeof requestAnimationFrame === 'function') {
+      wheelRaf = requestAnimationFrame(() => {
+        wheelRaf = 0;
+        const target = wheelPendingView;
+        wheelPendingView = null;
+        if (target !== undefined) applyViewRange(target);
+      });
+    } else if (typeof requestAnimationFrame !== 'function') {
+      wheelPendingView = null;
+      applyViewRange(nextView);
+    }
+  }
+
+  function beginPinchOrTouch(canvas) {
+    const pts = [...activeTouches.values()].filter(p => p.canvas === canvas);
+    pinchState = null;
+    if (panState?.canvas === canvas && panState.isTouch) {
+      panState = null;
+      canvas.classList.remove('is-panning');
+    }
+    const bounds = getActiveFullBounds();
+    if (!bounds || !lastGeom) return;
+    if (pts.length >= 2) {
+      const [a, b] = pts;
+      const rect = canvas.getBoundingClientRect();
+      const baseView = viewRange ? { ...viewRange } : { ...bounds };
+      const ratio = Math.max(0, Math.min(1, ((a.x + b.x) / 2 - rect.left - lastGeom.padLeft) / lastGeom.plotW));
+      pinchState = {
+        canvas,
+        baseView,
+        distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+        ratio
+      };
+      state.hoverT = null;
+      hoverDate = null;
+      tooltipEl.hidden = true;
+    } else if (pts.length === 1 && viewRange) {
+      panState = {
+        canvas,
+        pointerId: pts[0].id,
+        isTouch: true,
+        startX: pts[0].x,
+        startView: { ...viewRange },
+        moved: false
+      };
+    }
+  }
+
+  for (const canvas of chartCanvases) {
+    canvas.addEventListener('wheel', event => {
+      if (state.activeTab === 'COMPARE' || !lastGeom || !isInsidePlotX(canvas, event.clientX)) return;
+      const bounds = getActiveFullBounds();
+      if (!bounds) return;
+      event.preventDefault();
+      if (dragState || panState || pinchState) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scale = event.deltaMode === 1 ? 16 : (event.deltaMode === 2 ? canvas.clientHeight : 1);
+      const dx = event.deltaX * scale;
+      const dy = event.deltaY * scale;
+      const curView = wheelPendingView !== null ? wheelPendingView : viewRange;
+
+      if (event.shiftKey || Math.abs(dx) > Math.abs(dy)) {
+        if (!curView) return;
+        const delta = event.shiftKey ? (dy || dx) : dx;
+        scheduleWheelView(panChannelView(curView, delta / lastGeom.plotW, bounds));
+      } else if (dy) {
+        const ratio = (event.clientX - rect.left - lastGeom.padLeft) / lastGeom.plotW;
+        const factor = Math.exp(Math.max(-500, Math.min(500, dy)) * 0.002);
+        scheduleWheelView(zoomChannelView(curView, ratio, factor, bounds));
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('dblclick', event => {
+      if (state.activeTab === 'COMPARE' || !isInsidePlotX(canvas, event.clientX)) return;
+      event.preventDefault();
+      if (wheelRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(wheelRaf);
+      wheelRaf = 0;
+      wheelPendingView = null;
+      applyViewRange(null);
+    });
+
+    canvas.addEventListener('keydown', event => {
+      if (state.activeTab === 'COMPARE') return;
+      const bounds = getActiveFullBounds();
+      if (!bounds) return;
+      let next;
+      if (event.key === 'ArrowLeft') {
+        if (!viewRange) return;
+        next = panChannelView(viewRange, -0.2, bounds);
+      } else if (event.key === 'ArrowRight') {
+        if (!viewRange) return;
+        next = panChannelView(viewRange, 0.2, bounds);
+      } else if (event.key === '+' || event.key === '=' || event.key === 'ArrowUp') {
+        next = zoomChannelView(viewRange, 0.5, 0.78, bounds);
+      } else if (event.key === '-' || event.key === 'ArrowDown') {
+        if (!viewRange) return;
+        next = zoomChannelView(viewRange, 0.5, 1.28, bounds);
+      } else if (event.key === 'Home' || event.key === '0') {
+        if (!viewRange) return;
+        event.preventDefault();
+        applyViewRange(null);
+        return;
+      } else {
+        return;
+      }
+      event.preventDefault();
+      applyViewRange(next);
+    });
+  }
+
+  // Mouse/pen/touch drag across charts: rotate endpoints, shift centerline vertically, or pan horizontally when zoomed
   upperCanvas.addEventListener('pointerdown', event => {
-    if (
-      state.activeTab === 'COMPARE' ||
-      (event.pointerType !== 'mouse' && event.pointerType !== 'pen') ||
-      event.button !== 0 ||
-      !lastGeom
-    ) {
+    if (state.activeTab === 'COMPARE' || !lastGeom) return;
+    clearScheduledHover();
+    if (event.pointerType === 'touch') {
+      if (!isInsidePlotX(upperCanvas, event.clientX) || activeTouches.size >= 2) return;
+      activeTouches.set(event.pointerId, { id: event.pointerId, canvas: upperCanvas, x: event.clientX, y: event.clientY });
+      try { upperCanvas.setPointerCapture?.(event.pointerId); } catch {}
+      beginPinchOrTouch(upperCanvas);
+      if (activeTouches.size === 1 && !viewRange) {
+        handlePointer(upperCanvas, event.clientX, event.clientY);
+      }
       return;
     }
-    const hit = hitTestChannelHandle(upperCanvas, lastGeom, event.clientX, event.clientY);
+    if ((event.pointerType !== 'mouse' && event.pointerType !== 'pen') || event.button !== 0) return;
+
+    const model = evaluateSymbol(state.activeTab);
+    if (!model) return;
+    const hit = hitTestChannelHandle(upperCanvas, lastGeom, event.clientX, event.clientY, model);
     if (!hit) return;
 
     if (hit === 'left' || hit === 'right') {
@@ -938,6 +1345,7 @@ export function initLogChannelPage() {
       dragState = {
         mode: hit,
         pointerId: event.pointerId,
+        startX: event.clientX,
         startY: event.clientY,
         fixedT: fixedHandle.t,
         fixedLnP: fixedHandle.lnP,
@@ -947,18 +1355,28 @@ export function initLogChannelPage() {
         lastSaveAt: 0,
         moved: false
       };
-      renderDualCharts(evaluateSymbol(state.activeTab), { lockedYBounds: dragState.lockedYBounds });
+      renderDualCharts(model, { lockedYBounds: dragState.lockedYBounds });
+    } else if (hit === 'body') {
+      if (!viewRange) return;
+      panState = {
+        canvas: upperCanvas,
+        pointerId: event.pointerId,
+        isTouch: false,
+        startX: event.clientX,
+        startView: { ...viewRange },
+        moved: false
+      };
     } else {
-      const model = evaluateSymbol(state.activeTab);
-      if (!model) return;
       const anchorMs = parseIsoDateUtc(model.basePivot.date);
       const anchorT = Number.isFinite(anchorMs)
         ? (anchorMs - model.dataset.baseMs) / MS_PER_YEAR
         : model.basePivot.t;
       dragState = {
-        mode: 'body',
+        mode: viewRange ? 'auto' : 'body',
         pointerId: event.pointerId,
+        startX: event.clientX,
         startY: event.clientY,
+        startView: viewRange ? { ...viewRange } : null,
         startAnchorDate: model.basePivot.date,
         startAnchorPrice: Math.exp(model.lnFit(anchorT)),
         geom: { ...lastGeom },
@@ -975,10 +1393,77 @@ export function initLogChannelPage() {
   });
 
   upperCanvas.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch' && activeTouches.has(event.pointerId)) {
+      activeTouches.set(event.pointerId, { id: event.pointerId, canvas: upperCanvas, x: event.clientX, y: event.clientY });
+      if (pinchState && pinchState.canvas === upperCanvas) {
+        const pts = [...activeTouches.values()].filter(p => p.canvas === upperCanvas);
+        if (pts.length >= 2 && lastGeom) {
+          const bounds = getActiveFullBounds();
+          const [a, b] = pts;
+          const rect = upperCanvas.getBoundingClientRect();
+          const ratio = Math.max(0, Math.min(1, ((a.x + b.x) / 2 - rect.left - lastGeom.padLeft) / lastGeom.plotW));
+          const dist = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+          const zoomed = zoomChannelView(pinchState.baseView, pinchState.ratio, pinchState.distance / dist, bounds);
+          applyViewRange(zoomed ? panChannelView(zoomed, pinchState.ratio - ratio, bounds) : null);
+          return;
+        }
+      }
+      if (panState && panState.canvas === upperCanvas && panState.pointerId === event.pointerId && lastGeom) {
+        const dx = event.clientX - panState.startX;
+        if (!panState.moved && Math.abs(dx) <= 4) return;
+        panState.moved = true;
+        upperCanvas.classList.add('is-panning');
+        applyViewRange(panChannelView(panState.startView, -dx / lastGeom.plotW, getActiveFullBounds()));
+        return;
+      }
+      if (!viewRange) handlePointer(upperCanvas, event.clientX, event.clientY);
+      return;
+    }
+
+    if (panState && panState.canvas === upperCanvas && event.pointerId === panState.pointerId && lastGeom) {
+      const dx = event.clientX - panState.startX;
+      if (!panState.moved && Math.abs(dx) <= 3) return;
+      panState.moved = true;
+      state.hoverT = null;
+      hoverDate = null;
+      tooltipEl.hidden = true;
+      upperCanvas.classList.add('is-panning');
+      applyViewRange(panChannelView(panState.startView, -dx / lastGeom.plotW, getActiveFullBounds()));
+      return;
+    }
+
     if (dragState && event.pointerId === dragState.pointerId) {
-      if (!dragState.moved && Math.abs(event.clientY - dragState.startY) <= 3) return;
+      const dx = event.clientX - dragState.startX;
+      const dy = event.clientY - dragState.startY;
+      if (!dragState.moved) {
+        if (dragState.mode === 'auto') {
+          if (Math.hypot(dx, dy) <= 4) return;
+          if (Math.abs(dx) >= Math.abs(dy) && dragState.startView) {
+            panState = {
+              canvas: upperCanvas,
+              pointerId: dragState.pointerId,
+              isTouch: false,
+              startX: dragState.startX,
+              startView: dragState.startView,
+              moved: true
+            };
+            dragState = null;
+            hoverHandle = null;
+            upperCanvas.classList.remove('is-handle-hover');
+            upperCanvas.classList.add('is-panning');
+            applyViewRange(panChannelView(panState.startView, -dx / lastGeom.plotW, getActiveFullBounds()));
+            return;
+          }
+          dragState.mode = 'body';
+        } else if (dragState.mode === 'body') {
+          if (Math.abs(dy) <= 4 || Math.abs(dy) < Math.abs(dx)) return;
+        } else if (Math.abs(dy) <= 3) {
+          return;
+        }
+      }
       dragState.moved = true;
       state.hoverT = null;
+      hoverDate = null;
       tooltipEl.hidden = true;
       upperCanvas.classList.add('is-dragging');
       const cfg = state.symbols[state.activeTab];
@@ -1030,31 +1515,97 @@ export function initLogChannelPage() {
     }
 
     if (event.pointerType === 'mouse' && state.activeTab !== 'COMPARE' && lastGeom) {
-      const hit = hitTestChannelHandle(upperCanvas, lastGeom, event.clientX, event.clientY);
-      const nextHandle = hit === 'left' || hit === 'right' ? hit : null;
+      const model = evaluateSymbol(state.activeTab);
+      const hit = hitTestChannelHandle(upperCanvas, lastGeom, event.clientX, event.clientY, model);
+      const nextHandle = hit === 'left' || hit === 'right' || hit === 'centerline' ? hit : null;
       if (nextHandle !== hoverHandle) {
         hoverHandle = nextHandle;
         upperCanvas.classList.toggle('is-handle-hover', Boolean(hoverHandle));
-        if (hoverHandle) {
+        if (hoverHandle === 'left' || hoverHandle === 'right') {
           state.hoverT = null;
+          hoverDate = null;
           tooltipEl.hidden = true;
         }
-        renderDualCharts(evaluateSymbol(state.activeTab));
+        renderDualCharts(model);
       }
-      if (hoverHandle) return;
+      if (hoverHandle === 'left' || hoverHandle === 'right') return;
     }
 
     handlePointer(upperCanvas, event.clientX, event.clientY);
   });
 
   function finishDrag(event = null, { force = false } = {}) {
-    if (!dragState) return;
-    if (!force && event?.pointerId !== undefined && event.pointerId !== dragState.pointerId) return;
+    if (event?.pointerType === 'touch' && activeTouches.has(event.pointerId)) {
+      const entry = activeTouches.get(event.pointerId);
+      activeTouches.delete(event.pointerId);
+      try {
+        if (entry?.canvas?.hasPointerCapture?.(event.pointerId)) {
+          entry.canvas.releasePointerCapture(event.pointerId);
+        }
+      } catch {}
+      beginPinchOrTouch(entry.canvas);
+      if (!activeTouches.size && !viewRange) {
+        clearScheduledHover();
+        clearHoverTimer = setTimeout(clearHover, 1800);
+      }
+    } else if (force && activeTouches.size) {
+      activeTouches.clear();
+      pinchState = null;
+    }
+
+    let endedPan = false;
+    let endedPanCanvas = null;
+    if (panState && (force || event?.pointerId === undefined || event.pointerId === panState.pointerId)) {
+      const { canvas: panCanvas, pointerId: panPid } = panState;
+      panState = null;
+      endedPan = true;
+      endedPanCanvas = panCanvas;
+      panCanvas?.classList.remove('is-panning');
+      try {
+        if (panPid !== undefined && panCanvas?.hasPointerCapture?.(panPid)) {
+          panCanvas.releasePointerCapture(panPid);
+        }
+      } catch {}
+    }
+
+    const canSyncMouseHover = Boolean(
+      !force &&
+      event?.type === 'pointerup' &&
+      event?.pointerType === 'mouse' &&
+      Number.isFinite(event.clientX) &&
+      state.activeTab !== 'COMPARE' &&
+      lastGeom
+    );
+
+    const endingDrag = dragState && (force || event?.pointerId === undefined || event.pointerId === dragState.pointerId);
+    if (!endingDrag) {
+      if (endedPan && state.activeTab !== 'COMPARE') {
+        const hadHover = Boolean(hoverHandle);
+        const releasedOutside = !canSyncMouseHover || (endedPanCanvas && !isInsidePlotX(endedPanCanvas, event.clientX));
+        const hadCrosshair = state.hoverT !== null;
+        if (hadHover) {
+          hoverHandle = null;
+          upperCanvas.classList.remove('is-handle-hover');
+        }
+        if (releasedOutside && hadCrosshair) {
+          state.hoverT = null;
+          hoverDate = null;
+          tooltipEl.hidden = true;
+        }
+        if (hadHover || (releasedOutside && hadCrosshair)) {
+          renderDualCharts(evaluateSymbol(state.activeTab));
+        }
+      }
+      return;
+    }
+
     const pointerId = dragState.pointerId;
     const didMove = dragState.moved;
     const wasHandle = dragState.mode === 'left' || dragState.mode === 'right';
+    const prevHover = hoverHandle;
     dragState = null;
-    upperCanvas.classList.remove('is-dragging');
+    hoverHandle = null;
+    upperCanvas.classList.remove('is-dragging', 'is-handle-hover');
     try {
       if (pointerId !== undefined && upperCanvas.hasPointerCapture?.(pointerId)) {
         upperCanvas.releasePointerCapture(pointerId);
@@ -1062,11 +1613,41 @@ export function initLogChannelPage() {
     } catch {
       // Ignore release errors after lost capture.
     }
+
     if (didMove) {
       persistState();
       renderAll();
-    } else if (wasHandle && state.activeTab !== 'COMPARE') {
-      renderDualCharts(evaluateSymbol(state.activeTab));
+      if (canSyncMouseHover) {
+        const model = evaluateSymbol(state.activeTab);
+        const hit = model ? hitTestChannelHandle(upperCanvas, lastGeom, event.clientX, event.clientY, model) : null;
+        const nextHandle = hit === 'left' || hit === 'right' || hit === 'centerline' ? hit : null;
+        if (nextHandle !== hoverHandle) {
+          hoverHandle = nextHandle;
+          upperCanvas.classList.toggle('is-handle-hover', Boolean(hoverHandle));
+          renderDualCharts(model);
+        }
+      }
+      return;
+    }
+
+    if (state.activeTab === 'COMPARE') return;
+    const model = evaluateSymbol(state.activeTab);
+    const hit = canSyncMouseHover && model
+      ? hitTestChannelHandle(upperCanvas, lastGeom, event.clientX, event.clientY, model)
+      : null;
+    const nextHandle = hit === 'left' || hit === 'right' || hit === 'centerline' ? hit : null;
+    hoverHandle = nextHandle;
+    upperCanvas.classList.toggle('is-handle-hover', Boolean(hoverHandle));
+
+    let clearedCrosshair = false;
+    if (!hit && state.hoverT !== null) {
+      state.hoverT = null;
+      hoverDate = null;
+      tooltipEl.hidden = true;
+      clearedCrosshair = true;
+    }
+    if (wasHandle || prevHover !== hoverHandle || clearedCrosshair) {
+      renderDualCharts(model);
     }
   }
 
@@ -1077,6 +1658,15 @@ export function initLogChannelPage() {
   globalThis.addEventListener?.('blur', () => finishDrag(null, { force: true }));
   globalThis.addEventListener?.('pagehide', () => finishDrag(null, { force: true }));
   globalThis.addEventListener?.('storage', event => {
+    if (event.key === KD_STORAGE_KEY || event.key === null) {
+      kdOptions = loadChannelKDOptions();
+      syncKDFactorInputs();
+      rebuildKDSeriesOnly();
+      if (event.key === KD_STORAGE_KEY) {
+        renderAll();
+        return;
+      }
+    }
     if (event.key !== null && event.key !== STORAGE_KEY) return;
     const prevWindow = state.windowId;
     const remoteState = event.key === STORAGE_KEY
@@ -1087,57 +1677,334 @@ export function initLogChannelPage() {
     state.showPivot = remoteState.showPivot;
     state.showProjection = remoteState.showProjection;
     state.showResidual = remoteState.showResidual;
+    state.showKD = remoteState.showKD;
     state.symbols = remoteState.symbols;
     if (state.windowId !== prevWindow) {
+      viewRange = null;
       rebuildDatasets();
+    } else {
+      viewRange = constrainChannelView(viewRange, getActiveFullBounds());
     }
     renderAll();
   });
   upperCanvas.addEventListener('mouseleave', () => {
-    if (!dragState) clearHover();
+    if (!dragState && !panState) clearHover();
   });
 
-  // Touch hover on upper canvas & mouse/touch hover on lower canvas
-  upperCanvas.addEventListener('touchstart', event => {
-    if (event.touches.length === 1) handlePointer(upperCanvas, event.touches[0].clientX, event.touches[0].clientY);
-  }, { passive: true });
-  upperCanvas.addEventListener('touchmove', event => {
-    if (event.touches.length === 1) handlePointer(upperCanvas, event.touches[0].clientX, event.touches[0].clientY);
-  }, { passive: true });
-  upperCanvas.addEventListener('touchend', () => setTimeout(clearHover, 1800));
+  for (const subCanvas of [lowerCanvas, kdCanvas].filter(Boolean)) {
+    subCanvas.addEventListener('pointerdown', event => {
+      if (state.activeTab === 'COMPARE' || !lastGeom || !isInsidePlotX(subCanvas, event.clientX)) return;
+      if (event.pointerType === 'touch') {
+        if (activeTouches.size >= 2) return;
+        activeTouches.set(event.pointerId, { id: event.pointerId, canvas: subCanvas, x: event.clientX, y: event.clientY });
+        try { subCanvas.setPointerCapture?.(event.pointerId); } catch {}
+        beginPinchOrTouch(subCanvas);
+        if (activeTouches.size === 1 && !viewRange) {
+          handlePointer(subCanvas, event.clientX, event.clientY);
+        }
+        return;
+      }
+      if ((event.pointerType !== 'mouse' && event.pointerType !== 'pen') || event.button !== 0 || !viewRange) return;
+      panState = {
+        canvas: subCanvas,
+        pointerId: event.pointerId,
+        isTouch: false,
+        startX: event.clientX,
+        startView: { ...viewRange },
+        moved: false
+      };
+      try { subCanvas.setPointerCapture?.(event.pointerId); } catch {}
+    });
 
-  lowerCanvas.addEventListener('mousemove', event => handlePointer(lowerCanvas, event.clientX, event.clientY));
-  lowerCanvas.addEventListener('mouseleave', clearHover);
-  lowerCanvas.addEventListener('touchstart', event => {
-    if (event.touches.length === 1) handlePointer(lowerCanvas, event.touches[0].clientX, event.touches[0].clientY);
-  }, { passive: true });
-  lowerCanvas.addEventListener('touchmove', event => {
-    if (event.touches.length === 1) handlePointer(lowerCanvas, event.touches[0].clientX, event.touches[0].clientY);
-  }, { passive: true });
-  lowerCanvas.addEventListener('touchend', () => setTimeout(clearHover, 1800));
+    subCanvas.addEventListener('pointermove', event => {
+      if (event.pointerType === 'touch' && activeTouches.has(event.pointerId)) {
+        activeTouches.set(event.pointerId, { id: event.pointerId, canvas: subCanvas, x: event.clientX, y: event.clientY });
+        if (pinchState && pinchState.canvas === subCanvas) {
+          const pts = [...activeTouches.values()].filter(p => p.canvas === subCanvas);
+          if (pts.length >= 2 && lastGeom) {
+            const bounds = getActiveFullBounds();
+            const [a, b] = pts;
+            const rect = subCanvas.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, ((a.x + b.x) / 2 - rect.left - lastGeom.padLeft) / lastGeom.plotW));
+            const dist = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+            const zoomed = zoomChannelView(pinchState.baseView, pinchState.ratio, pinchState.distance / dist, bounds);
+            applyViewRange(zoomed ? panChannelView(zoomed, pinchState.ratio - ratio, bounds) : null);
+            return;
+          }
+        }
+        if (panState && panState.canvas === subCanvas && panState.pointerId === event.pointerId && lastGeom) {
+          const dx = event.clientX - panState.startX;
+          if (!panState.moved && Math.abs(dx) <= 4) return;
+          panState.moved = true;
+          subCanvas.classList.add('is-panning');
+          applyViewRange(panChannelView(panState.startView, -dx / lastGeom.plotW, getActiveFullBounds()));
+          return;
+        }
+        if (!viewRange) handlePointer(subCanvas, event.clientX, event.clientY);
+        return;
+      }
+
+      if (panState && panState.canvas === subCanvas && event.pointerId === panState.pointerId && lastGeom) {
+        const dx = event.clientX - panState.startX;
+        if (!panState.moved && Math.abs(dx) <= 3) return;
+        panState.moved = true;
+        state.hoverT = null;
+        hoverDate = null;
+        tooltipEl.hidden = true;
+        subCanvas.classList.add('is-panning');
+        applyViewRange(panChannelView(panState.startView, -dx / lastGeom.plotW, getActiveFullBounds()));
+        return;
+      }
+
+      handlePointer(subCanvas, event.clientX, event.clientY);
+    });
+
+    subCanvas.addEventListener('pointerup', finishDrag);
+    subCanvas.addEventListener('pointercancel', finishDrag);
+    subCanvas.addEventListener('lostpointercapture', finishDrag);
+    subCanvas.addEventListener('mouseleave', () => {
+      if (!panState) clearHover();
+    });
+  }
 
   let resizeTimer = null;
   globalThis.addEventListener?.('resize', () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (state.activeTab === 'COMPARE') {
-        const models = CHANNEL_SYMBOLS.map(evaluateSymbol).filter(Boolean);
+      if (compareDialog?.open) {
+        const models = getAllSymbols().map(evaluateSymbol).filter(Boolean);
         if (models.length) drawValuationThermometer(thermoCanvas, models);
-      } else {
-        renderDualCharts(evaluateSymbol(state.activeTab));
       }
+      renderDualCharts(evaluateSymbol(state.activeTab));
     }, 60);
   });
 
+  const deploymentReady = getDeploymentInfo();
+
+  let customBusy = false;
+  function setCustomBusy(value) {
+    customBusy = value;
+    if (symbolSubmitBtn) symbolSubmitBtn.disabled = value;
+    if (customSymbolInput) customSymbolInput.disabled = value;
+    if (customSymbolList) {
+      for (const btn of customSymbolList.querySelectorAll('button')) btn.disabled = value;
+    }
+  }
+
+  function syncCustomSymbols(list) {
+    const nextList = [];
+    for (const raw of Array.isArray(list) ? list : []) {
+      const sym = String(raw || '').trim().toUpperCase();
+      if (isValidChannelSymbol(sym) && !CHANNEL_SYMBOLS.includes(sym) && !nextList.includes(sym)) {
+        nextList.push(sym);
+      }
+    }
+    customSymbols = nextList;
+
+    for (const sym of customSymbols) {
+      if (!state.symbols[sym]) state.symbols[sym] = createDefaultSymbolConfig(sym);
+    }
+    for (const opt of Array.from(symbolSelect.options)) {
+      if (!CHANNEL_SYMBOLS.includes(opt.value) && !customSymbols.includes(opt.value)) {
+        opt.remove();
+      }
+    }
+    for (const sym of customSymbols) {
+      if (!Array.from(symbolSelect.options).some(opt => opt.value === sym)) {
+        symbolSelect.add(new Option(sym, sym));
+      }
+    }
+
+    if (customSymbolList) {
+      customSymbolList.replaceChildren(...customSymbols.map(sym => {
+        const removeBtn = el('button', {
+          type: 'button',
+          textContent: '删除',
+          'aria-label': `删除 ${sym}`,
+          disabled: customBusy
+        });
+        removeBtn.addEventListener('click', () => removeCustomSymbol(sym));
+        return el('li', null, [
+          el('strong', { textContent: sym }),
+          removeBtn
+        ]);
+      }));
+    }
+
+    if (!getAllSymbols().includes(state.activeTab)) {
+      selectSymbol(CHANNEL_SYMBOLS[0]);
+    } else {
+      symbolSelect.value = state.activeTab;
+    }
+  }
+
+  async function requestCustomSymbols(method, symbol, fallbackError) {
+    const response = await fetch('./api/symbols', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol })
+    });
+    if (response.status === 405) {
+      throw Error('本地服务尚未更新，请停止旧服务并重新运行 start.cmd，再刷新页面后重试');
+    }
+    let result = null;
+    try {
+      result = await response.json();
+    } catch {
+      result = null;
+    }
+    if (!response.ok) throw Error(result?.error || fallbackError);
+    if (!result || !Array.isArray(result.symbols) || (method === 'POST' && !result.symbol)) {
+      throw Error(fallbackError);
+    }
+    return result;
+  }
+
+  async function removeCustomSymbol(sym) {
+    if (customBusy) return;
+    setCustomBusy(true);
+    if (symbolMessage) symbolMessage.textContent = `正在删除 ${sym}…`;
+    try {
+      const result = await requestCustomSymbols('DELETE', sym, '删除失败，请稍后重试');
+      rawSnapshots.delete(sym);
+      datasets.delete(sym);
+      kdSeriesMap.delete(sym);
+      loadErrors.delete(sym);
+      syncCustomSymbols(result.symbols);
+      rebuildDatasets();
+      renderAll();
+      void loadHealth();
+      if (symbolMessage) symbolMessage.textContent = `${sym} 已删除`;
+    } catch (error) {
+      if (symbolMessage) symbolMessage.textContent = error.message;
+    } finally {
+      setCustomBusy(false);
+    }
+  }
+
+  async function loadCustomSymbolsList() {
+    try {
+      const response = await fetch('./data/custom-symbols.json', { cache: 'no-store' });
+      if (response.ok) syncCustomSymbols(await response.json());
+      else if (response.status === 404) syncCustomSymbols([]);
+      else throw Error('无法读取标的列表');
+    } catch {
+      if (symbolMessage) symbolMessage.textContent = '自定义标的列表读取失败，请刷新页面后重试。';
+    }
+  }
+
+  if (symbolDialog) {
+    enableDialogLightDismiss(symbolDialog);
+    bindDialogExitFallback(symbolDialog);
+  }
+
+  deploymentReady.then(async info => {
+    const mode = info.mode;
+    if (refreshBtn) {
+      refreshBtn.disabled = mode !== 'local';
+      refreshBtn.title = mode === 'local' ? '更新数据' : '仅本地部署可更新数据';
+    }
+    if (refreshHint) {
+      refreshHint.title = mode === 'local' ? '更新数据' : '仅本地部署可更新数据';
+      refreshHint.tabIndex = mode === 'local' ? -1 : 0;
+    }
+    if (mode === 'local' && btnAddSymbol) {
+      btnAddSymbol.disabled = false;
+      addSymbolHint?.removeAttribute('title');
+      addSymbolHint?.removeAttribute('tabindex');
+      btnAddSymbol.addEventListener('click', () => symbolDialog?.showModal?.());
+      symbolForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (customBusy || !customSymbolInput) return;
+        const sym = customSymbolInput.value.trim().toUpperCase();
+        customSymbolInput.value = sym;
+        if (getAllSymbols().includes(sym)) {
+          if (symbolMessage) symbolMessage.textContent = `${sym} 已在标的列表中`;
+          return;
+        }
+        setCustomBusy(true);
+        if (symbolMessage) symbolMessage.textContent = `正在获取 ${sym} 完整历史行情，请稍候…`;
+        try {
+          const result = await requestCustomSymbols('POST', sym, '添加失败，请稍后重试');
+          syncCustomSymbols(result.symbols);
+          try {
+            const snap = await loadMarketSnapshot(result.symbol);
+            rawSnapshots.set(result.symbol, snap);
+            loadErrors.delete(result.symbol);
+          } catch (snapErr) {
+            loadErrors.set(result.symbol, snapErr?.message || '读取失败');
+          }
+          rebuildDatasets();
+          selectSymbol(result.symbol);
+          void loadHealth();
+          customSymbolInput.value = '';
+          if (symbolMessage) symbolMessage.textContent = `${result.symbol} 已添加`;
+        } catch (error) {
+          if (symbolMessage) symbolMessage.textContent = error.message;
+        } finally {
+          setCustomBusy(false);
+        }
+      });
+    }
+    void appUpdates.checkForUpdate(info);
+  });
+
+  async function loadHealth() {
+    if (!statusEl) return null;
+    try {
+      const health = await loadSourceHealth();
+      statusEl.textContent = healthSummary(health);
+      return health;
+    } catch {
+      statusEl.textContent = '无法检查数据更新状态，请核对各图的数据日期。';
+      return null;
+    }
+  }
+
+  refreshBtn?.addEventListener('click', async () => {
+    const { mode } = await deploymentReady;
+    if (mode !== 'local' || refreshBtn.disabled) return;
+    refreshBtn.disabled = true;
+    const srSpan = refreshBtn.querySelector('span');
+    if (srSpan) srSpan.textContent = '检查中…';
+    try {
+      if (statusEl) statusEl.textContent = '正在同步情绪指数与 ETF 行情…';
+      let refreshError = null;
+      let refreshResult = null;
+      try {
+        refreshResult = await requestSourceRefresh();
+      } catch (error) {
+        refreshError = error;
+      } finally {
+        await loadAllSnapshots();
+      }
+      if (refreshError) throw refreshError;
+      const health = await loadHealth();
+      if (refreshResult?.errors?.length && !health?.funds && statusEl) {
+        statusEl.textContent += '\n' + refreshResult.errors.join('；');
+      }
+    } catch (error) {
+      if (statusEl) statusEl.textContent = error.message || '检查失败，已保留本地数据。';
+    } finally {
+      refreshBtn.disabled = false;
+      if (srSpan) srSpan.textContent = '更新数据';
+    }
+  });
+
   async function loadAllSnapshots() {
+    const { mode } = await deploymentReady;
+    if (mode === 'local') {
+      await loadCustomSymbolsList();
+    }
+    const allSyms = getAllSymbols();
     const results = await Promise.allSettled(
-      CHANNEL_SYMBOLS.map(async sym => {
+      allSyms.map(async sym => {
         const snapshot = await loadMarketSnapshot(sym);
         return { sym, snapshot };
       })
     );
     results.forEach((result, idx) => {
-      const sym = CHANNEL_SYMBOLS[idx];
+      const sym = allSyms[idx];
       if (result.status === 'fulfilled') {
         rawSnapshots.set(sym, result.value.snapshot);
         loadErrors.delete(sym);
@@ -1148,6 +2015,10 @@ export function initLogChannelPage() {
     lastResumeCheck = Date.now();
     rebuildDatasets();
     renderAll();
+    if (openCompareOnReady) {
+      openCompareOnReady = false;
+      openCompareDialog();
+    }
   }
 
   document.addEventListener?.('visibilitychange', async () => {
@@ -1156,14 +2027,15 @@ export function initLogChannelPage() {
     resumeChecking = true;
     lastResumeCheck = Date.now();
     try {
-      await Promise.all([loadAllSnapshots(), appUpdates.checkForUpdate()]);
+      await Promise.all([loadAllSnapshots(), loadHealth(), appUpdates.checkForUpdate()]);
     } finally {
       resumeChecking = false;
     }
   });
 
+  syncKDFactorInputs();
   renderAll();
-  void appUpdates.checkForUpdate();
+  void loadHealth();
   void loadAllSnapshots().finally(() => {
     initialSettled = true;
     if (!lastResumeCheck) lastResumeCheck = Date.now();

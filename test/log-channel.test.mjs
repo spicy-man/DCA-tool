@@ -4,26 +4,40 @@ import { readFile } from 'node:fs/promises';
 import {
   ANCHOR_MODES,
   CHANNEL_SYMBOLS,
+  MIN_CHANNEL_VIEW_SPAN,
   MS_PER_YEAR,
   addCalendarMonths,
   buildChannelDataset,
+  buildChannelKDSeries,
+  buildChannelKDTiers,
+  classifyChannelKD,
   classifyChannelZ,
   computeEmpiricalStats,
+  constrainChannelView,
   createShiftedCustomAnchor,
   evaluateChannelModel,
+  getFullChannelViewBounds,
   interpolateLnPrice,
+  panChannelView,
   parseIsoDateUtc,
   solveEndpointChannel,
   subtractCalendarYears,
-  tCritical95
+  tCritical95,
+  zoomChannelView
 } from '../public/js/domain/log-channel.mjs';
+import { calculateKDSeries, kdMultiple } from '../public/js/domain/kd-strategy.mjs';
+import { hitTestChannelHandle } from '../public/js/features/channel/charts.mjs';
 import {
+  KD_STORAGE_KEY,
   SCHEMA_VERSION,
   STORAGE_KEY,
   createDefaultChannelState,
+  loadChannelKDOptions,
   loadChannelState,
+  parseChannelKDOptions,
   parseChannelState,
   probeChannelStorage,
+  saveChannelKDOptions,
   saveChannelState
 } from '../public/js/features/channel/storage.mjs';
 
@@ -429,4 +443,205 @@ test('边界修复：负历史斜率、非法复权回退及 followHistSlope 持
   assert.equal(reloaded.state.symbols.SPY.slopePct, -6.2);
   assert.equal(reloaded.state.symbols.SPY.followHistSlope, true);
   assert.equal(reloaded.state.symbols.QQQ.followHistSlope, false);
+});
+
+test('加权K指标整合：跨样本窗口数值与主页全历史周线口径一致、十档高亮及系数持久化', async () => {
+  const spyUrl = new URL('../public/data/spy.json', import.meta.url);
+  const spyData = JSON.parse(await readFile(spyUrl, 'utf8'));
+  const fullKD = calculateKDSeries(spyData.rows);
+
+  const ds15y = buildChannelDataset('SPY', spyData.rows, { windowId: '15y', priceBasis: 'totalReturn' });
+  const ds10y = buildChannelDataset('SPY', spyData.rows, { windowId: '10y', priceBasis: 'totalReturn' });
+  const kd15 = buildChannelKDSeries(spyData.rows, ds15y, { tierFactor: 2 });
+  const kd10 = buildChannelKDSeries(spyData.rows, ds10y, { tierFactor: 2 });
+
+  const fullLatest = fullKD.get(ds15y.endDate);
+  assert.ok(fullLatest && kd15.latest && kd10.latest);
+  assert.equal(kd15.latest.weightedK, fullLatest.weightedK);
+  assert.equal(kd10.latest.weightedK, fullLatest.weightedK);
+  assert.equal(kd15.latest.multiple, kdMultiple(fullLatest.weightedK, 2));
+  assert.ok(kd15.points.length > kd10.points.length && kd10.points.length > 400);
+
+  const tiers = buildChannelKDTiers(1.5, 25.0);
+  assert.equal(tiers.length, 10);
+  assert.equal(tiers.filter(t => t.isCurrent).length, 1);
+  assert.equal(tiers.find(t => t.isCurrent).rangeLabel, '20–30');
+  assert.equal(tiers.find(t => t.isCurrent).multiple, kdMultiple(25.0, 1.5));
+  assert.equal(classifyChannelKD(18).label, '极低 · 重仓区');
+  assert.equal(classifyChannelKD(92).label, '高位区间');
+
+  const map = new Map();
+  const mem = {
+    getItem: k => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: k => { map.delete(k); }
+  };
+  assert.equal(saveChannelKDOptions({ tierFactor: 1.8 }, mem), true);
+  assert.equal(loadChannelKDOptions(mem).tierFactor, 1.8);
+  assert.equal(parseChannelKDOptions('invalid').tierFactor, 1.5);
+  assert.equal(
+    parseChannelKDOptions(JSON.stringify({ monthWeight: 40, quarterWeight: 60, period: 9, signal: 3, tierFactor: 2 })).tierFactor,
+    1.5
+  );
+  assert.equal(KD_STORAGE_KEY, 'seeker.kd.v1');
+
+  const state = createDefaultChannelState();
+  state.showKD = false;
+  saveChannelState(state, mem);
+  assert.equal(loadChannelState(mem).state.showKD, false);
+
+  const html = await readFile(new URL('../public/channel.html', import.meta.url), 'utf8');
+  for (const id of ['channel-kd-canvas', 'channel-kd-tiers', 'channel-kd-factor', 'comp-kd-factor']) {
+    assert.ok(html.includes(id), `channel.html 应包含 ${id}`);
+  }
+  assert.ok(!html.includes('kpi5-kd'), 'channel.html 不应再包含第四张加权K摘要卡');
+});
+
+test('图表缩放与平移视口数学：锚点保真、边界裁剪与自动回正', async () => {
+  const rows = makeSyntheticSeries({ startYear: 2012, years: 15, annualGrowth: 0.12 });
+  const ds = buildChannelDataset('QQQ', rows, { windowId: '15y', priceBasis: 'totalReturn' });
+  const bounds = getFullChannelViewBounds(ds, true);
+  assert.ok(bounds.tMin < 0 && bounds.tMax > ds.tProj);
+
+  // Anchor point under cursor ratio=0.7 remains invariant after zoom
+  const ratio = 0.7;
+  const fullAnchorT = bounds.tMin + (bounds.tMax - bounds.tMin) * ratio;
+  const z1 = zoomChannelView(null, ratio, 0.5, bounds);
+  assert.ok(z1 && z1.tMax - z1.tMin < bounds.tMax - bounds.tMin);
+  const z1AnchorT = z1.tMin + (z1.tMax - z1.tMin) * ratio;
+  assert.ok(Math.abs(z1AnchorT - fullAnchorT) < 1e-9, '缩放锚点时间应保持精确不变');
+
+  // Extreme zoom in clamps at MIN_CHANNEL_VIEW_SPAN
+  const zMin = zoomChannelView(z1, 0.5, 1e-6, bounds);
+  assert.ok(Math.abs((zMin.tMax - zMin.tMin) - MIN_CHANNEL_VIEW_SPAN) < 1e-9);
+
+  // Zooming back out past full span snaps cleanly to null
+  assert.equal(zoomChannelView(z1, 0.5, 4.0, bounds), null);
+
+  // Panning shifts window and clamps cleanly at left/right boundaries
+  assert.equal(panChannelView(null, 0.2, bounds), null);
+  const pLeft = panChannelView(z1, -10, bounds);
+  assert.equal(pLeft.tMin, bounds.tMin);
+  assert.ok(Math.abs((pLeft.tMax - pLeft.tMin) - (z1.tMax - z1.tMin)) < 1e-9);
+
+  const pRight = panChannelView(z1, 10, bounds);
+  assert.equal(pRight.tMax, bounds.tMax);
+  assert.ok(Math.abs((pRight.tMax - pRight.tMin) - (z1.tMax - z1.tMin)) < 1e-9);
+  assert.equal(constrainChannelView({ tMin: bounds.tMin, tMax: bounds.tMax }, bounds), null);
+
+  const html = await readFile(new URL('../public/channel.html', import.meta.url), 'utf8');
+  for (const id of [
+    'btn-zoom-reset',
+    'channel-zoom-range',
+    'channel-symbol',
+    'add-symbol',
+    'symbol-dialog',
+    'btn-more-settings',
+    'btn-compare-open',
+    'channel-compare-dialog',
+    'status',
+    'refresh',
+    'channel-price-close'
+  ]) {
+    assert.ok(html.includes(id), `channel.html 应包含 ${id}`);
+  }
+  assert.ok(!html.includes('btn-zoom-in') && !html.includes('btn-zoom-out'), 'channel.html 不应包含 +/- 缩放按钮');
+  assert.match(html, /<dialog id="channel-compare-dialog" closedby="any"/);
+  assert.doesNotMatch(html, /id="channel-compare-dialog"[^>]*\b(role="dialog"|aria-modal)/);
+
+  const indexHtml = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(indexHtml, /id="add-symbol"[\s\S]*?M12 5v14M5 12h14/);
+
+  // Custom symbol dataset & persistence support
+  const dsCustom = buildChannelDataset('AAPL', rows, { windowId: '15y', priceBasis: 'totalReturn' });
+  assert.equal(dsCustom.symbol, 'AAPL');
+  assert.equal(dsCustom.defaultSlope, 10.0);
+  const customState = createDefaultChannelState();
+  customState.activeTab = 'AAPL';
+  customState.symbols.AAPL = {
+    slopePct: 14.5,
+    followHistSlope: false,
+    anchorMode: ANCHOR_MODES.fullPivot,
+    userPreferredAnchor: ANCHOR_MODES.recent7y,
+    offsetPct: 0,
+    customAnchor: null
+  };
+  const customStorageMap = new Map();
+  const customMem = {
+    getItem: k => (customStorageMap.has(k) ? customStorageMap.get(k) : null),
+    setItem: (k, v) => { customStorageMap.set(k, String(v)); },
+    removeItem: k => { customStorageMap.delete(k); }
+  };
+  assert.equal(saveChannelState(customState, customMem).ok, true);
+  const reloadedCustom = loadChannelState(customMem).state;
+  assert.equal(reloadedCustom.activeTab, 'AAPL');
+  assert.equal(reloadedCustom.symbols.AAPL.slopePct, 14.5);
+});
+
+test('主图命中测试仅在中枢线与可见端点触发通道调整，空白区及越界区仅返回 body', () => {
+  const rows = makeSyntheticSeries({ startYear: 2012, years: 14, annualGrowth: 0.12 });
+  const ds = buildChannelDataset('SPY', rows, { windowId: '15y', priceBasis: 'totalReturn' });
+  const model = evaluateChannelModel(ds, { slopePct: 12.0, anchorMode: 'fullPivot' });
+
+  const mockCanvas = {
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 440 })
+  };
+  const padLeft = 46;
+  const plotW = 684;
+  const padTop = 20;
+  const plotH = 390;
+  const tMin = -0.2;
+  const tMax = ds.tEnd + 1.0;
+  const tLineEnd = ds.tEnd;
+  const lnYMin = Math.log(40);
+  const lnYMax = Math.log(800);
+  const xOf = t => padLeft + ((t - tMin) / (tMax - tMin)) * plotW;
+  const yOfLn = lnV => padTop + ((lnYMax - lnV) / (lnYMax - lnYMin)) * plotH;
+
+  const geom = {
+    padLeft,
+    plotW,
+    padTop,
+    plotH,
+    tMin,
+    tMax,
+    tLineEnd,
+    lnYMin,
+    lnYMax,
+    handles: {
+      left: { x: xOf(0), y: yOfLn(model.lnFit(0)), t: 0, lnP: model.lnFit(0), visible: true },
+      right: { x: xOf(tLineEnd), y: yOfLn(model.lnFit(tLineEnd)), t: tLineEnd, lnP: model.lnFit(tLineEnd), visible: true }
+    }
+  };
+
+  // Visible endpoints hit 'left' and 'right'
+  assert.equal(hitTestChannelHandle(mockCanvas, geom, geom.handles.left.x + 4, geom.handles.left.y - 4, model), 'left');
+  assert.equal(hitTestChannelHandle(mockCanvas, geom, geom.handles.right.x - 4, geom.handles.right.y + 4, model), 'right');
+
+  // Off-screen invisible handle is NOT hit even within 16px
+  const hiddenRightGeom = {
+    ...geom,
+    handles: {
+      ...geom.handles,
+      right: { ...geom.handles.right, y: padTop - 13, visible: false }
+    }
+  };
+  assert.notEqual(
+    hitTestChannelHandle(mockCanvas, hiddenRightGeom, geom.handles.right.x, padTop + 1, model),
+    'right'
+  );
+
+  // Midpoint near centerline hits 'centerline'
+  const midT = ds.tEnd * 0.5;
+  const midX = xOf(midT);
+  const midCenterY = yOfLn(model.lnFit(midT));
+  assert.equal(hitTestChannelHandle(mockCanvas, geom, midX, midCenterY + 6, model), 'centerline');
+
+  // Blank area far above/below centerline returns 'body'
+  assert.equal(hitTestChannelHandle(mockCanvas, geom, midX, padTop + 10, model), 'body');
+  assert.equal(hitTestChannelHandle(mockCanvas, geom, midX, padTop + plotH - 10, model), 'body');
+
+  // Extrapolated centerline beyond tLineEnd in right margin returns 'body', not 'centerline'
+  const outT = tLineEnd + 0.5;
+  assert.equal(hitTestChannelHandle(mockCanvas, geom, xOf(outT), yOfLn(model.lnFit(outT)), model), 'body');
 });

@@ -1,9 +1,42 @@
 import { SYMBOLS } from './market.mjs';
+import {
+  KD_DEFAULTS,
+  calculateKDSeries,
+  kdMultiple,
+  kdTierLevel,
+  normalizeKDOptions
+} from './kd-strategy.mjs';
 
 export const MS_PER_DAY = 86400000;
 export const MS_PER_YEAR = MS_PER_DAY * 365.25;
+export const MIN_CHANNEL_VIEW_SPAN = 30 / 365.25;
 
 export const CHANNEL_SYMBOLS = [...SYMBOLS];
+export const CUSTOM_SYMBOL_RE = /^[A-Z0-9][A-Z0-9.-]{0,14}$/;
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+export function isValidChannelSymbol(symbol) {
+  return typeof symbol === 'string' && !UNSAFE_KEYS.has(symbol) && CUSTOM_SYMBOL_RE.test(symbol);
+}
+
+export function getChannelAssetMeta(symbol) {
+  if (Object.hasOwn(CHANNEL_ASSETS, symbol)) {
+    return CHANNEL_ASSETS[symbol];
+  }
+  return {
+    symbol,
+    shortName: symbol,
+    descTag: '自定义标的',
+    defaultSlope: 10.0,
+    minSlope: 0,
+    maxSlope: 25,
+    presets: [
+      { label: '保守 8%', value: 8.0 },
+      { label: '中性 10%', value: 10.0 },
+      { label: '乐观 12%', value: 12.0 }
+    ]
+  };
+}
 
 export const CHANNEL_ASSETS = {
   SPY: {
@@ -216,8 +249,8 @@ export function buildChannelDataset(
   rows,
   { windowId = '15y', priceBasis = 'totalReturn', rollingAnchorYears = 7 } = {}
 ) {
-  const meta = CHANNEL_ASSETS[symbol];
-  if (!meta) throw Error(`不支持的通道标的: ${symbol}`);
+  if (!isValidChannelSymbol(symbol)) throw Error(`不支持的通道标的: ${symbol}`);
+  const meta = getChannelAssetMeta(symbol);
   const winCfg = SAMPLE_WINDOWS[windowId] ?? SAMPLE_WINDOWS['15y'];
   const basisCfg = PRICE_BASES[priceBasis] ?? PRICE_BASES.totalReturn;
   const field = basisCfg.field;
@@ -734,5 +767,129 @@ export function createShiftedCustomAnchor(
     customAnchor: { anchorDate, anchorPrice },
     offsetPct
   };
+}
+
+export function classifyChannelKD(value) {
+  if (!Number.isFinite(value)) {
+    return { label: '—', valueClass: '', dotColor: '#607487' };
+  }
+  if (value < 20) {
+    return { label: '极低 · 重仓区', valueClass: 'is-good', dotColor: '#065f46' };
+  }
+  if (value < 40) {
+    return { label: '低位 · 加码区', valueClass: 'is-good', dotColor: '#047857' };
+  }
+  if (value < 80) {
+    return { label: '常规区间', valueClass: '', dotColor: '#c26e2b' };
+  }
+  if (value < 90) {
+    return { label: '偏高区间', valueClass: 'is-warn', dotColor: '#b45309' };
+  }
+  return { label: '高位区间', valueClass: 'is-hot', dotColor: '#b91c1c' };
+}
+
+export function buildChannelKDTiers(tierFactor = KD_DEFAULTS.tierFactor, latestWeightedK = null) {
+  const { tierFactor: factor } = normalizeKDOptions({ tierFactor });
+  const currentLevel = Number.isFinite(latestWeightedK) ? kdTierLevel(latestWeightedK) : -1;
+  return Array.from({ length: 10 }, (_, level) => {
+    const bandLow = (9 - level) * 10;
+    const bandHigh = (10 - level) * 10;
+    return {
+      level,
+      bandLow,
+      bandHigh,
+      rangeLabel: `${bandLow}–${bandHigh}`,
+      multiple: kdMultiple(bandLow, factor),
+      isCurrent: level === currentLevel,
+      isBuyZone: level >= 6
+    };
+  });
+}
+
+export function buildChannelKDSeries(fullRows, dataset, kdOptions = KD_DEFAULTS) {
+  const options = normalizeKDOptions(kdOptions);
+  if (!Array.isArray(fullRows) || !fullRows.length || !dataset?.points?.length) {
+    return { options, byDate: new Map(), points: [], latest: null };
+  }
+
+  const states = calculateKDSeries(fullRows, options);
+  const byDate = new Map();
+  const points = [];
+  let prevWeek = null;
+  let lastPt = null;
+  let lastState = null;
+
+  for (const pt of dataset.points) {
+    const state = states.get(pt.date);
+    if (!state) continue;
+    byDate.set(pt.date, state);
+    lastPt = pt;
+    lastState = state;
+    if (state.signalDate !== prevWeek) {
+      points.push({ date: pt.date, t: pt.t, ...state });
+      prevWeek = state.signalDate;
+    }
+  }
+  if (lastPt && points.at(-1)?.date !== lastPt.date) {
+    points.push({ date: lastPt.date, t: lastPt.t, ...lastState });
+  }
+
+  const latestState = states.get(dataset.endDate) ?? null;
+  const latest = latestState
+    ? {
+      ...latestState,
+      date: dataset.endDate,
+      tierLevel: kdTierLevel(latestState.weightedK),
+      multiple: kdMultiple(latestState.weightedK, options.tierFactor)
+    }
+    : null;
+
+  return { options, byDate, points, latest };
+}
+
+export function getFullChannelViewBounds(dataset, showProjection = true) {
+  if (!dataset) return { tMin: 0, tMax: 1 };
+  const tSpan = Math.max(1, dataset.tEnd);
+  const tMin = -tSpan * 0.015;
+  const tMax = showProjection ? dataset.tProj + tSpan * 0.015 : dataset.tEnd + tSpan * 0.02;
+  return { tMin, tMax };
+}
+
+export function constrainChannelView(view, bounds, minSpan = MIN_CHANNEL_VIEW_SPAN) {
+  if (!view || !bounds) return null;
+  if (!Number.isFinite(view.tMin) || !Number.isFinite(view.tMax)) return null;
+  if (!Number.isFinite(bounds.tMin) || !Number.isFinite(bounds.tMax)) return null;
+  const fullSpan = bounds.tMax - bounds.tMin;
+  if (fullSpan <= 0) return null;
+  const effMin = Math.min(minSpan, fullSpan);
+  const span = Math.min(fullSpan, Math.max(effMin, view.tMax - view.tMin));
+  if (span >= fullSpan * 0.998) return null;
+  const tMin = Math.max(bounds.tMin, Math.min(bounds.tMax - span, view.tMin));
+  return { tMin, tMax: tMin + span };
+}
+
+export function zoomChannelView(currentView, ratio, factor, bounds) {
+  if (!bounds || !Number.isFinite(bounds.tMin) || !Number.isFinite(bounds.tMax)) return null;
+  const fullSpan = bounds.tMax - bounds.tMin;
+  if (fullSpan <= 0 || !Number.isFinite(factor) || factor <= 0) return null;
+  const clampedRatio = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0.5));
+  const base = currentView || bounds;
+  const baseSpan = base.tMax - base.tMin;
+  const anchorT = base.tMin + baseSpan * clampedRatio;
+  const effMin = Math.min(MIN_CHANNEL_VIEW_SPAN, fullSpan);
+  const nextSpan = Math.min(fullSpan, Math.max(effMin, baseSpan * factor));
+  return constrainChannelView(
+    { tMin: anchorT - nextSpan * clampedRatio, tMax: anchorT + nextSpan * (1 - clampedRatio) },
+    bounds
+  );
+}
+
+export function panChannelView(currentView, fraction, bounds) {
+  if (!currentView || !bounds || !Number.isFinite(fraction)) return null;
+  const delta = (currentView.tMax - currentView.tMin) * fraction;
+  return constrainChannelView(
+    { tMin: currentView.tMin + delta, tMax: currentView.tMax + delta },
+    bounds
+  );
 }
 

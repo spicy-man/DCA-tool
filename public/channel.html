@@ -9,7 +9,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="定投助手">
-  <meta name="app-version" content="3.0.1">
+  <meta name="app-version" content="3.1.0">
   <meta name="description" content="查看 SPY / QQQ / VGT / SMH / BRK-B 长期价格通道、偏离走势、估值水位与分档入场参考价位。">
   <title>对数回归通道 · 定投助手</title>
   <link rel="manifest" href="./manifest.webmanifest">
@@ -20,7 +20,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=3.0.1">
+  <link rel="stylesheet" href="./style.css?v=3.1.0">
 </head>
 <body class="channel-page">
   <div class="shell">
@@ -30,44 +30,62 @@
     </header>
 
     <main>
-      <div class="channel-title-row">
+      <div class="title-row">
         <h1 id="channel-heading">对数回归通道</h1>
-        <div class="channel-title-meta">
-          <p id="channel-load-status" class="channel-status-line" role="status" aria-live="polite">正在读取本地行情快照…</p>
-          <span id="channel-storage-badge" class="channel-storage-badge" hidden></span>
+        <div class="title-actions">
+          <p id="status" role="status" aria-live="polite"></p>
+          <span id="refresh-hint" title="仅本地部署可更新数据" tabindex="0">
+            <button id="refresh" class="primary" type="button" title="仅本地部署可更新数据" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M20 12a8 8 0 1 0-2.34 5.66M20 5v7h-7"/>
+              </svg>
+              <span class="sr-only">更新数据</span>
+            </button>
+          </span>
         </div>
       </div>
 
-      <section class="chart-card channel-main-card" aria-label="对数回归通道工作区">
-        <nav class="channel-tabs-bar" aria-label="核心标的与对比视图切换">
-          <div id="channel-tabs" class="channel-tabs" role="tablist" aria-label="核心标的与横向对比">
-            <button type="button" role="tab" id="tab-btn-SPY" class="channel-tab" data-tab="SPY" aria-selected="true" tabindex="0">
-              <span>SPY</span>
-              <span class="channel-tab-z" id="tab-z-SPY">—</span>
-            </button>
-            <button type="button" role="tab" id="tab-btn-QQQ" class="channel-tab" data-tab="QQQ" aria-selected="false" tabindex="-1">
-              <span>QQQ</span>
-              <span class="channel-tab-z" id="tab-z-QQQ">—</span>
-            </button>
-            <button type="button" role="tab" id="tab-btn-VGT" class="channel-tab" data-tab="VGT" aria-selected="false" tabindex="-1">
-              <span>VGT</span>
-              <span class="channel-tab-z" id="tab-z-VGT">—</span>
-            </button>
-            <button type="button" role="tab" id="tab-btn-SMH" class="channel-tab" data-tab="SMH" aria-selected="false" tabindex="-1">
-              <span>SMH</span>
-              <span class="channel-tab-z" id="tab-z-SMH">—</span>
-            </button>
-            <button type="button" role="tab" id="tab-btn-BRK-B" class="channel-tab" data-tab="BRK-B" aria-selected="false" tabindex="-1">
-              <span>BRK-B</span>
-              <span class="channel-tab-z" id="tab-z-BRK-B">—</span>
-            </button>
-            <button type="button" role="tab" id="tab-btn-COMPARE" class="channel-tab channel-tab-compare" data-tab="COMPARE" aria-selected="false" tabindex="-1">
-              <span>横向对比</span>
-            </button>
+      <section class="chart-card price-card channel-main-card" aria-label="对数回归通道工作区">
+        <div class="chart-heading">
+          <div>
+            <div class="price-title-row">
+              <label class="symbol-control">
+                <span class="sr-only">投资标的</span>
+                <select id="channel-symbol" aria-label="投资标的">
+                  <option value="SPY">SPY · 标普 500</option>
+                  <option value="QQQ">QQQ · 纳斯达克 100</option>
+                  <option value="VGT">VGT · 信息技术 ETF</option>
+                  <option value="SMH">SMH · 半导体 ETF</option>
+                  <option value="BRK-B">BRK-B · 伯克希尔 B</option>
+                </select>
+              </label>
+              <span id="add-symbol-hint" title="本地部署可添加个人标的" tabindex="0">
+                <button id="add-symbol" type="button" disabled aria-label="自定义标的" title="自定义标的" aria-haspopup="dialog" aria-controls="symbol-dialog">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </button>
+              </span>
+              <button type="button" id="btn-more-settings" class="channel-gear-btn" aria-label="更多通道设置" title="更多设置（中枢基准、手动平移、图表显示）" aria-expanded="false" aria-controls="channel-more-settings">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m9.5 3-.5 2-2 .9-1.8-.6-2.5 4.3 1.5 1.4v2l-1.5 1.4 2.5 4.3 1.8-.6 2 .9.5 2h5l.5-2 2-.9 1.8.6 2.5-4.3-1.5-1.4v-2l1.5-1.4-2.5-4.3-1.8.6-2-.9-.5-2z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+              <button type="button" id="btn-compare-open" class="allocation-open" aria-haspopup="dialog" aria-controls="channel-compare-dialog" title="查看五标的估值水位与加权K横向对比">横向对比</button>
+            </div>
+            <div class="channel-asof-row">
+              <p id="channel-asof" class="channel-asof">正在读取本地行情快照…</p>
+              <span id="channel-storage-badge" class="channel-storage-badge" hidden></span>
+            </div>
           </div>
-        </nav>
+          <div class="score-block channel-quote-block">
+            <div><strong id="channel-price-close">$—</strong></div>
+            <span id="channel-price-sub">—</span>
+          </div>
+        </div>
 
-        <div id="channel-single-panel" class="channel-panel channel-card-body" role="tabpanel" aria-labelledby="tab-btn-SPY" tabindex="0">
+        <div id="channel-single-panel">
           <div class="channel-toolbar">
             <div class="channel-slope-bar">
               <label class="channel-control-label" for="channel-slope-slider">预期年化增速</label>
@@ -85,7 +103,6 @@
                 </select>
               </label>
               <button type="button" id="btn-symbol-reset" class="channel-mini-btn" hidden>恢复默认</button>
-              <button type="button" id="btn-more-settings" class="channel-more-btn" aria-expanded="false" aria-controls="channel-more-settings">更多设置</button>
             </div>
           </div>
 
@@ -106,7 +123,7 @@
                   <strong id="channel-offset-val" class="channel-offset-val">0.0%</strong>
                   <button type="button" id="btn-offset-reset-drawer" class="channel-mini-btn">复位</button>
                 </div>
-                <p class="channel-drawer-note">也可在主图按住中间上下平移，或拖左右端点旋转。</p>
+                <p class="channel-drawer-note">也可在主图按住中枢线上下平移，或拖左右端点旋转。</p>
               </div>
               <div class="channel-drawer-group">
                 <span class="channel-drawer-label">图表显示</span>
@@ -121,11 +138,6 @@
 
           <section class="channel-summary" aria-label="核心估值摘要">
             <div class="channel-summary-grid">
-              <div>
-                <h4 id="kpi1-label">最新收盘</h4>
-                <strong id="kpi1-price">$—</strong>
-                <p id="kpi1-foot">—</p>
-              </div>
               <div>
                 <h4>合理中枢价</h4>
                 <strong id="kpi2-fit">$—</strong>
@@ -152,6 +164,10 @@
                   <span id="channel-offset-pill-text"></span>
                   <button type="button" id="btn-offset-reset" class="channel-pill-reset">复位</button>
                 </span>
+                <div class="channel-zoom-controls" role="group" aria-label="图表缩放控制">
+                  <span id="channel-zoom-range" class="channel-zoom-range" hidden></span>
+                  <button type="button" id="btn-zoom-reset" class="channel-mini-btn" hidden>重置视角</button>
+                </div>
               </div>
               <div class="channel-legend-bar">
                 <span class="channel-legend-item"><span class="lg-line" style="background:#19374a"></span>收盘价</span>
@@ -162,14 +178,14 @@
                 <span class="channel-legend-item"><span class="lg-dash" style="border-color:#4d8b78"></span>−2σ</span>
                 <span class="channel-legend-item" id="lg-pivot-wrap" hidden><span class="lg-pivot"></span>基准点</span>
                 <span class="channel-legend-item"><span class="lg-zone"></span>−1σ~−2σ 买点带</span>
-                <span class="channel-drag-hint">拖两端旋转 · 拖中间平移</span>
+                <span class="channel-drag-hint">滚轮缩放 · 缩放后拖图平移 · 拖中枢/端点调通道</span>
               </div>
             </div>
 
             <div id="channel-tooltip" class="channel-tooltip" hidden></div>
 
             <div class="channel-canvas-wrap">
-              <canvas id="channel-upper-canvas" class="channel-canvas" aria-label="对数价格通道图，拖两端可旋转，拖中间可上下平移" role="img"></canvas>
+              <canvas id="channel-upper-canvas" class="channel-canvas" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight + - Home" aria-label="对数价格通道图，滚轮缩放，拖图平移，拖两端可旋转，拖中枢可上下平移" role="img"></canvas>
             </div>
 
             <div class="channel-subchart-head">
@@ -177,7 +193,32 @@
               <button type="button" id="btn-residual-toggle" class="channel-collapse-btn" aria-expanded="true" aria-controls="channel-residual-wrap">收起</button>
             </div>
             <div id="channel-residual-wrap" class="channel-canvas-wrap">
-              <canvas id="channel-lower-canvas" class="channel-canvas" aria-label="偏离走势图" role="img"></canvas>
+              <canvas id="channel-lower-canvas" class="channel-canvas" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight + - Home" aria-label="偏离走势图" role="img"></canvas>
+            </div>
+
+            <div class="channel-subchart-head channel-kd-head">
+              <div class="channel-kd-head-left">
+                <h3 class="channel-subchart-title" id="channel-kd-title">加权K走势（周线 · 越低档位越高）</h3>
+                <div class="channel-kd-legend">
+                  <span class="channel-legend-item"><span class="lg-line lg-kd-month"></span>月K</span>
+                  <span class="channel-legend-item"><span class="lg-line lg-kd-quarter"></span>季度K</span>
+                  <span class="channel-legend-item"><span class="lg-line lg-kd-weighted"></span>加权K</span>
+                </div>
+              </div>
+              <div class="channel-kd-head-right">
+                <label class="channel-kd-factor" for="channel-kd-factor">
+                  <span>分档系数</span>
+                  <input id="channel-kd-factor" type="number" min="1" max="3" step="0.1" value="1.5" inputmode="decimal" aria-label="加权K分档系数">
+                </label>
+                <button type="button" id="btn-kd-toggle" class="channel-collapse-btn" aria-expanded="true" aria-controls="channel-kd-wrap">收起</button>
+              </div>
+            </div>
+            <p id="channel-kd-factor-error" class="channel-kd-error" role="alert" hidden></p>
+            <div id="channel-kd-wrap">
+              <div class="channel-canvas-wrap">
+                <canvas id="channel-kd-canvas" class="channel-canvas" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight + - Home" aria-label="加权K走势图（月K、季度K与加权K）" role="img"></canvas>
+              </div>
+              <div id="channel-kd-tiers" class="channel-kd-tiers" aria-label="加权K十档投入倍率参考"></div>
             </div>
           </div>
 
@@ -212,81 +253,8 @@
               <li>全站统一使用含股息再投资的前复权收盘价，与主页 K 线及定投回测口径完全一致；通道上下边界采用当前所选窗口内的对数趋势残差标准差计算，用来衡量价格围绕趋势线的历史偏离幅度，并非收益率年化波动率，切换样本窗口会明显改变通道宽窄。</li>
               <li>统计学边界提示：图中 ±1σ / ±2σ 是历史偏离相对标尺，并非严格统计学意义上的 95% 置信区间或未来 95% 概率保证。股市价格存在强连续自相关性（并非独立随机事件），10～15 年样本的年化复利 95% 统计置信区间往往很宽，高拟合优度也不代表未来价格会严格沿直线运行。</li>
               <li>默认按所选窗口历史趋势（全周期均值锚点）拟合；切换至预设或手动设定预期增速时，可在「更多设置」选择近 7 年均值（避开更早期低估值爬坡阶段对当下中枢的拉偏）或全周期均值，也可直接在主图上下拖动平移通道。自定义预期增速、锚点或平移时，轨道宽窄仍沿用当前窗口历史趋势的偏离标准差作为相对标尺（此时 z 值表示相对当前设定的偏离倍数）。</li>
+              <li>加权K基于成立以来完整历史已收盘周线计算（月K 80% + 季度K 20%），不随样本窗口截取而变化；分档系数与主页保持同步，数值越低对应买入倍率越高。</li>
               <li>表中 6 个月与 12 个月价位仅是在所选年化增速假设下的平行数学外推，并非收益预测；本页独立于主站定投回测，不直接参与定投信号触发。</li>
-            </ul>
-          </details>
-        </div>
-
-        <div id="channel-compare-panel" class="channel-panel channel-card-body" role="tabpanel" aria-labelledby="tab-btn-COMPARE" hidden>
-          <div class="channel-toolbar">
-            <div class="channel-best-summary" id="comp-best-summary">正在汇总五标的估值水位…</div>
-            <div class="channel-toolbar-right">
-              <label class="channel-select-wrap">
-                <span class="sr-only">对比样本窗口</span>
-                <select id="comp-window-select" aria-label="对比样本窗口">
-                  <option value="15y" selected>近 15 年</option>
-                  <option value="10y">近 10 年</option>
-                  <option value="all">各自全历史</option>
-                </select>
-              </label>
-              <label class="channel-select-wrap">
-                <span class="sr-only">对比中枢基准</span>
-                <select id="comp-anchor-select" aria-label="对比中枢基准">
-                  <option value="recent7y">近 7 年均值</option>
-                  <option value="fullPivot" selected>全周期均值</option>
-                  <option value="mixed" hidden>各标的独立</option>
-                </select>
-              </label>
-              <button type="button" id="btn-reset-slopes" class="channel-more-btn">恢复默认</button>
-            </div>
-          </div>
-
-          <section class="channel-section" aria-labelledby="channel-thermo-title">
-            <div class="channel-section-head">
-              <h2 class="channel-section-title" id="channel-thermo-title">五标的估值水位对比</h2>
-              <p class="channel-section-sub">按各自设定的预期增速与平移位置换算，越靠左代表安全边际越高。</p>
-            </div>
-            <div class="channel-canvas-wrap">
-              <canvas id="channel-thermo-canvas" class="channel-canvas channel-thermo-canvas" aria-label="五标的估值水位温度计" role="img"></canvas>
-            </div>
-            <div class="channel-gauge-legend">
-              <span class="channel-legend-item"><span class="channel-badge badge-deep-under">≤−1.5σ 深度低估</span></span>
-              <span class="channel-legend-item"><span class="channel-badge badge-buy-zone">−1.5~−0.75σ 击球区</span></span>
-              <span class="channel-legend-item"><span class="channel-badge badge-fair">−0.75~+0.5σ 合理中枢</span></span>
-              <span class="channel-legend-item"><span class="channel-badge badge-expensive">+0.5~+1.25σ 略偏贵</span></span>
-              <span class="channel-legend-item"><span class="channel-badge badge-overheat">&gt;+1.25σ 过热</span></span>
-            </div>
-          </section>
-
-          <section class="channel-section" aria-labelledby="comp-table-title">
-            <div class="channel-section-head">
-              <h2 class="channel-section-title" id="comp-table-title">五标的预期增速与买点总表</h2>
-              <p class="channel-section-sub">可直接微调每只标的的预期年化增速；点击左侧标的名称即可进入单标的通道图。</p>
-            </div>
-            <div class="channel-table-wrap" tabindex="0" role="region" aria-labelledby="comp-table-title">
-              <table class="channel-table channel-comp-table">
-                <thead>
-                  <tr>
-                    <th scope="col">标的</th>
-                    <th scope="col" class="is-center">预期增速（历史）</th>
-                    <th scope="col">最新价</th>
-                    <th scope="col">合理中枢</th>
-                    <th scope="col">当前偏离 (Z)</th>
-                    <th scope="col">−1.0σ 常规买点</th>
-                    <th scope="col">状态</th>
-                  </tr>
-                </thead>
-                <tbody id="channel-comp-tbody"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <details class="accessible-data channel-method-details">
-            <summary>查看对比口径说明</summary>
-            <ul>
-              <li>统一使用含股息前复权价格与「近 15 年」默认窗口，让上市时间不同的五只内置标的处于同一宏观周期下横向比较。</li>
-              <li>各标的 ±1σ / ±2σ 与 z 值为所选样本窗口下的历史相对偏离标尺，并非严格意义上的 95% 置信或预测区间。</li>
-              <li>本页仅作长期估值位置与入场价格参考，不接入主站定投回测，避免引入未来信息偏差。</li>
             </ul>
           </details>
         </div>
@@ -301,6 +269,112 @@
       <p><strong>免责声明</strong> 本页价格通道及 6 个月 / 12 个月参考价位仅基于历史收盘数据与用户设定年化增速作数学外推，仅供学习与研究参考，不构成投资建议或收益承诺。历史波动与拟合轨道不代表未来表现，请结合自身风险承受能力独立判断。</p>
     </aside>
   </div>
+
+  <dialog id="channel-compare-dialog" closedby="any" aria-labelledby="compare-dialog-title">
+    <div class="channel-compare-dialog-head">
+      <h2 id="compare-dialog-title" tabindex="-1" autofocus>五标的横向对比</h2>
+      <button type="button" class="channel-dialog-close" commandfor="channel-compare-dialog" command="close" aria-label="关闭横向对比">×</button>
+    </div>
+    <div class="channel-compare-dialog-body">
+      <div class="channel-toolbar channel-compare-toolbar">
+        <div class="channel-best-summary" id="comp-best-summary">正在汇总五标的估值水位…</div>
+        <div class="channel-toolbar-right">
+          <label class="channel-select-wrap">
+            <span class="sr-only">对比样本窗口</span>
+            <select id="comp-window-select" aria-label="对比样本窗口">
+              <option value="15y" selected>近 15 年</option>
+              <option value="10y">近 10 年</option>
+              <option value="all">各自全历史</option>
+            </select>
+          </label>
+          <label class="channel-select-wrap">
+            <span class="sr-only">对比中枢基准</span>
+            <select id="comp-anchor-select" aria-label="对比中枢基准">
+              <option value="recent7y">近 7 年均值</option>
+              <option value="fullPivot" selected>全周期均值</option>
+              <option value="mixed" hidden>各标的独立</option>
+            </select>
+          </label>
+          <label class="channel-kd-factor" for="comp-kd-factor">
+            <span>加权K系数</span>
+            <input id="comp-kd-factor" type="number" min="1" max="3" step="0.1" value="1.5" inputmode="decimal" aria-label="横向对比加权K分档系数">
+          </label>
+          <button type="button" id="btn-reset-slopes" class="channel-more-btn">恢复默认</button>
+        </div>
+      </div>
+      <p id="comp-kd-factor-error" class="channel-kd-error" role="alert" hidden></p>
+
+      <section class="channel-section" aria-labelledby="channel-thermo-title">
+        <div class="channel-section-head">
+          <h2 class="channel-section-title" id="channel-thermo-title">五标的估值水位对比</h2>
+          <p class="channel-section-sub">按各自设定的预期增速与平移位置换算，越靠左代表安全边际越高。</p>
+        </div>
+        <div class="channel-canvas-wrap">
+          <canvas id="channel-thermo-canvas" class="channel-canvas channel-thermo-canvas" aria-label="五标的估值水位温度计" role="img"></canvas>
+        </div>
+        <div class="channel-gauge-legend">
+          <span class="channel-legend-item"><span class="channel-badge badge-deep-under">≤−1.5σ 深度低估</span></span>
+          <span class="channel-legend-item"><span class="channel-badge badge-buy-zone">−1.5~−0.75σ 击球区</span></span>
+          <span class="channel-legend-item"><span class="channel-badge badge-fair">−0.75~+0.5σ 合理中枢</span></span>
+          <span class="channel-legend-item"><span class="channel-badge badge-expensive">+0.5~+1.25σ 略偏贵</span></span>
+          <span class="channel-legend-item"><span class="channel-badge badge-overheat">&gt;+1.25σ 过热</span></span>
+        </div>
+      </section>
+
+      <section class="channel-section" aria-labelledby="comp-table-title">
+        <div class="channel-section-head">
+          <h2 class="channel-section-title" id="comp-table-title">五标的预期增速与买点总表</h2>
+          <p class="channel-section-sub">可直接微调每只标的的预期年化增速；点击左侧标的名称即可进入单标的通道图。</p>
+        </div>
+        <div class="channel-table-wrap" tabindex="0" role="region" aria-labelledby="comp-table-title">
+          <table class="channel-table channel-comp-table">
+            <thead>
+              <tr>
+                <th scope="col">标的</th>
+                <th scope="col" class="is-center">预期增速（历史）</th>
+                <th scope="col">最新价</th>
+                <th scope="col">合理中枢</th>
+                <th scope="col">当前偏离 (Z)</th>
+                <th scope="col">加权K / 倍率</th>
+                <th scope="col">−1.0σ 常规买点</th>
+                <th scope="col">状态</th>
+              </tr>
+            </thead>
+            <tbody id="channel-comp-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <details class="accessible-data channel-method-details">
+        <summary>查看对比口径说明</summary>
+        <ul>
+          <li>统一使用含股息前复权价格与「近 15 年」默认窗口，让上市时间不同的五只内置标的处于同一宏观周期下横向比较。</li>
+          <li>各标的 ±1σ / ±2σ 与 z 值为所选样本窗口下的历史相对偏离标尺，并非严格意义上的 95% 置信或预测区间。</li>
+          <li>加权K基于各标的完整历史已收盘周线计算（月K 80% + 季度K 20%），数值越低对应当前分档买入倍率越高，可与估值偏离 (Z) 交叉印证。</li>
+          <li>本页仅作长期估值位置与入场价格参考，不接入主站定投回测，避免引入未来信息偏差。</li>
+        </ul>
+      </details>
+    </div>
+    <div class="channel-compare-dialog-actions">
+      <button type="button" commandfor="channel-compare-dialog" command="close">关闭</button>
+    </div>
+  </dialog>
+
+  <dialog id="symbol-dialog" closedby="any" aria-labelledby="symbol-dialog-title">
+    <form id="symbol-form">
+      <h2 id="symbol-dialog-title">自定义标的</h2>
+      <p>管理个人标的：可添加或删除；删除后不再显示或更新，并清理本地行情缓存。</p>
+      <ul id="custom-symbol-list" aria-label="标的管理"></ul>
+      <p id="symbol-help">支持美元计价的美股股票和 ETF，例如 VOO、AAPL、BRK-B。添加时获取完整历史，成功后保存到本地服务。</p>
+      <label for="custom-symbol">标的代码</label>
+      <input id="custom-symbol" name="symbol" required maxlength="15" placeholder="例如 VOO" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="symbol-help symbol-message">
+      <p id="symbol-message" role="status" aria-live="polite"></p>
+      <div class="symbol-dialog-actions">
+        <button id="symbol-cancel" type="button" commandfor="symbol-dialog" command="close">关闭</button>
+        <button id="symbol-submit" type="submit">添加并获取行情</button>
+      </div>
+    </form>
+  </dialog>
   <script type="module" src="./js/channel-page.mjs"></script>
 </body>
 </html>

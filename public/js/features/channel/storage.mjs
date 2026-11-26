@@ -1,14 +1,18 @@
 import {
   ANCHOR_MODES,
-  CHANNEL_ASSETS,
   CHANNEL_SYMBOLS,
   SAMPLE_WINDOWS,
+  getChannelAssetMeta,
+  isValidChannelSymbol,
   normalizeCustomAnchor
 } from '../../domain/log-channel.mjs';
+import { KD_DEFAULTS, normalizeKDOptions } from '../../domain/kd-strategy.mjs';
 
 export const STORAGE_KEY = 'seeker.logChannel.v3';
 export const LEGACY_KEYS = ['seeker.logChannel.v2', 'seeker.logChannel.v1'];
 export const SCHEMA_VERSION = 4;
+export const KD_STORAGE_KEY = 'seeker.kd.v1';
+export const KD_STORAGE_VERSION = 2;
 export const VALID_TABS = new Set([...CHANNEL_SYMBOLS, 'COMPARE']);
 
 function readFiniteNumber(val) {
@@ -25,7 +29,7 @@ function getDefaultStorage() {
 
 export function createDefaultSymbolConfig(sym) {
   return {
-    slopePct: CHANNEL_ASSETS[sym].defaultSlope,
+    slopePct: getChannelAssetMeta(sym).defaultSlope,
     followHistSlope: true,
     anchorMode: ANCHOR_MODES.fullPivot,
     userPreferredAnchor: ANCHOR_MODES.recent7y,
@@ -46,6 +50,7 @@ export function createDefaultChannelState() {
     showPivot: false,
     showProjection: true,
     showResidual: true,
+    showKD: true,
     hoverT: null,
     symbols
   };
@@ -53,7 +58,13 @@ export function createDefaultChannelState() {
 
 function cloneChannelState(state) {
   const symbols = {};
-  for (const sym of CHANNEL_SYMBOLS) {
+  const keys = new Set(CHANNEL_SYMBOLS);
+  if (state.symbols && typeof state.symbols === 'object') {
+    for (const k of Object.keys(state.symbols)) {
+      if (isValidChannelSymbol(k)) keys.add(k);
+    }
+  }
+  for (const sym of keys) {
     const src = state.symbols?.[sym] || createDefaultSymbolConfig(sym);
     symbols[sym] = {
       ...src,
@@ -82,8 +93,13 @@ export function parseChannelState(rawJson, defaults = createDefaultChannelState(
   }
   if (!parsed || typeof parsed !== 'object') return next;
 
-  if (typeof parsed.activeTab === 'string' && VALID_TABS.has(parsed.activeTab)) {
-    next.activeTab = parsed.activeTab;
+  if (typeof parsed.activeTab === 'string') {
+    if (
+      VALID_TABS.has(parsed.activeTab) ||
+      (isValidChannelSymbol(parsed.activeTab) && parsed.symbols && Object.hasOwn(parsed.symbols, parsed.activeTab))
+    ) {
+      next.activeTab = parsed.activeTab;
+    }
   }
   if (Object.hasOwn(SAMPLE_WINDOWS, parsed.windowId)) {
     next.windowId = parsed.windowId;
@@ -92,12 +108,18 @@ export function parseChannelState(rawJson, defaults = createDefaultChannelState(
   if (typeof parsed.showPivot === 'boolean') next.showPivot = parsed.showPivot;
   if (typeof parsed.showProjection === 'boolean') next.showProjection = parsed.showProjection;
   if (typeof parsed.showResidual === 'boolean') next.showResidual = parsed.showResidual;
+  if (typeof parsed.showKD === 'boolean') next.showKD = parsed.showKD;
 
   if (parsed.symbols && typeof parsed.symbols === 'object') {
-    for (const sym of CHANNEL_SYMBOLS) {
+    const keys = new Set(CHANNEL_SYMBOLS);
+    for (const k of Object.keys(parsed.symbols)) {
+      if (isValidChannelSymbol(k)) keys.add(k);
+    }
+    for (const sym of keys) {
+      if (!Object.hasOwn(parsed.symbols, sym)) continue;
       const rawCfg = parsed.symbols[sym];
       if (!rawCfg || typeof rawCfg !== 'object') continue;
-      const cfg = next.symbols[sym];
+      const cfg = next.symbols[sym] || (next.symbols[sym] = createDefaultSymbolConfig(sym));
 
       const slopeVal = readFiniteNumber(rawCfg.slopePct);
       if (slopeVal !== null) {
@@ -196,13 +218,19 @@ export function saveChannelState(state, storage = getDefaultStorage()) {
   try {
     const savedAt = Date.now();
     const symbols = {};
-    for (const sym of CHANNEL_SYMBOLS) {
-      const cfg = state.symbols?.[sym] || createDefaultSymbolConfig(sym);
+    const keys = new Set(CHANNEL_SYMBOLS);
+    if (state.symbols && typeof state.symbols === 'object') {
+      for (const k of Object.keys(state.symbols)) {
+        if (isValidChannelSymbol(k)) keys.add(k);
+      }
+    }
+    for (const sym of keys) {
+      const cfg = (state.symbols && Object.hasOwn(state.symbols, sym) ? state.symbols[sym] : null) || createDefaultSymbolConfig(sym);
       const slopeVal = readFiniteNumber(cfg.slopePct);
       const offsetVal = readFiniteNumber(cfg.offsetPct);
       const customAnchor = normalizeCustomAnchor(cfg.customAnchor);
       symbols[sym] = {
-        slopePct: slopeVal !== null ? Math.max(-50, Math.min(100, Math.round(slopeVal * 10) / 10)) : CHANNEL_ASSETS[sym].defaultSlope,
+        slopePct: slopeVal !== null ? Math.max(-50, Math.min(100, Math.round(slopeVal * 10) / 10)) : getChannelAssetMeta(sym).defaultSlope,
         followHistSlope: Boolean(cfg.followHistSlope),
         anchorMode: Object.hasOwn(ANCHOR_MODES, cfg.anchorMode) ? cfg.anchorMode : ANCHOR_MODES.fullPivot,
         userPreferredAnchor: Object.hasOwn(ANCHOR_MODES, cfg.userPreferredAnchor) ? cfg.userPreferredAnchor : ANCHOR_MODES.recent7y,
@@ -211,15 +239,19 @@ export function saveChannelState(state, storage = getDefaultStorage()) {
       };
     }
 
+    const activeTabValid = typeof state.activeTab === 'string' &&
+      (VALID_TABS.has(state.activeTab) || (isValidChannelSymbol(state.activeTab) && Object.hasOwn(symbols, state.activeTab)));
+
     const payload = JSON.stringify({
       schemaVersion: SCHEMA_VERSION,
       updatedAt: savedAt,
-      activeTab: typeof state.activeTab === 'string' && VALID_TABS.has(state.activeTab) ? state.activeTab : 'SPY',
+      activeTab: activeTabValid ? state.activeTab : 'SPY',
       windowId: Object.hasOwn(SAMPLE_WINDOWS, state.windowId) ? state.windowId : '15y',
       showOrigLine: Boolean(state.showOrigLine),
       showPivot: Boolean(state.showPivot),
       showProjection: Boolean(state.showProjection),
       showResidual: Boolean(state.showResidual),
+      showKD: state.showKD !== false,
       symbols
     });
 
@@ -230,5 +262,50 @@ export function saveChannelState(state, storage = getDefaultStorage()) {
       : { ok: false, error: 'write verification failed' };
   } catch (err) {
     return { ok: false, error: err?.message || 'storage write failed' };
+  }
+}
+
+export function parseChannelKDOptions(rawJson) {
+  if (typeof rawJson !== 'string' || !rawJson) return { ...KD_DEFAULTS };
+  try {
+    const saved = JSON.parse(rawJson);
+    if (!saved || typeof saved !== 'object') return { ...KD_DEFAULTS };
+    const { version, ...storedOptions } = saved;
+    const previous = normalizeKDOptions({ tierFactor: 2, ...storedOptions });
+    const formerDefaults =
+      version === undefined &&
+      previous.monthWeight === 40 &&
+      previous.quarterWeight === 60 &&
+      previous.period === 9 &&
+      previous.signal === 3 &&
+      previous.tierFactor === 2;
+    return formerDefaults
+      ? { ...KD_DEFAULTS }
+      : { ...KD_DEFAULTS, tierFactor: previous.tierFactor };
+  } catch {
+    return { ...KD_DEFAULTS };
+  }
+}
+
+export function loadChannelKDOptions(storage = getDefaultStorage()) {
+  if (!storage || typeof storage.getItem !== 'function') return { ...KD_DEFAULTS };
+  try {
+    return parseChannelKDOptions(storage.getItem(KD_STORAGE_KEY));
+  } catch {
+    return { ...KD_DEFAULTS };
+  }
+}
+
+export function saveChannelKDOptions(kdOptions, storage = getDefaultStorage()) {
+  if (!storage || typeof storage.setItem !== 'function') return false;
+  try {
+    const normalized = normalizeKDOptions(kdOptions);
+    storage.setItem(
+      KD_STORAGE_KEY,
+      JSON.stringify({ ...KD_DEFAULTS, tierFactor: normalized.tierFactor, version: KD_STORAGE_VERSION })
+    );
+    return true;
+  } catch {
+    return false;
   }
 }
