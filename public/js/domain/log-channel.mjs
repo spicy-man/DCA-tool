@@ -15,7 +15,7 @@ export const CHANNEL_ASSETS = {
     maxSlope: 18,
     presets: [
       { label: '保守 9%', value: 9.0 },
-      { label: '默认 10%', value: 10.0 },
+      { label: '中性 10%', value: 10.0 },
       { label: '乐观 11%', value: 11.0 }
     ]
   },
@@ -28,7 +28,7 @@ export const CHANNEL_ASSETS = {
     maxSlope: 24,
     presets: [
       { label: '保守 13.5%', value: 13.5 },
-      { label: '默认 15%', value: 15.0 },
+      { label: '中性 15%', value: 15.0 },
       { label: '乐观 16.5%', value: 16.5 }
     ]
   },
@@ -41,7 +41,7 @@ export const CHANNEL_ASSETS = {
     maxSlope: 26,
     presets: [
       { label: '保守 15%', value: 15.0 },
-      { label: '默认 16.5%', value: 16.5 },
+      { label: '中性 16.5%', value: 16.5 },
       { label: '乐观 18%', value: 18.0 }
     ]
   },
@@ -54,7 +54,7 @@ export const CHANNEL_ASSETS = {
     maxSlope: 32,
     presets: [
       { label: '保守 16%', value: 16.0 },
-      { label: '默认 18%', value: 18.0 },
+      { label: '中性 18%', value: 18.0 },
       { label: '乐观 20%', value: 20.0 }
     ]
   },
@@ -67,7 +67,7 @@ export const CHANNEL_ASSETS = {
     maxSlope: 18,
     presets: [
       { label: '保守 9%', value: 9.0 },
-      { label: '默认 10%', value: 10.0 },
+      { label: '中性 10%', value: 10.0 },
       { label: '乐观 11.5%', value: 11.5 }
     ]
   }
@@ -100,6 +100,65 @@ export const CHANNEL_TIERS = [
 ];
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const Z_CRITICAL_95 = 1.959963984540054;
+const T_CRITICAL_95_TABLE = [
+  12.7062047, 4.3026527, 3.1824463, 2.7764451, 2.5705818,
+  2.4469119, 2.3646243, 2.3060041, 2.2621572, 2.2281389
+];
+
+/**
+ * Compute two-sided 95% Student-t critical value t_{0.975, df}.
+ */
+export function tCritical95(df) {
+  if (!Number.isFinite(df) || df < 1) return Z_CRITICAL_95;
+  if (df <= 10) {
+    return T_CRITICAL_95_TABLE[Math.round(df) - 1];
+  }
+  const z = Z_CRITICAL_95;
+  const z2 = z * z;
+  const z3 = z2 * z;
+  const z5 = z3 * z2;
+  const z7 = z5 * z2;
+  return (
+    z +
+    (z3 + z) / (4 * df) +
+    (5 * z5 + 16 * z3 + 3 * z) / (96 * df * df) +
+    (3 * z7 + 19 * z5 + 17 * z3 - 15 * z) / (384 * df * df * df)
+  );
+}
+
+/**
+ * Compute empirical band coverage (±1σ / ±2σ) and tie-safe mid-rank percentile.
+ */
+export function computeEmpiricalStats(residuals, sigma, targetRes) {
+  if (!Array.isArray(residuals) || !residuals.length) {
+    return { in1sPct: 0, in2sPct: 0, percentilePct: 50 };
+  }
+  const n = residuals.length;
+  const tol = 1e-12;
+  const hasSigma = Number.isFinite(sigma) && sigma > 0;
+  const lim1 = hasSigma ? sigma : tol;
+  const lim2 = hasSigma ? 2 * sigma : tol;
+
+  let in1 = 0;
+  let in2 = 0;
+  let less = 0;
+  let equal = 0;
+  for (let i = 0; i < n; i++) {
+    const r = residuals[i];
+    const absR = Math.abs(r);
+    if (absR <= lim1) in1++;
+    if (absR <= lim2) in2++;
+    if (r < targetRes - tol) less++;
+    else if (Math.abs(r - targetRes) <= tol) equal++;
+  }
+
+  return {
+    in1sPct: (in1 / n) * 100,
+    in2sPct: (in2 / n) * 100,
+    percentilePct: ((less + 0.5 * equal) / n) * 100
+  };
+}
 
 function splitIsoDate(dateStr) {
   if (typeof dateStr !== 'string') throw Error('无效日期格式');
@@ -160,7 +219,7 @@ export function buildChannelDataset(
   const meta = CHANNEL_ASSETS[symbol];
   if (!meta) throw Error(`不支持的通道标的: ${symbol}`);
   const winCfg = SAMPLE_WINDOWS[windowId] ?? SAMPLE_WINDOWS['15y'];
-  const basisCfg = PRICE_BASES[priceBasis] ?? PRICE_BASES.price;
+  const basisCfg = PRICE_BASES[priceBasis] ?? PRICE_BASES.totalReturn;
   const field = basisCfg.field;
 
   if (!Array.isArray(rows) || !rows.length) {
@@ -235,9 +294,11 @@ export function buildChannelDataset(
   const gOrig = Math.exp(bOrig) - 1;
   const slopePct = gOrig * 100;
 
+  const origResiduals = new Array(n);
   let sse = 0;
   for (let i = 0; i < n; i++) {
     const res = points[i].lnP - (aOrig + bOrig * points[i].t);
+    origResiduals[i] = res;
     sse += res * res;
   }
   const r2 = syy > 0 ? 1 - sse / syy : 1;
@@ -247,8 +308,39 @@ export function buildChannelDataset(
   const tProj = (proj12Ms - baseMs) / MS_PER_YEAR;
   const latestPrice = points[n - 1].price;
   const fitEnd = Math.exp(aOrig + bOrig * tEnd);
-  const resEnd = points[n - 1].lnP - (aOrig + bOrig * tEnd);
+  const resEnd = origResiduals[n - 1];
   const zEnd = sigma > 0 ? resEnd / sigma : 0;
+  const origEmpirical = computeEmpiricalStats(origResiduals, sigma, resEnd);
+
+  const mDiffs = n - 1;
+  const spanYears = tEnd > 0 ? tEnd : 1e-6;
+  const totalLnReturn = points[n - 1].lnP - points[0].lnP;
+  const muAnn = totalLnReturn / spanYears;
+  const cagr = Math.exp(muAnn) - 1;
+  const cagrPct = cagr * 100;
+  const meanDailyRet = totalLnReturn / mDiffs;
+  let retSse = 0;
+  for (let i = 1; i < n; i++) {
+    const dr = (points[i].lnP - points[i - 1].lnP) - meanDailyRet;
+    retSse += dr * dr;
+  }
+  const dailyVar = retSse / Math.max(1, mDiffs - 1);
+  const annVol = Math.sqrt(dailyVar * (mDiffs / spanYears));
+  const driftSe = annVol / Math.sqrt(spanYears);
+  const tCrit95 = tCritical95(mDiffs - 1);
+  const cagrCiLowPct = (Math.exp(muAnn - tCrit95 * driftSe) - 1) * 100;
+  const cagrCiHighPct = (Math.exp(muAnn + tCrit95 * driftSe) - 1) * 100;
+  const returnStats = {
+    spanYears,
+    cagr,
+    cagrPct,
+    annVol,
+    annVolPct: annVol * 100,
+    driftSe,
+    tCrit95,
+    cagrCiLowPct,
+    cagrCiHighPct
+  };
 
   const recentCutoff = subtractCalendarYears(endDate, rollingAnchorYears);
   const recentPts = points.filter(pt => pt.date >= recentCutoff);
@@ -274,7 +366,8 @@ export function buildChannelDataset(
   }
 
   const origSlopeRounded = Number(slopePct.toFixed(1));
-  const effectiveMinSlope = Math.max(0, Math.min(meta.minSlope, Math.floor(slopePct) - 2));
+  const minSlopeFloor = slopePct < 0 ? -50 : 0;
+  const effectiveMinSlope = Math.max(minSlopeFloor, Math.min(meta.minSlope, Math.floor(slopePct) - 2));
   const effectiveMaxSlope = Math.max(meta.maxSlope, Math.ceil(slopePct) + 2);
 
   return {
@@ -315,8 +408,10 @@ export function buildChannelDataset(
       fitEnd,
       resEnd,
       zEnd,
-      latestPrice
+      latestPrice,
+      empirical: origEmpirical
     },
+    returnStats,
     recentWindow: {
       startDate: anchorSource[0].date,
       endDate: anchorSource.at(-1).date,
@@ -361,7 +456,7 @@ export function evaluateChannelModel(
   { slopePct, anchorMode = ANCHOR_MODES.recent7y, keepOrigSigma = true, offsetPct = 0, customAnchor = null } = {}
 ) {
   const effectiveSlope = Number.isFinite(slopePct) ? slopePct : dataset.defaultSlope;
-  const g = effectiveSlope / 100;
+  const g = Math.max(-0.99, effectiveSlope / 100);
   const bStar = Math.log(1 + g);
 
   const normalizedAnchor = anchorMode === ANCHOR_MODES.fullPivot
@@ -432,6 +527,9 @@ export function evaluateChannelModel(
   const resEnd = residuals[n - 1];
   const zEnd = sigmaUsed > 0 ? resEnd / sigmaUsed : 0;
   const devPct = latestPrice / fitEnd - 1;
+  const bandUp1sPct = (Math.exp(sigmaUsed) - 1) * 100;
+  const bandDown1sPct = (Math.exp(-sigmaUsed) - 1) * 100;
+  const empirical = computeEmpiricalStats(residuals, sigmaUsed, resEnd);
 
   const priceM10 = fitEnd * Math.exp(-1.0 * sigmaUsed);
   const priceM15 = fitEnd * Math.exp(-1.5 * sigmaUsed);
@@ -493,6 +591,9 @@ export function evaluateChannelModel(
     sigmaOrig,
     sigmaRecalc,
     sigmaUsed,
+    bandUp1sPct,
+    bandDown1sPct,
+    empirical,
     latestPrice,
     fitEnd,
     origFitEnd,
@@ -593,7 +694,7 @@ export function solveEndpointChannel(
     dataset.minSlope,
     Math.min(dataset.maxSlope, Math.round(rawSlopePct * 10) / 10)
   );
-  const bClamped = Math.log(1 + slopePct / 100);
+  const bClamped = Math.log(1 + Math.max(-0.99, slopePct / 100));
   const basePivot = anchorMode === ANCHOR_MODES.fullPivot ? dataset.pivots.full : dataset.pivots.recent7y;
   const anchorMs = parseIsoDateUtc(basePivot.date);
   const anchorT = Number.isFinite(anchorMs) ? (anchorMs - dataset.baseMs) / MS_PER_YEAR : basePivot.t;
@@ -619,7 +720,7 @@ export function createShiftedCustomAnchor(
   const validBase = normalizeCustomAnchor({ anchorDate: baseAnchorDate, anchorPrice: baseAnchorPrice });
   const anchorDate = validBase ? validBase.anchorDate : basePivot.date;
   const startPrice = validBase ? validBase.anchorPrice : basePivot.price;
-  const bSlope = Math.log(1 + (Number.isFinite(slopePct) ? slopePct : dataset.defaultSlope) / 100);
+  const bSlope = Math.log(1 + Math.max(-0.99, (Number.isFinite(slopePct) ? slopePct : dataset.defaultSlope) / 100));
   const anchorMs = parseIsoDateUtc(anchorDate);
   const anchorT = Number.isFinite(anchorMs) ? (anchorMs - dataset.baseMs) / MS_PER_YEAR : basePivot.t;
   const refPriceOnAnchorDate = basePivot.price * Math.exp(bSlope * (anchorT - basePivot.t));

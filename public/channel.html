@@ -9,7 +9,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="定投助手">
-  <meta name="app-version" content="3.0.0">
+  <meta name="app-version" content="3.0.1">
   <meta name="description" content="查看 SPY / QQQ / VGT / SMH / BRK-B 长期价格通道、偏离走势、估值水位与分档入场参考价位。">
   <title>对数回归通道 · 定投助手</title>
   <link rel="manifest" href="./manifest.webmanifest">
@@ -20,7 +20,7 @@
     html { color-scheme: light; color-scheme: only light; background-color: #f5f6fa; color: #20333f; }
     body { margin: 0; background-color: #f5f6fa; color: #20333f; }
   </style>
-  <link rel="stylesheet" href="./style.css?v=3.0.0">
+  <link rel="stylesheet" href="./style.css?v=3.0.1">
 </head>
 <body class="channel-page">
   <div class="shell">
@@ -31,8 +31,8 @@
 
     <main>
       <div class="channel-title-row">
-        <div class="channel-title-group">
-          <h1 id="channel-heading">对数回归通道</h1>
+        <h1 id="channel-heading">对数回归通道</h1>
+        <div class="channel-title-meta">
           <p id="channel-load-status" class="channel-status-line" role="status" aria-live="polite">正在读取本地行情快照…</p>
           <span id="channel-storage-badge" class="channel-storage-badge" hidden></span>
         </div>
@@ -94,8 +94,8 @@
               <div class="channel-drawer-group">
                 <span class="channel-drawer-label">中枢基准</span>
                 <div class="channel-pill-switch" role="group" aria-label="中枢基准">
-                  <button type="button" id="btn-anchor-recent" aria-pressed="true">近 7 年均值（默认）</button>
-                  <button type="button" id="btn-anchor-full" aria-pressed="false">全周期均值（偏保守）</button>
+                  <button type="button" id="btn-anchor-recent" aria-pressed="false">近 7 年均值</button>
+                  <button type="button" id="btn-anchor-full" aria-pressed="true">全周期均值</button>
                 </div>
                 <p id="channel-anchor-note" class="channel-drawer-note"></p>
               </div>
@@ -138,7 +138,7 @@
               </div>
               <div>
                 <h4>−1.0σ 常规买点</h4>
-                <strong id="kpi4-buy" class="is-good">$—</strong>
+                <strong id="kpi4-buy">$—</strong>
                 <p id="kpi4-foot">—</p>
               </div>
             </div>
@@ -155,10 +155,11 @@
               </div>
               <div class="channel-legend-bar">
                 <span class="channel-legend-item"><span class="lg-line" style="background:#19374a"></span>收盘价</span>
-                <span class="channel-legend-item"><span class="lg-line" style="background:#111827;height:2px"></span>合理中枢</span>
+                <span class="channel-legend-item"><span class="lg-line" style="background:#334e5e;height:2px"></span>合理中枢</span>
                 <span class="channel-legend-item" id="lg-orig-wrap" hidden><span class="lg-dash" style="border-color:#94a3b8"></span>历史趋势</span>
-                <span class="channel-legend-item"><span class="lg-dash" style="border-color:#64748b"></span>±1σ</span>
-                <span class="channel-legend-item"><span class="lg-dash" style="border-color:#b91c1c"></span>±2σ</span>
+                <span class="channel-legend-item"><span class="lg-dash" style="border-color:#a0b2be"></span>±1σ</span>
+                <span class="channel-legend-item"><span class="lg-dash" style="border-color:#c47a6d"></span>+2σ</span>
+                <span class="channel-legend-item"><span class="lg-dash" style="border-color:#4d8b78"></span>−2σ</span>
                 <span class="channel-legend-item" id="lg-pivot-wrap" hidden><span class="lg-pivot"></span>基准点</span>
                 <span class="channel-legend-item"><span class="lg-zone"></span>−1σ~−2σ 买点带</span>
                 <span class="channel-drag-hint">拖两端旋转 · 拖中间平移</span>
@@ -185,6 +186,7 @@
               <h2 class="channel-section-title" id="channel-entry-table-title">分档入场参考价位</h2>
               <p class="channel-section-sub" id="channel-table-subtitle"></p>
             </div>
+            <p class="channel-principle-note">通道只看“模糊的正确”，不必纠结精确点位——真正的便宜往往肉眼可见，用来判断大致水位、克制追高就够了。</p>
             <div class="channel-table-wrap" tabindex="0" role="region" aria-labelledby="channel-entry-table-title">
               <table class="channel-table">
                 <thead>
@@ -205,10 +207,12 @@
           <details class="accessible-data channel-method-details">
             <summary>查看历史参考参数与计算口径</summary>
             <p id="channel-method-summary"></p>
+            <p id="channel-method-stats"></p>
             <ul>
-              <li>全站统一使用含股息再投资的前复权收盘价，与主页 K 线及定投回测口径完全一致；通道上下边界采用全样本历史正常波动率计算。</li>
-              <li>默认以近 7 年均值作为中枢锚点，避开更早期低估值爬坡阶段对当下中枢的拉偏；可在「更多设置」切至全周期均值作保守压测，或直接在主图上下拖动平移通道。</li>
-              <li>表中 6 个月与 12 个月价位仅是在所选年化增速假设下的数学外推，并非收益预测；本页独立于主站定投回测，不直接参与定投信号触发。</li>
+              <li>全站统一使用含股息再投资的前复权收盘价，与主页 K 线及定投回测口径完全一致；通道上下边界采用当前所选窗口内的对数趋势残差标准差计算，用来衡量价格围绕趋势线的历史偏离幅度，并非收益率年化波动率，切换样本窗口会明显改变通道宽窄。</li>
+              <li>统计学边界提示：图中 ±1σ / ±2σ 是历史偏离相对标尺，并非严格统计学意义上的 95% 置信区间或未来 95% 概率保证。股市价格存在强连续自相关性（并非独立随机事件），10～15 年样本的年化复利 95% 统计置信区间往往很宽，高拟合优度也不代表未来价格会严格沿直线运行。</li>
+              <li>默认按所选窗口历史趋势（全周期均值锚点）拟合；切换至预设或手动设定预期增速时，可在「更多设置」选择近 7 年均值（避开更早期低估值爬坡阶段对当下中枢的拉偏）或全周期均值，也可直接在主图上下拖动平移通道。自定义预期增速、锚点或平移时，轨道宽窄仍沿用当前窗口历史趋势的偏离标准差作为相对标尺（此时 z 值表示相对当前设定的偏离倍数）。</li>
+              <li>表中 6 个月与 12 个月价位仅是在所选年化增速假设下的平行数学外推，并非收益预测；本页独立于主站定投回测，不直接参与定投信号触发。</li>
             </ul>
           </details>
         </div>
@@ -228,8 +232,8 @@
               <label class="channel-select-wrap">
                 <span class="sr-only">对比中枢基准</span>
                 <select id="comp-anchor-select" aria-label="对比中枢基准">
-                  <option value="recent7y" selected>近 7 年均值</option>
-                  <option value="fullPivot">全周期均值</option>
+                  <option value="recent7y">近 7 年均值</option>
+                  <option value="fullPivot" selected>全周期均值</option>
                   <option value="mixed" hidden>各标的独立</option>
                 </select>
               </label>
@@ -281,6 +285,7 @@
             <summary>查看对比口径说明</summary>
             <ul>
               <li>统一使用含股息前复权价格与「近 15 年」默认窗口，让上市时间不同的五只内置标的处于同一宏观周期下横向比较。</li>
+              <li>各标的 ±1σ / ±2σ 与 z 值为所选样本窗口下的历史相对偏离标尺，并非严格意义上的 95% 置信或预测区间。</li>
               <li>本页仅作长期估值位置与入场价格参考，不接入主站定投回测，避免引入未来信息偏差。</li>
             </ul>
           </details>

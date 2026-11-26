@@ -66,6 +66,20 @@ function fmtSigned(v, digits = 2) {
   return (v >= 0 ? '+' : '') + v.toFixed(digits);
 }
 
+function fmtBandSigned(v) {
+  if (!Number.isFinite(v)) return '—';
+  const rounded = Math.round(v * 10) / 10;
+  if (Math.abs(rounded) < 0.05) return '0.0%';
+  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toFixed(1)}%`;
+}
+
+function fmtRatePct(v) {
+  if (!Number.isFinite(v)) return '—';
+  const rounded = Math.round(v * 10) / 10;
+  if (Math.abs(rounded) < 0.05) return '0.0%';
+  return `${rounded < 0 ? '−' : ''}${Math.abs(rounded).toFixed(1)}%`;
+}
+
 function resolveTabFromQuery(search) {
   const param = new URLSearchParams(search || '').get('symbol');
   if (!param) return null;
@@ -163,15 +177,28 @@ export function initLogChannelPage() {
     }
   }
 
-  function isSymbolCustomized(sym) {
+  function isHistFollowActive(sym) {
     const cfg = state.symbols[sym];
-    if (!cfg) return false;
-    return (
-      cfg.customAnchor !== null ||
-      Math.abs(cfg.offsetPct) >= 0.05 ||
-      Math.abs(cfg.slopePct - CHANNEL_ASSETS[sym].defaultSlope) >= 0.05 ||
-      cfg.anchorMode !== ANCHOR_MODES.recent7y
+    return Boolean(
+      cfg?.followHistSlope &&
+      cfg.customAnchor === null &&
+      Math.abs(cfg.offsetPct) < 0.05 &&
+      cfg.anchorMode === ANCHOR_MODES.fullPivot
     );
+  }
+
+  function freezeHistSlope(sym) {
+    const cfg = state.symbols[sym];
+    if (!cfg || !cfg.followHistSlope) return;
+    const ds = datasets.get(sym);
+    if (ds) {
+      cfg.slopePct = Math.max(ds.minSlope, Math.min(ds.maxSlope, Math.round(ds.orig.slopePct * 10) / 10));
+    }
+    cfg.followHistSlope = false;
+  }
+
+  function isSymbolCustomized(sym) {
+    return !isHistFollowActive(sym);
   }
 
   function updateStorageBadge() {
@@ -180,12 +207,6 @@ export function initLogChannelPage() {
       storageBadge.hidden = false;
       storageBadge.textContent = '当前浏览器禁止本地缓存，调整仅本次有效';
       storageBadge.className = 'channel-storage-badge is-warn';
-      return;
-    }
-    if (CHANNEL_SYMBOLS.some(isSymbolCustomized)) {
-      storageBadge.hidden = false;
-      storageBadge.textContent = '手调通道已保存在本机';
-      storageBadge.className = 'channel-storage-badge';
       return;
     }
     storageBadge.hidden = true;
@@ -212,10 +233,10 @@ export function initLogChannelPage() {
     const ds = datasets.get(sym);
     if (!ds) return null;
     const cfg = state.symbols[sym] || createDefaultSymbolConfig(sym);
-    const clampedSlope = Math.max(
-      ds.minSlope,
-      Math.min(ds.maxSlope, Number.isFinite(cfg.slopePct) ? cfg.slopePct : ds.defaultSlope)
-    );
+    const rawSlope = isHistFollowActive(sym)
+      ? ds.orig.slopePct
+      : (Number.isFinite(cfg.slopePct) ? cfg.slopePct : ds.defaultSlope);
+    const clampedSlope = Math.max(ds.minSlope, Math.min(ds.maxSlope, rawSlope));
     return evaluateChannelModel(ds, {
       slopePct: clampedSlope,
       anchorMode: cfg.anchorMode,
@@ -274,9 +295,8 @@ export function initLogChannelPage() {
         zEl.className = 'channel-tab-z';
         continue;
       }
-      const st = classifyChannelZ(m.zEnd);
       zEl.textContent = fmtSigned(m.zEnd, 2);
-      zEl.className = `channel-tab-z ${st.pillClass}`.trim();
+      zEl.className = 'channel-tab-z';
     }
   }
 
@@ -297,12 +317,16 @@ export function initLogChannelPage() {
     slopeBadge.textContent = `${m.slopePct.toFixed(1)}%`;
 
     const cfg = state.symbols[sym];
+    const histFollowActive = isHistFollowActive(sym);
     const presetButtons = ds.presets.map(preset => {
-      const matched =
-        !m.isCustomAnchored &&
-        Math.abs(m.offsetPct) < 0.05 &&
-        Math.abs(preset.value - m.slopePct) < 0.06 &&
-        (!preset.isOrig || cfg.anchorMode === ANCHOR_MODES.fullPivot);
+      const matched = preset.isOrig
+        ? histFollowActive
+        : (
+          !histFollowActive &&
+          !m.isCustomAnchored &&
+          Math.abs(m.offsetPct) < 0.05 &&
+          Math.abs(preset.value - m.slopePct) < 0.06
+        );
       const btn = el('button', {
         type: 'button',
         className: `channel-chip-btn${matched ? ' is-active' : ''}`,
@@ -310,6 +334,7 @@ export function initLogChannelPage() {
       });
       btn.addEventListener('click', () => {
         cfg.slopePct = preset.value;
+        cfg.followHistSlope = Boolean(preset.isOrig);
         cfg.anchorMode = preset.isOrig ? ANCHOR_MODES.fullPivot : cfg.userPreferredAnchor;
         cfg.customAnchor = null;
         cfg.offsetPct = 0;
@@ -371,7 +396,7 @@ export function initLogChannelPage() {
     const kpi3Dev = $('kpi3-dev');
     const devWord = m.devPct >= 0 ? '偏高' : '折价';
     kpi3Dev.textContent = `${devWord} ${fmtPct(Math.abs(m.devPct), false)}`;
-    kpi3Dev.className = st.valueClass || '';
+    kpi3Dev.className = '';
     $('kpi3-foot').textContent = `${st.label} · z = ${fmtSigned(m.zEnd, 2)}`;
 
     $('kpi4-buy').textContent = fmtPrice(m.priceM10);
@@ -402,7 +427,6 @@ export function initLogChannelPage() {
         el('span', { className: 'channel-tier-desc', textContent: tier.desc })
       ];
       if (tier.isCurrent) tierCellChildren.push(el('span', { className: 'channel-now-tag', textContent: '当前' }));
-      if (tier.isHit) tierCellChildren.push(el('span', { className: 'channel-badge badge-buy-zone', textContent: '已触及' }));
 
       return el('tr', { className: rowCls || null }, [
         el('th', { scope: 'row' }, [
@@ -420,10 +444,26 @@ export function initLogChannelPage() {
     });
     $('channel-entry-tbody').replaceChildren(...tierRows);
 
-    // Bottom collapsed historical reference summary
-    const bandPct = (Math.exp(m.sigmaUsed) - 1) * 100;
+    // Bottom collapsed historical reference summary & empirical statistics
+    const rs = ds.returnStats;
     $('channel-method-summary').textContent =
-      `样本区间：${ds.startDate} 至 ${ds.endDate}（共 ${ds.pointCount} 个交易日）· 区间历史年化增速约 ${ds.orig.slopePct.toFixed(1)}% · 拟合优度 ${ds.orig.r2.toFixed(3)} · 1σ 波动带宽约 ±${bandPct.toFixed(1)}%。`;
+      `样本区间：${ds.startDate} 至 ${ds.endDate}（共 ${ds.pointCount} 个交易日，约 ${rs.spanYears.toFixed(1)} 年）· 区间趋势年化约 ${ds.orig.slopePct.toFixed(1)}% · 拟合优度 ${ds.orig.r2.toFixed(3)} · 1σ 偏离幅度 ${fmtBandSigned(m.bandDown1sPct)} / ${fmtBandSigned(m.bandUp1sPct)}（对数 σ = ${m.sigmaUsed.toFixed(3)}）。`;
+
+    const statsEl = $('channel-method-stats');
+    if (statsEl) {
+      const curEmp = m.empirical;
+      const origEmp = ds.orig.empirical;
+      const isPureOrig =
+        !m.isCustomAnchored &&
+        Math.abs(m.offsetPct) < 0.05 &&
+        m.anchorMode === ANCHOR_MODES.fullPivot &&
+        Math.abs(m.slopePct - ds.orig.slopePct) < 0.05;
+      const coverageText = isPureOrig
+        ? `当前通道样本内 ±1σ / ±2σ 实际覆盖 ${curEmp.in1sPct.toFixed(1)}% / ${curEmp.in2sPct.toFixed(1)}% 交易日`
+        : `当前通道历史覆盖 ±1σ ${curEmp.in1sPct.toFixed(1)}% / ±2σ ${curEmp.in2sPct.toFixed(1)}%（纯历史趋势线为 ${origEmp.in1sPct.toFixed(1)}% / ${origEmp.in2sPct.toFixed(1)}%）`;
+      statsEl.textContent =
+        `统计参考：区间首尾年化复利 ${fmtRatePct(rs.cagrPct)}（日收益年化波动率 ${rs.annVolPct.toFixed(1)}%，按收益率差分估算年化复利 95% 统计置信区间 ${fmtRatePct(rs.cagrCiLowPct)} ~ ${fmtRatePct(rs.cagrCiHighPct)}）· 当前收盘位于当前通道第 ${curEmp.percentilePct.toFixed(1)}% 历史分位 · ${coverageText}。`;
+    }
 
     renderDualCharts(m, { lockedYBounds });
   }
@@ -503,6 +543,7 @@ export function initLogChannelPage() {
         textContent: '−'
       });
       minusBtn.addEventListener('click', () => {
+        freezeHistSlope(m.symbol);
         const next = Math.round((state.symbols[m.symbol].slopePct - 0.5) * 2) / 2;
         state.symbols[m.symbol].slopePct = Math.max(m.dataset.minSlope, Math.min(m.dataset.maxSlope, next));
         persistState();
@@ -516,6 +557,7 @@ export function initLogChannelPage() {
         textContent: '+'
       });
       plusBtn.addEventListener('click', () => {
+        freezeHistSlope(m.symbol);
         const next = Math.round((state.symbols[m.symbol].slopePct + 0.5) * 2) / 2;
         state.symbols[m.symbol].slopePct = Math.max(m.dataset.minSlope, Math.min(m.dataset.maxSlope, next));
         persistState();
@@ -698,6 +740,7 @@ export function initLogChannelPage() {
   function resetCurrentOffset() {
     if (state.activeTab === 'COMPARE') return;
     const cfg = state.symbols[state.activeTab];
+    freezeHistSlope(state.activeTab);
     cfg.offsetPct = 0;
     cfg.customAnchor = null;
     persistState();
@@ -753,6 +796,7 @@ export function initLogChannelPage() {
     const val = Number(event.target.value);
     if (!Number.isFinite(val)) return;
     state.symbols[state.activeTab].slopePct = val;
+    state.symbols[state.activeTab].followHistSlope = false;
     persistState();
     renderAll();
   });
@@ -767,6 +811,7 @@ export function initLogChannelPage() {
   btnAnchorRecent.addEventListener('click', () => {
     if (state.activeTab === 'COMPARE') return;
     const cfg = state.symbols[state.activeTab];
+    freezeHistSlope(state.activeTab);
     cfg.anchorMode = ANCHOR_MODES.recent7y;
     cfg.userPreferredAnchor = ANCHOR_MODES.recent7y;
     cfg.customAnchor = null;
@@ -777,6 +822,7 @@ export function initLogChannelPage() {
   btnAnchorFull.addEventListener('click', () => {
     if (state.activeTab === 'COMPARE') return;
     const cfg = state.symbols[state.activeTab];
+    freezeHistSlope(state.activeTab);
     cfg.anchorMode = ANCHOR_MODES.fullPivot;
     cfg.userPreferredAnchor = ANCHOR_MODES.fullPivot;
     cfg.customAnchor = null;
@@ -798,6 +844,7 @@ export function initLogChannelPage() {
     if (!Number.isFinite(val)) return;
     const clampedPct = Math.max(-40, Math.min(60, Math.round(val * 2) / 2));
     const cfg = state.symbols[state.activeTab];
+    freezeHistSlope(state.activeTab);
     if (Math.abs(clampedPct) < 0.05) {
       cfg.offsetPct = 0;
       cfg.customAnchor = null;
@@ -844,6 +891,7 @@ export function initLogChannelPage() {
     for (const sym of CHANNEL_SYMBOLS) {
       const cfg = state.symbols[sym];
       if (cfg.customAnchor !== null || Math.abs(cfg.offsetPct) >= 0.05) continue;
+      freezeHistSlope(sym);
       cfg.anchorMode = val;
       cfg.userPreferredAnchor = val;
     }
@@ -950,12 +998,14 @@ export function initLogChannelPage() {
             cfg.anchorMode
           );
           cfg.slopePct = slopePct;
+          cfg.followHistSlope = false;
           cfg.offsetPct = offsetPct;
           cfg.customAnchor = customAnchor;
         }
       } else {
         const model = evaluateSymbol(state.activeTab);
         if (model) {
+          freezeHistSlope(state.activeTab);
           const { customAnchor, offsetPct } = computeBodyDragAnchor(
             dragState.geom,
             dragState.startY,

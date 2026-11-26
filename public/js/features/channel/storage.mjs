@@ -26,7 +26,8 @@ function getDefaultStorage() {
 export function createDefaultSymbolConfig(sym) {
   return {
     slopePct: CHANNEL_ASSETS[sym].defaultSlope,
-    anchorMode: ANCHOR_MODES.recent7y,
+    followHistSlope: true,
+    anchorMode: ANCHOR_MODES.fullPivot,
     userPreferredAnchor: ANCHOR_MODES.recent7y,
     offsetPct: 0,
     customAnchor: null
@@ -100,8 +101,9 @@ export function parseChannelState(rawJson, defaults = createDefaultChannelState(
 
       const slopeVal = readFiniteNumber(rawCfg.slopePct);
       if (slopeVal !== null) {
-        cfg.slopePct = Math.max(0, Math.min(100, Math.round(slopeVal * 10) / 10));
+        cfg.slopePct = Math.max(-50, Math.min(100, Math.round(slopeVal * 10) / 10));
       }
+      cfg.followHistSlope = Boolean(rawCfg.followHistSlope);
       if (Object.hasOwn(ANCHOR_MODES, rawCfg.anchorMode)) {
         cfg.anchorMode = rawCfg.anchorMode;
       }
@@ -129,13 +131,14 @@ export function parseChannelState(rawJson, defaults = createDefaultChannelState(
 
   for (const sym of CHANNEL_SYMBOLS) {
     const cfg = next.symbols[sym];
+    cfg.followHistSlope = false;
     cfg.anchorMode = legacyAnchor;
     cfg.userPreferredAnchor = legacyPreferred;
 
     if (parsed.slopes && typeof parsed.slopes === 'object') {
       const slopeVal = readFiniteNumber(parsed.slopes[sym]);
       if (slopeVal !== null) {
-        cfg.slopePct = Math.max(0, Math.min(100, Math.round(slopeVal * 10) / 10));
+        cfg.slopePct = Math.max(-50, Math.min(100, Math.round(slopeVal * 10) / 10));
       }
     }
     if (parsed.offsets && typeof parsed.offsets === 'object') {
@@ -199,8 +202,9 @@ export function saveChannelState(state, storage = getDefaultStorage()) {
       const offsetVal = readFiniteNumber(cfg.offsetPct);
       const customAnchor = normalizeCustomAnchor(cfg.customAnchor);
       symbols[sym] = {
-        slopePct: slopeVal !== null ? Math.max(0, Math.min(100, Math.round(slopeVal * 10) / 10)) : CHANNEL_ASSETS[sym].defaultSlope,
-        anchorMode: Object.hasOwn(ANCHOR_MODES, cfg.anchorMode) ? cfg.anchorMode : ANCHOR_MODES.recent7y,
+        slopePct: slopeVal !== null ? Math.max(-50, Math.min(100, Math.round(slopeVal * 10) / 10)) : CHANNEL_ASSETS[sym].defaultSlope,
+        followHistSlope: Boolean(cfg.followHistSlope),
+        anchorMode: Object.hasOwn(ANCHOR_MODES, cfg.anchorMode) ? cfg.anchorMode : ANCHOR_MODES.fullPivot,
         userPreferredAnchor: Object.hasOwn(ANCHOR_MODES, cfg.userPreferredAnchor) ? cfg.userPreferredAnchor : ANCHOR_MODES.recent7y,
         offsetPct: offsetVal !== null ? Math.max(-40, Math.min(60, Math.round(offsetVal * 10) / 10)) : 0,
         customAnchor

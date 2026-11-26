@@ -87,7 +87,7 @@ function formatAxisPrice(val) {
 }
 
 export function createChannelGeom(model, { width, isMobile, showProjection }) {
-  const padLeft = isMobile ? 46 : 60;
+  const padLeft = isMobile ? 40 : 46;
   const padRight = isMobile ? 52 : 70;
   const plotW = Math.max(140, width - padLeft - padRight);
   const tSpan = Math.max(1, model.dataset.tEnd);
@@ -197,7 +197,7 @@ export function drawLogChannelUpper(
     }
   }
 
-  ctx.fillStyle = 'rgba(100, 116, 139, 0.045)';
+  ctx.fillStyle = 'rgba(104, 127, 142, 0.04)';
   ctx.beginPath();
   ctx.moveTo(xOf(0), yOfLn(model.lnFit(0) + 2 * sigma));
   ctx.lineTo(xOf(tLineEnd), yOfLn(model.lnFit(tLineEnd) + 2 * sigma));
@@ -206,7 +206,7 @@ export function drawLogChannelUpper(
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = 'rgba(100, 116, 139, 0.065)';
+  ctx.fillStyle = 'rgba(104, 127, 142, 0.055)';
   ctx.beginPath();
   ctx.moveTo(xOf(0), yOfLn(model.lnFit(0) + sigma));
   ctx.lineTo(xOf(tLineEnd), yOfLn(model.lnFit(tLineEnd) + sigma));
@@ -216,7 +216,7 @@ export function drawLogChannelUpper(
   ctx.fill();
 
   const tZoneStart = Math.max(0, tEnd - 2.0);
-  ctx.fillStyle = 'rgba(5, 150, 105, 0.12)';
+  ctx.fillStyle = 'rgba(77, 139, 120, 0.10)';
   ctx.beginPath();
   ctx.moveTo(xOf(tZoneStart), yOfLn(model.lnFit(tZoneStart) - sigma));
   ctx.lineTo(xOf(tLineEnd), yOfLn(model.lnFit(tLineEnd) - sigma));
@@ -249,11 +249,11 @@ export function drawLogChannelUpper(
     ctx.restore();
   }
 
-  drawBand(2, '#b91c1c', 1.25, [5, 4]);
-  drawBand(-2, '#b91c1c', 1.25, [5, 4]);
-  drawBand(1, '#64748b', 1.15, [4, 4]);
-  drawBand(-1, '#64748b', 1.15, [4, 4]);
-  drawBand(0, '#111827', 2.2, null);
+  drawBand(2, '#c47a6d', 1.25, [5, 4]);
+  drawBand(-2, '#4d8b78', 1.25, [5, 4]);
+  drawBand(1, '#a0b2be', 1.15, [4, 4]);
+  drawBand(-1, '#a0b2be', 1.15, [4, 4]);
+  drawBand(0, '#334e5e', 2.2, null);
 
   const xToday = xOf(tEnd);
   ctx.save();
@@ -387,7 +387,7 @@ export function drawLogChannelUpper(
     ctx.lineTo(hx, padTop + plotH);
     ctx.stroke();
 
-    ctx.fillStyle = '#111827';
+    ctx.fillStyle = '#334e5e';
     ctx.beginPath();
     ctx.arc(hx, yOfLn(model.lnFit(hoverT)), 3.2, 0, Math.PI * 2);
     ctx.fill();
@@ -427,17 +427,6 @@ export function drawLogChannelUpper(
     }
   }
 
-  if (!isMobile) {
-    ctx.save();
-    ctx.translate(15, padTop + plotH / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillStyle = '#334155';
-    ctx.font = `600 11px ${FONT_STACK}`;
-    ctx.textAlign = 'center';
-    ctx.fillText(`${model.symbol} 收盘价（对数）`, 0, 0);
-    ctx.restore();
-  }
-
   ctx.fillStyle = '#475569';
   ctx.font = `11px ${FONT_STACK}`;
   ctx.textAlign = 'center';
@@ -456,11 +445,11 @@ export function drawLogChannelUpper(
   }
 
   const rightLabels = [
-    { off: 2, text: '+2σ', color: '#b91c1c' },
-    { off: 1, text: '+1σ', color: '#64748b' },
-    { off: 0, text: '中枢', color: '#111827' },
-    { off: -1, text: '−1σ', color: '#64748b' },
-    { off: -2, text: '−2σ', color: '#b91c1c' }
+    { off: 2, text: '+2σ', color: '#b3675a' },
+    { off: 1, text: '+1σ', color: '#7e93a2' },
+    { off: 0, text: '中枢', color: '#334e5e' },
+    { off: -1, text: '−1σ', color: '#7e93a2' },
+    { off: -2, text: '−2σ', color: '#3f7a68' }
   ];
   ctx.font = `600 10.5px ${FONT_STACK}`;
   ctx.textAlign = 'left';
@@ -624,20 +613,23 @@ export function drawLogChannelLower(
   const pts = ds.points;
   const res = model.residuals;
   const sigma = model.sigmaUsed;
+  const hasSigma = Number.isFinite(sigma) && sigma > 0;
+  const toZ = r => (hasSigma ? r / sigma : 0);
+  const zSeries = res.map(toZ);
   const tEnd = ds.tEnd;
 
-  let minR = -2.35 * sigma;
-  let maxR = 2.35 * sigma;
-  for (let i = 0; i < res.length; i++) {
-    if (res[i] < minR) minR = res[i];
-    if (res[i] > maxR) maxR = res[i];
+  let minZ = -2.35;
+  let maxZ = 2.35;
+  for (let i = 0; i < zSeries.length; i++) {
+    if (zSeries[i] < minZ) minZ = zSeries[i];
+    if (zSeries[i] > maxZ) maxZ = zSeries[i];
   }
-  const padR = (maxR - minR) * 0.12;
-  minR -= padR;
-  maxR += padR;
+  const padZ = (maxZ - minZ) * 0.12;
+  minZ -= padZ;
+  maxZ += padZ;
 
   const xOf = t => padLeft + ((t - tMin) / (tMax - tMin)) * plotW;
-  const yOf = r => padTop + ((maxR - r) / (maxR - minR)) * plotH;
+  const yOf = z => padTop + ((maxZ - z) / (maxZ - minZ)) * plotH;
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
@@ -653,14 +645,15 @@ export function drawLogChannelLower(
   ctx.rect(padLeft, padTop, plotW, plotH);
   ctx.clip();
 
-  const spanR = maxR - minR;
-  const step = spanR > 1.3 ? 0.25 : (spanR > 0.72 ? 0.2 : 0.1);
-  const rTicks = [];
+  const spanZ = maxZ - minZ;
+  const step = spanZ > 8 ? 2 : (spanZ > 4.5 ? 1 : 0.5);
+  const zTicks = [];
   ctx.strokeStyle = '#eef2f6';
   ctx.lineWidth = 1;
-  for (let v = Math.ceil(minR / step) * step; v <= maxR + 1e-6; v += step) {
-    const val = Math.round(v * 100) / 100;
-    rTicks.push(val);
+  for (let v = Math.ceil(minZ / step) * step; v <= maxZ + 1e-6; v += step) {
+    const rounded = Math.round(v * 10) / 10;
+    const val = Math.abs(rounded) < 1e-9 ? 0 : rounded;
+    zTicks.push(val);
     const y = Math.round(yOf(val)) + 0.5;
     ctx.beginPath();
     ctx.moveTo(padLeft, y);
@@ -682,37 +675,37 @@ export function drawLogChannelLower(
 
   const stride = pts.length > plotW * 2 ? Math.floor(pts.length / (plotW * 1.8)) : 1;
 
-  function fillResidualSide(threshold, isAbove, color) {
+  function fillResidualSide(thresholdZ, isAbove, color) {
     ctx.save();
     ctx.beginPath();
     if (isAbove) {
-      ctx.rect(padLeft, padTop, plotW, Math.max(0, yOf(threshold) - padTop));
+      ctx.rect(padLeft, padTop, plotW, Math.max(0, yOf(thresholdZ) - padTop));
     } else {
-      ctx.rect(padLeft, yOf(threshold), plotW, Math.max(0, padTop + plotH - yOf(threshold)));
+      ctx.rect(padLeft, yOf(thresholdZ), plotW, Math.max(0, padTop + plotH - yOf(thresholdZ)));
     }
     ctx.clip();
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(xOf(pts[0].t), yOf(threshold));
+    ctx.moveTo(xOf(pts[0].t), yOf(thresholdZ));
     for (let i = 0; i < pts.length; i += stride) {
-      ctx.lineTo(xOf(pts[i].t), yOf(res[i]));
+      ctx.lineTo(xOf(pts[i].t), yOf(zSeries[i]));
     }
     if ((pts.length - 1) % stride !== 0) {
-      ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(res[pts.length - 1]));
+      ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(zSeries[pts.length - 1]));
     }
-    ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(threshold));
+    ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(thresholdZ));
     ctx.closePath();
     ctx.fill();
     ctx.restore();
   }
 
-  fillResidualSide(0, true, 'rgba(220, 38, 38, 0.08)');
-  fillResidualSide(0, false, 'rgba(5, 150, 105, 0.10)');
-  fillResidualSide(sigma, true, 'rgba(220, 38, 38, 0.12)');
-  fillResidualSide(-sigma, false, 'rgba(5, 150, 105, 0.14)');
+  fillResidualSide(0, true, 'rgba(196, 122, 109, 0.10)');
+  fillResidualSide(0, false, 'rgba(77, 139, 120, 0.10)');
+  fillResidualSide(1, true, 'rgba(196, 122, 109, 0.14)');
+  fillResidualSide(-1, false, 'rgba(77, 139, 120, 0.15)');
 
-  function drawHLine(val, color, lw, dash) {
-    const y = yOf(val);
+  function drawHLine(zVal, color, lw, dash) {
+    const y = yOf(zVal);
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
@@ -724,11 +717,11 @@ export function drawLogChannelLower(
     ctx.restore();
   }
 
-  drawHLine(2 * sigma, '#b91c1c', 1.15, [5, 4]);
-  drawHLine(-2 * sigma, '#b91c1c', 1.15, [5, 4]);
-  drawHLine(1 * sigma, '#64748b', 1.0, [4, 4]);
-  drawHLine(-1 * sigma, '#64748b', 1.0, [4, 4]);
-  drawHLine(0, '#334155', 1.2, null);
+  drawHLine(2, '#c47a6d', 1.15, [5, 4]);
+  drawHLine(-2, '#4d8b78', 1.15, [5, 4]);
+  drawHLine(1, '#a0b2be', 1.0, [4, 4]);
+  drawHLine(-1, '#a0b2be', 1.0, [4, 4]);
+  drawHLine(0, '#334e5e', 1.2, null);
 
   const xToday = xOf(tEnd);
   ctx.save();
@@ -748,45 +741,25 @@ export function drawLogChannelLower(
   ctx.beginPath();
   for (let i = 0; i < pts.length; i += stride) {
     const x = xOf(pts[i].t);
-    const y = yOf(res[i]);
+    const y = yOf(zSeries[i]);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   if ((pts.length - 1) % stride !== 0) {
-    ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(res[pts.length - 1]));
+    ctx.lineTo(xOf(pts[pts.length - 1].t), yOf(zSeries[pts.length - 1]));
   }
   ctx.stroke();
   ctx.restore();
 
   const lx = xOf(tEnd);
-  const ly = yOf(model.resEnd);
-  const st = classifyChannelZ(model.zEnd);
-  ctx.fillStyle = st.dotColor;
+  const ly = yOf(hasSigma ? model.zEnd : 0);
+  ctx.fillStyle = '#19374a';
   ctx.beginPath();
   ctx.arc(lx, ly, 4.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 1.5;
   ctx.stroke();
-
-  ctx.save();
-  const zSign = model.zEnd >= 0 ? '+' : '';
-  const zLbl = `最新 z = ${zSign}${model.zEnd.toFixed(2)}`;
-  ctx.font = `700 10.5px ${FONT_STACK}`;
-  const lw = ctx.measureText(zLbl).width + 12;
-  const lh = 20;
-  let bx = showProjection ? lx + 8 : lx - lw - 8;
-  if (bx + lw > padLeft + plotW - 4) bx = lx - lw - 8;
-  const by = Math.max(padTop + 4, Math.min(padTop + plotH - lh - 4, ly - lh / 2));
-
-  ctx.fillStyle = st.dotColor;
-  drawRoundRect(ctx, bx, by, lw, lh, 5);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(zLbl, bx + 6, by + lh / 2);
-  ctx.restore();
 
   if (hoverT !== null && hoverT >= tMin && hoverT <= tMax) {
     const hx = xOf(hoverT);
@@ -803,7 +776,7 @@ export function drawLogChannelLower(
       const hr = interpolateLnPrice(pts, hoverT) - model.lnFit(hoverT);
       ctx.fillStyle = '#19374a';
       ctx.beginPath();
-      ctx.arc(hx, yOf(hr), 3.8, 0, Math.PI * 2);
+      ctx.arc(hx, yOf(toZ(hr)), 3.8, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
@@ -822,22 +795,27 @@ export function drawLogChannelLower(
   ctx.font = `11px ${FONT_STACK}`;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  for (const val of rTicks) {
+  for (const val of zTicks) {
     const y = yOf(val);
     if (y >= padTop + 4 && y <= padTop + plotH - 4) {
-      ctx.fillText(val.toFixed(step < 0.15 ? 1 : 2), padLeft - 7, y);
+      let lbl = '0';
+      if (val !== 0) {
+        const sign = val > 0 ? '+' : '−';
+        const mag = Math.abs(val);
+        lbl = `${sign}${Number.isInteger(mag) ? String(mag) : mag.toFixed(1)}σ`;
+      }
+      ctx.fillText(lbl, padLeft - 7, y);
     }
   }
 
-  if (!isMobile) {
-    ctx.save();
-    ctx.translate(15, padTop + plotH / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillStyle = '#334155';
-    ctx.font = `600 11px ${FONT_STACK}`;
-    ctx.textAlign = 'center';
-    ctx.fillText('偏离度', 0, 0);
-    ctx.restore();
+  function formatBandPct(k) {
+    if (!hasSigma || k === 0) return '0%';
+    const pct = (Math.exp(k * sigma) - 1) * 100;
+    const rounded = Math.round(pct);
+    if (rounded === 0) {
+      return `${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)}%`;
+    }
+    return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded)}%`;
   }
 
   ctx.font = `600 10px ${FONT_STACK}`;
@@ -845,13 +823,13 @@ export function drawLogChannelLower(
   ctx.textBaseline = 'middle';
   let prevY = -Infinity;
   for (const lbl of [
-    { v: 2 * sigma, text: '+2σ', color: '#b91c1c' },
-    { v: 1 * sigma, text: '+1σ', color: '#64748b' },
-    { v: 0, text: '0', color: '#334155' },
-    { v: -1 * sigma, text: '−1σ', color: '#64748b' },
-    { v: -2 * sigma, text: '−2σ', color: '#b91c1c' }
+    { k: 2, text: formatBandPct(2), color: '#b3675a' },
+    { k: 1, text: formatBandPct(1), color: '#7e93a2' },
+    { k: 0, text: '0%', color: '#334e5e' },
+    { k: -1, text: formatBandPct(-1), color: '#7e93a2' },
+    { k: -2, text: formatBandPct(-2), color: '#3f7a68' }
   ]) {
-    let y = yOf(lbl.v);
+    let y = yOf(lbl.k);
     if (y < prevY + 11) y = prevY + 11;
     if (y >= padTop + 4 && y <= padTop + plotH - 4) {
       ctx.fillStyle = lbl.color;

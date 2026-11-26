@@ -8,12 +8,14 @@ import {
   addCalendarMonths,
   buildChannelDataset,
   classifyChannelZ,
+  computeEmpiricalStats,
   createShiftedCustomAnchor,
   evaluateChannelModel,
   interpolateLnPrice,
   parseIsoDateUtc,
   solveEndpointChannel,
-  subtractCalendarYears
+  subtractCalendarYears,
+  tCritical95
 } from '../public/js/domain/log-channel.mjs';
 import {
   SCHEMA_VERSION,
@@ -305,7 +307,8 @@ test('浏览器持久化：往返保存、旧版 v3 迁移、脏字段严格过�
   assert.equal(loaded.state.symbols.QQQ.anchorMode, ANCHOR_MODES.fullPivot);
   assert.deepEqual(loaded.state.symbols.QQQ.customAnchor, { anchorDate: '2021-03-15', anchorPrice: 325.125 });
   assert.equal(loaded.state.symbols.SPY.slopePct, 11.5);
-  assert.equal(loaded.state.symbols.SPY.anchorMode, ANCHOR_MODES.recent7y);
+  assert.equal(loaded.state.symbols.SPY.anchorMode, ANCHOR_MODES.fullPivot);
+  assert.equal(loaded.state.symbols.SPY.followHistSlope, true);
 
   // Legacy flat v3 schema migration
   const legacyRaw = JSON.stringify({
@@ -317,9 +320,11 @@ test('浏览器持久化：往返保存、旧版 v3 迁移、脏字段严格过�
   const migrated = parseChannelState(legacyRaw);
   assert.equal(migrated.windowId, 'all');
   assert.equal(migrated.symbols.SPY.slopePct, 9.5);
+  assert.equal(migrated.symbols.SPY.followHistSlope, false);
   assert.equal(migrated.symbols.QQQ.slopePct, 16.0);
   assert.equal(migrated.symbols.QQQ.offsetPct, -7.5);
   assert.equal(migrated.symbols.QQQ.anchorMode, ANCHOR_MODES.fullPivot);
+  assert.equal(migrated.symbols.QQQ.followHistSlope, false);
 
   // Reject corrupt non-number values (null / "" / false / NaN) and invalid calendar/negative anchors without losing valid symbols
   const corruptRaw = JSON.stringify({
@@ -349,4 +354,79 @@ test('浏览器持久化：往返保存、旧版 v3 迁移、脏字段严格过�
   };
   assert.equal(probeChannelStorage(failingStorage), false);
   assert.equal(saveChannelState(state, failingStorage).ok, false);
+});
+
+test('年化复利 95% 统计置信区间、非对称 1σ 偏离与经验覆盖/分位数计算严谨准确', async () => {
+  assert.ok(Math.abs(tCritical95(1) - 12.7062047) < 1e-6);
+  assert.ok(Math.abs(tCritical95(10) - 2.2281389) < 1e-6);
+  assert.ok(tCritical95(30) > 2.04 && tCritical95(30) < 2.05);
+  assert.ok(tCritical95(5000) >= 1.9599 && tCritical95(5000) < 1.961);
+
+  const flatEmp = computeEmpiricalStats([0, 0, 0, 0], 0, 0);
+  assert.equal(flatEmp.in1sPct, 100);
+  assert.equal(flatEmp.in2sPct, 100);
+  assert.equal(flatEmp.percentilePct, 50);
+
+  const rankedEmp = computeEmpiricalStats([-0.2, -0.1, 0, 0.1, 0.25], 0.15, 0.25);
+  assert.equal(rankedEmp.in1sPct, 60);
+  assert.equal(rankedEmp.in2sPct, 100);
+  assert.equal(rankedEmp.percentilePct, 90);
+
+  const cleanRows = makeSyntheticSeries({ annualGrowth: 0.12 });
+  const dsClean = buildChannelDataset('SPY', cleanRows, { windowId: 'all', priceBasis: 'totalReturn' });
+  assert.ok(Math.abs(dsClean.returnStats.cagrPct - 12.0) < 1e-6);
+  assert.ok(dsClean.returnStats.annVolPct < 1e-9);
+  assert.ok(Math.abs(dsClean.returnStats.cagrCiLowPct - 12.0) < 1e-6);
+  assert.ok(Math.abs(dsClean.returnStats.cagrCiHighPct - 12.0) < 1e-6);
+
+  const spyUrl = new URL('../public/data/spy.json', import.meta.url);
+  const spyData = JSON.parse(await readFile(spyUrl, 'utf8'));
+  const dsSpy15 = buildChannelDataset('SPY', spyData.rows, { windowId: '15y', priceBasis: 'totalReturn' });
+  const rs = dsSpy15.returnStats;
+  assert.ok(rs.cagrCiLowPct < rs.cagrPct && rs.cagrPct < rs.cagrCiHighPct);
+  assert.ok(rs.annVolPct > 5 && rs.tCrit95 >= 1.9599);
+  assert.ok(rs.cagrCiHighPct - rs.cagrCiLowPct > 10, '15 年美股样本的年化复利 95% 置信区间宽度应大于 10 个百分点');
+
+  const mSpy = evaluateChannelModel(dsSpy15, { slopePct: dsSpy15.defaultSlope, anchorMode: 'recent7y' });
+  const tierPlus1 = mSpy.tiers.find(t => t.k === 1.0);
+  const tierMinus1 = mSpy.tiers.find(t => t.k === -1.0);
+  assert.ok(mSpy.bandUp1sPct > Math.abs(mSpy.bandDown1sPct));
+  assert.ok(Math.abs(mSpy.bandUp1sPct - tierPlus1.devCenter * 100) < 1e-12);
+  assert.ok(Math.abs(mSpy.bandDown1sPct - tierMinus1.devCenter * 100) < 1e-12);
+  assert.ok(mSpy.empirical.in1sPct >= 0 && mSpy.empirical.in1sPct <= mSpy.empirical.in2sPct);
+  assert.ok(mSpy.empirical.percentilePct > 0 && mSpy.empirical.percentilePct < 100);
+  assert.ok(dsSpy15.orig.empirical.in2sPct > 90 && dsSpy15.orig.empirical.in2sPct <= 100);
+});
+
+test('边界修复：负历史斜率、非法复权回退及 followHistSlope 持久化往返兼容', () => {
+  const negRows = makeSyntheticSeries({ startYear: 2015, years: 8, basePrice: 200, annualGrowth: -0.06 });
+  for (const sym of CHANNEL_SYMBOLS) {
+    const dsSym = buildChannelDataset(sym, negRows, { windowId: 'all' });
+    assert.ok(dsSym.presets[1].label.startsWith('中性 '), `${sym} 第二个预设应为中性`);
+  }
+  const dsNeg = buildChannelDataset('SPY', negRows, { windowId: 'all', priceBasis: 'invalidBasis' });
+  assert.equal(dsNeg.priceBasis, 'totalReturn', '非法 priceBasis 应回退至默认的 totalReturn');
+  assert.ok(dsNeg.orig.slopePct < 0 && dsNeg.minSlope < 0, '负历史斜率应保留负值下限');
+
+  const mNeg = evaluateChannelModel(dsNeg, { slopePct: dsNeg.orig.slopePct, anchorMode: 'fullPivot' });
+  assert.ok(Math.abs(mNeg.slopePct - dsNeg.orig.slopePct) < 1e-6);
+  assert.ok(mNeg.fitEnd > 0 && Number.isFinite(mNeg.zEnd));
+
+  const map = new Map();
+  const mem = {
+    getItem: k => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: k => { map.delete(k); }
+  };
+  const state = createDefaultChannelState();
+  state.symbols.SPY.slopePct = -6.2;
+  state.symbols.SPY.followHistSlope = true;
+  state.symbols.SPY.anchorMode = ANCHOR_MODES.fullPivot;
+  state.symbols.QQQ.followHistSlope = false;
+  assert.equal(saveChannelState(state, mem).ok, true);
+
+  const reloaded = loadChannelState(mem);
+  assert.equal(reloaded.state.symbols.SPY.slopePct, -6.2);
+  assert.equal(reloaded.state.symbols.SPY.followHistSlope, true);
+  assert.equal(reloaded.state.symbols.QQQ.followHistSlope, false);
 });

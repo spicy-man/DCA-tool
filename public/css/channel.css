@@ -21,17 +21,19 @@ html:has(.channel-page) {
 .channel-title-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px 14px;
-  margin: 12px 0 9px;
+  gap: 10px 24px;
+  margin: 18px 0 14px;
 }
 
-.channel-title-group {
+.channel-title-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 12px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  margin-left: auto;
 }
 
 .channel-page h1 {
@@ -43,8 +45,10 @@ html:has(.channel-page) {
 
 .channel-status-line {
   margin: 0;
-  font-size: 11px;
-  color: #667d89;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #7d8994;
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
@@ -54,18 +58,18 @@ html:has(.channel-page) {
   height: 20px;
   padding: 0 8px;
   border-radius: 999px;
-  background: #edf5f0;
-  color: #166534;
-  border: 1px solid #cce3d4;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
   font-size: 10.5px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .channel-storage-badge.is-warn {
-  background: #fffbeb;
-  color: #92400e;
-  border-color: #fde68a;
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
 }
 
 .channel-storage-badge[hidden] {
@@ -78,17 +82,21 @@ html:has(.channel-page) {
   overflow: hidden;
 }
 
-/* Flush top 6-tab bar evenly distributed across card width */
+/* Chrome-style top tab strip seamlessly merging into the white card */
 .channel-tabs-bar {
-  background: #f8fafc;
-  border-bottom: 1px solid var(--border);
+  padding: 4px 0 0;
+  background: #e6ecf2;
+  border-bottom: 0;
 }
 
 .channel-tabs {
   display: flex;
   flex-wrap: nowrap;
+  align-items: flex-end;
   width: 100%;
+  padding: 0 10px;
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: inline proximity;
   scrollbar-width: thin;
 }
@@ -101,37 +109,74 @@ html:has(.channel-page) {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 42px;
-  padding: 0 10px 2px;
+  height: 38px;
+  padding: 0 12px;
   border: 0;
-  border-right: 1px solid #edf1f4;
-  border-radius: 0;
+  border-radius: 10px 10px 0 0;
   background: transparent;
   color: #526474;
   font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
+  transition: background-color 0.14s ease, color 0.14s ease;
 }
 
-.channel-tab:last-child {
-  border-right: 0;
+.channel-tab:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 16px;
+  background: #c4d0dc;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
 }
 
 .channel-tab:hover {
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.55);
   color: var(--navy);
 }
 
-.channel-tab[aria-selected="true"] {
+.channel-tab:hover::before,
+.channel-tab:hover + .channel-tab::before,
+.channel-tab[aria-selected="true"] + .channel-tab::before {
+  opacity: 0;
+}
+
+.channel-tab[aria-selected="true"],
+.channel-tab[aria-selected="true"]:hover {
+  z-index: 2;
   background: #ffffff;
   color: var(--navy);
+  font-weight: 700;
+}
+
+.channel-tab[aria-selected="true"]::before,
+.channel-tab[aria-selected="true"]:hover::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: auto;
+  bottom: 0;
+  transform: none;
+  width: 10px;
+  height: 10px;
+  opacity: 1;
+  pointer-events: none;
+  background: radial-gradient(circle at 0 0, transparent 9.5px, #ffffff 10px);
 }
 
 .channel-tab[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  inset: auto 0 0;
-  border-block-end: 2.5px solid var(--navy);
+  right: -10px;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  background: radial-gradient(circle at 100% 0, transparent 9.5px, #ffffff 10px);
 }
 
 .channel-tab-z {
@@ -139,21 +184,22 @@ html:has(.channel-page) {
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 999px;
-  background: #eef2f6;
-  color: #4a5c68;
+  background: rgba(25, 55, 74, 0.08);
+  color: #526474;
   font-variant-numeric: tabular-nums;
 }
 
-.channel-tab-z.z-good { background: #dcfce7; color: #065f46; }
-.channel-tab-z.z-warn { background: #fef3c7; color: #92400e; }
-.channel-tab-z.z-hot { background: #fee2e2; color: #991b1b; }
+.channel-tab[aria-selected="true"] .channel-tab-z {
+  background: var(--navy);
+  color: #ffffff;
+}
 
 .channel-panel[hidden] {
   display: none;
 }
 
 .channel-card-body {
-  padding: 14px 20px 14px;
+  padding: 20px 24px 22px;
 }
 
 /* Single-row toolbar */
@@ -162,8 +208,8 @@ html:has(.channel-page) {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 14px;
-  padding-bottom: 12px;
+  gap: 12px 16px;
+  padding-bottom: 18px;
 }
 
 .channel-slope-bar {
@@ -265,8 +311,8 @@ html:has(.channel-page) {
 
 /* Collapsible More Settings Drawer */
 .channel-drawer {
-  margin-bottom: 12px;
-  padding: 12px 14px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #f8fafc;
@@ -381,13 +427,13 @@ html:has(.channel-page) {
 /* Pure white 4-column summary strip matching index.html .strategy-overview / .summary-grid */
 .channel-summary {
   border-top: 1px solid var(--border);
-  padding: 13px 0;
+  padding: 18px 0;
 }
 
 .channel-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
+  gap: 24px;
 }
 
 .channel-summary-grid > div {
@@ -396,11 +442,11 @@ html:has(.channel-page) {
 
 .channel-summary-grid > div + div {
   border-left: 1px solid var(--border);
-  padding-left: 20px;
+  padding-left: 24px;
 }
 
 .channel-summary-grid h4 {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-size: 11px;
   font-weight: 400;
   color: #607487;
@@ -415,7 +461,7 @@ html:has(.channel-page) {
 }
 
 .channel-summary-grid p {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   font-size: 11px;
   line-height: 1.5;
   color: #607487;
@@ -430,7 +476,7 @@ html:has(.channel-page) {
 .channel-charts-block {
   position: relative;
   border-top: 1px solid var(--border);
-  padding-top: 14px;
+  padding-top: 18px;
 }
 
 .channel-chart-header {
@@ -439,7 +485,7 @@ html:has(.channel-page) {
   align-items: center;
   justify-content: space-between;
   gap: 8px 14px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .channel-chart-title-group {
@@ -462,9 +508,9 @@ html:has(.channel-page) {
   gap: 6px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -477,18 +523,18 @@ html:has(.channel-page) {
 .channel-pill-reset {
   height: 18px;
   padding: 0 6px;
-  border: 1px solid #fdba74;
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
   background: #ffffff;
-  color: #9a3412;
+  color: var(--navy);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
 }
 
 .channel-pill-reset:hover {
-  background: #ea580c;
-  border-color: #ea580c;
+  background: var(--navy);
+  border-color: var(--navy);
   color: #ffffff;
 }
 
@@ -536,8 +582,8 @@ html:has(.channel-page) {
   width: 11px;
   height: 8px;
   border-radius: 2px;
-  background: rgba(5, 150, 105, 0.16);
-  border: 1px solid rgba(5, 150, 105, 0.38);
+  background: rgba(77, 139, 120, 0.14);
+  border: 1px solid rgba(77, 139, 120, 0.38);
   display: inline-block;
 }
 
@@ -574,7 +620,7 @@ html:has(.channel-page) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin: 12px 0 6px;
+  margin: 18px 0 8px;
 }
 
 .channel-subchart-title {
@@ -645,8 +691,8 @@ html:has(.channel-page) {
 /* Sections & Sticky Tables */
 .channel-section {
   border-top: 1px solid var(--border);
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 22px;
+  padding-top: 20px;
 }
 
 .channel-section-head {
@@ -655,7 +701,7 @@ html:has(.channel-page) {
   align-items: baseline;
   justify-content: space-between;
   gap: 6px 14px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .channel-section-title {
@@ -668,6 +714,13 @@ html:has(.channel-page) {
 .channel-section-sub {
   margin: 0;
   font-size: 11px;
+  color: #607487;
+}
+
+.channel-principle-note {
+  margin: 0 0 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
   color: #607487;
 }
 
@@ -792,8 +845,8 @@ html:has(.channel-page) {
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 3px;
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--navy);
+  color: #ffffff;
 }
 
 .channel-badge {
@@ -884,8 +937,8 @@ html:has(.channel-page) {
 }
 
 .channel-method-details {
-  margin: 14px 0 0;
-  padding-top: 10px;
+  margin: 20px 0 0;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: #607487;
@@ -923,8 +976,21 @@ html:has(.channel-page) {
 }
 
 @media (max-width: 640px) {
+  .channel-title-row {
+    margin: 14px 0 10px;
+  }
+
+  .channel-title-meta {
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .channel-status-line {
+    text-align: left;
+  }
+
   .channel-card-body {
-    padding: 12px 12px 10px;
+    padding: 14px 14px 16px;
   }
 
   .channel-page h1 {
