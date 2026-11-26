@@ -10,6 +10,7 @@ import {initWelcomeDialog} from './ui/welcome-dialog.mjs';
 import {initChartVisibility} from './ui/chart-visibility.mjs';
 import {initSymbolDialog} from './ui/symbol-dialog.mjs';
 import {initFundNavigation} from './ui/fund-navigation.mjs';
+import {initChannelNavigation} from './ui/channel-navigation.mjs';
 import {initPlanEstimateHelp} from './ui/plan-estimate-help.mjs';
 import {bindDialogCommands} from './ui/dialog-utils.mjs';
 import {getDeploymentInfo} from './services/data-client.mjs';
@@ -30,6 +31,7 @@ initAllocationDialog();
 initMarketChart();
 initChartVisibility();
 initFundNavigation();
+initChannelNavigation();
 const openStrategyDialog = initStrategyDialog();
 
 // Phase 3: Start data loading, timeline coordination, floating mini-charts, and welcome dialog.

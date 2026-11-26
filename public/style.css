@@ -1,12 +1,13 @@
 /* Preserve cascade order. Component styles load after the page layout. */
-@import url('./css/page.css?v=2.2.18');
-@import url('./css/header.css?v=2.2.18');
-@import url('./css/strategy-dialog.css?v=2.2.18');
-@import url('./css/welcome-dialog.css?v=2.2.18');
-@import url('./css/strategy-summary.css?v=2.2.18');
-@import url('./css/backtest.css?v=2.2.18');
-@import url('./css/floating-charts.css?v=2.2.18');
-@import url('./css/funds.css?v=2.2.18');
+@import url('./css/page.css?v=3.0.0');
+@import url('./css/header.css?v=3.0.0');
+@import url('./css/strategy-dialog.css?v=3.0.0');
+@import url('./css/welcome-dialog.css?v=3.0.0');
+@import url('./css/strategy-summary.css?v=3.0.0');
+@import url('./css/backtest.css?v=3.0.0');
+@import url('./css/floating-charts.css?v=3.0.0');
+@import url('./css/funds.css?v=3.0.0');
+@import url('./css/channel.css?v=3.0.0');
 
-@import url('./css/kd.css?v=2.2.18');
-@import url('./css/modern.css?v=2.2.18');
+@import url('./css/kd.css?v=3.0.0');
+@import url('./css/modern.css?v=3.0.0');

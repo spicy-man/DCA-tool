@@ -1,0 +1,352 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import {
+  ANCHOR_MODES,
+  CHANNEL_SYMBOLS,
+  MS_PER_YEAR,
+  addCalendarMonths,
+  buildChannelDataset,
+  classifyChannelZ,
+  createShiftedCustomAnchor,
+  evaluateChannelModel,
+  interpolateLnPrice,
+  parseIsoDateUtc,
+  solveEndpointChannel,
+  subtractCalendarYears
+} from '../public/js/domain/log-channel.mjs';
+import {
+  SCHEMA_VERSION,
+  STORAGE_KEY,
+  createDefaultChannelState,
+  loadChannelState,
+  parseChannelState,
+  probeChannelStorage,
+  saveChannelState
+} from '../public/js/features/channel/storage.mjs';
+
+function makeSyntheticSeries({ startYear = 2012, years = 14, basePrice = 100, annualGrowth = 0.12 } = {}) {
+  const rows = [];
+  const totalDays = Math.round(years * 365.25);
+  const startMs = Date.UTC(startYear, 0, 2);
+  for (let d = 0; d <= totalDays; d += 7) {
+    const ms = startMs + d * 86400000;
+    const date = new Date(ms).toISOString().slice(0, 10);
+    const t = d / 365.25;
+    const price = basePrice * Math.pow(1 + annualGrowth, t);
+    rows.push({ date, sourceClose: price, close: price * 1.05 });
+  }
+  return rows;
+}
+
+test('对数回归在无噪声指数序列上精确还原年化斜率与零残差', () => {
+  const rows = makeSyntheticSeries({ annualGrowth: 0.14 });
+  const ds = buildChannelDataset('QQQ', rows, { windowId: 'all', priceBasis: 'price' });
+
+  assert.ok(Math.abs(ds.orig.slopePct - 14.0) < 1e-6);
+  assert.ok(ds.orig.r2 > 0.999999);
+  assert.ok(ds.orig.sigma < 1e-9);
+  assert.equal(ds.startDate, rows[0].date);
+  assert.equal(ds.endDate, rows.at(-1).date);
+});
+
+test('Constrained OLS 旋转支点不变性：任意修改斜率，拟合线必严格经过所选质心', () => {
+  const rows = makeSyntheticSeries({ annualGrowth: 0.15 }).map((row, idx) => ({
+    ...row,
+    sourceClose: row.sourceClose * Math.exp(0.08 * Math.sin(idx / 5))
+  }));
+  const ds = buildChannelDataset('SPY', rows, { windowId: '15y', priceBasis: 'price' });
+
+  for (const anchorMode of [ANCHOR_MODES.recent7y, ANCHOR_MODES.fullPivot]) {
+    for (const slopePct of [7.5, 11.0, 14.5, 18.0]) {
+      const m = evaluateChannelModel(ds, { slopePct, anchorMode, keepOrigSigma: true });
+      assert.ok(Math.abs(m.lnFit(m.pivot.t) - m.pivot.lnP) < 1e-12);
+      assert.ok(Math.abs(m.priceFit(m.pivot.t) - m.pivot.price) < 1e-9);
+    }
+  }
+});
+
+test('日期边界计算正确处理闰年 2 月 29 日与月末对齐', () => {
+  assert.equal(subtractCalendarYears('2024-02-29', 7), '2017-02-28');
+  assert.equal(subtractCalendarYears('2024-02-29', 4), '2020-02-29');
+  assert.equal(addCalendarMonths('2026-08-31', 6), '2027-02-28');
+  assert.equal(addCalendarMonths('2027-08-31', 6), '2028-02-29');
+  assert.equal(addCalendarMonths('2026-11-25', 12), '2027-11-25');
+});
+
+test('样本窗口切换、复权口径切换、σ 口径与 7 档入场矩阵推演一致', () => {
+  const rows = makeSyntheticSeries({ startYear: 2005, years: 20, annualGrowth: 0.1 });
+  const dsAll = buildChannelDataset('VGT', rows, { windowId: 'all', priceBasis: 'price' });
+  const ds10y = buildChannelDataset('VGT', rows, { windowId: '10y', priceBasis: 'totalReturn' });
+
+  assert.ok(ds10y.pointCount < dsAll.pointCount);
+  assert.ok(ds10y.orig.latestPrice > dsAll.orig.latestPrice);
+
+  const mOrigSig = evaluateChannelModel(dsAll, { slopePct: 8.0, anchorMode: 'recent7y', keepOrigSigma: true });
+  const mRecalcSig = evaluateChannelModel(dsAll, { slopePct: 8.0, anchorMode: 'recent7y', keepOrigSigma: false });
+  assert.ok(mRecalcSig.sigmaUsed > mOrigSig.sigmaUsed);
+
+  const tierZero = mOrigSig.tiers.find(t => t.k === 0);
+  assert.ok(tierZero);
+  assert.ok(Math.abs(tierZero.pNow - mOrigSig.fitEnd) < 1e-9);
+  assert.ok(Math.abs(tierZero.p6m - tierZero.pNow * Math.sqrt(1.08)) < 1e-9);
+  assert.ok(Math.abs(tierZero.p12m - tierZero.pNow * 1.08) < 1e-9);
+  assert.equal(classifyChannelZ(-1.6).label, '深度低估');
+  assert.equal(classifyChannelZ(1.5).label, '过热');
+  assert.ok(Number.isFinite(interpolateLnPrice(dsAll.points, dsAll.tEnd * 0.5)));
+});
+
+test('默认增速、前复权默认口径与手动上下平移通道计算严格精确', () => {
+  const rows = makeSyntheticSeries({ startYear: 2012, years: 14, annualGrowth: 0.14 });
+  const dsDefault = buildChannelDataset('QQQ', rows);
+  assert.equal(dsDefault.priceBasis, 'totalReturn');
+  assert.equal(dsDefault.defaultSlope, 15.0);
+
+  const mBase = evaluateChannelModel(dsDefault, { slopePct: 15.0, anchorMode: 'recent7y', offsetPct: 0 });
+  const mUp = evaluateChannelModel(dsDefault, { slopePct: 15.0, anchorMode: 'recent7y', offsetPct: 10 });
+  const mDown = evaluateChannelModel(dsDefault, { slopePct: 15.0, anchorMode: 'recent7y', offsetPct: -10 });
+
+  assert.ok(Math.abs(mUp.fitEnd / mBase.fitEnd - 1.1) < 1e-12);
+  assert.ok(Math.abs(mDown.fitEnd / mBase.fitEnd - 0.9) < 1e-12);
+  assert.ok(mUp.zEnd < mBase.zEnd && mBase.zEnd < mDown.zEnd);
+
+  const mClamped = evaluateChannelModel(dsDefault, { slopePct: 15.0, offsetPct: 999 });
+  assert.equal(mClamped.offsetPct, 60);
+});
+
+test('端点旋转求解器固定对侧端点并按年化斜率与平移边界裁剪', () => {
+  const rows = makeSyntheticSeries({ annualGrowth: 0.14 });
+  const ds = buildChannelDataset('QQQ', rows, { windowId: 'all', priceBasis: 'totalReturn' });
+  const m0 = evaluateChannelModel(ds, { slopePct: 15.0, anchorMode: 'recent7y', offsetPct: 0 });
+
+  // Drag right endpoint upward: slope rises and left endpoint stays pinned.
+  const rightUp = solveEndpointChannel(ds, {
+    fixedT: 0,
+    fixedLnP: m0.lnFit(0),
+    dragT: ds.tEnd,
+    targetLnP: m0.lnFit(ds.tEnd) + 0.18,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  assert.ok(rightUp.slopePct > 15.0, '右端上拖应提高年化增速');
+  assert.ok(rightUp.customAnchor?.anchorDate && rightUp.customAnchor?.anchorPrice > 0);
+  const mRightUp = evaluateChannelModel(ds, {
+    slopePct: rightUp.slopePct,
+    customAnchor: rightUp.customAnchor,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  assert.ok(
+    Math.abs(Math.exp(mRightUp.lnFit(0) - m0.lnFit(0)) - 1) < 0.003,
+    '右端旋转时左端点应保持固定'
+  );
+
+  // Steep upward rotation (> +60% relative to basePivot) still pins left end via customAnchor.
+  const steepRightUp = solveEndpointChannel(ds, {
+    fixedT: 0,
+    fixedLnP: m0.lnFit(0),
+    dragT: ds.tEnd,
+    targetLnP: m0.lnFit(ds.tEnd) + 1.15,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  const mSteepRightUp = evaluateChannelModel(ds, {
+    slopePct: steepRightUp.slopePct,
+    customAnchor: steepRightUp.customAnchor,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  assert.ok(
+    Math.abs(Math.exp(mSteepRightUp.lnFit(0) - m0.lnFit(0)) - 1) < 0.003,
+    '大角度旋转时借助绝对锚点仍应固定左端点'
+  );
+
+  // Drag left endpoint upward: slope decreases and right endpoint stays pinned.
+  const leftUp = solveEndpointChannel(ds, {
+    fixedT: ds.tEnd,
+    fixedLnP: m0.lnFit(ds.tEnd),
+    dragT: 0,
+    targetLnP: m0.lnFit(0) + 0.18,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  assert.ok(leftUp.slopePct < 15.0, '左端上拖应降低年化增速');
+  const mLeftUp = evaluateChannelModel(ds, {
+    slopePct: leftUp.slopePct,
+    customAnchor: leftUp.customAnchor,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  assert.ok(
+    Math.abs(Math.exp(mLeftUp.lnFit(ds.tEnd) - m0.lnFit(ds.tEnd)) - 1) < 0.003,
+    '左端旋转时右端点应保持固定'
+  );
+
+  // Extreme upward and downward drags clamp within valid slider/offset bounds.
+  const extremeUp = solveEndpointChannel(ds, {
+    fixedT: 0,
+    fixedLnP: m0.lnFit(0),
+    dragT: ds.tEnd,
+    targetLnP: m0.lnFit(ds.tEnd) + 20,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  assert.equal(extremeUp.slopePct, ds.maxSlope);
+  assert.ok(extremeUp.offsetPct >= -40 && extremeUp.offsetPct <= 60);
+
+  const extremeDown = solveEndpointChannel(ds, {
+    fixedT: 0,
+    fixedLnP: m0.lnFit(0),
+    dragT: ds.tEnd,
+    targetLnP: m0.lnFit(ds.tEnd) - 20,
+    anchorMode: ANCHOR_MODES.recent7y
+  });
+  assert.equal(extremeDown.slopePct, ds.minSlope);
+  assert.ok(extremeDown.offsetPct >= -40 && extremeDown.offsetPct <= 60);
+});
+
+test('全部 5 只内置标的真实数据快照均能成功建模且无缺失 sourceClose', async () => {
+  for (const sym of CHANNEL_SYMBOLS) {
+    const url = new URL(`../public/data/${sym.toLowerCase()}.json`, import.meta.url);
+    const data = JSON.parse(await readFile(url, 'utf8'));
+    const ds = buildChannelDataset(sym, data.rows, { windowId: '15y', priceBasis: 'price' });
+    const m = evaluateChannelModel(ds, { slopePct: ds.defaultSlope, anchorMode: 'recent7y', keepOrigSigma: true });
+    assert.ok(ds.pointCount > 3000, `${sym} 样本点数应大于 3000`);
+    assert.ok(Number.isFinite(m.zEnd), `${sym} Z-Score 应为有限值`);
+    assert.ok(m.sigmaUsed > 0, `${sym} 波动率应大于 0`);
+    assert.ok(m.slopePct >= ds.minSlope && m.slopePct <= ds.maxSlope, `${sym} 默认斜率应在滑块范围内`);
+  }
+});
+
+test('安全合规：新增前端模块严禁使用 innerHTML / outerHTML / insertAdjacentHTML / document.write', async () => {
+  const files = [
+    '../public/js/channel-page.mjs',
+    '../public/js/features/channel/page.mjs',
+    '../public/js/features/channel/charts.mjs',
+    '../public/js/features/channel/storage.mjs',
+    '../public/js/ui/channel-navigation.mjs'
+  ];
+  for (const rel of files) {
+    const src = await readFile(new URL(rel, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /\b(innerHTML|outerHTML|insertAdjacentHTML)\b|document\.write\s*\(/, rel);
+  }
+  const html = await readFile(new URL('../public/channel.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /\bOLS\b|Constrained OLS|波动带宽|拆股复权/);
+});
+
+test('绝对时间-价格锚点在切换样本窗口与追加新交易日后保持零漂移', () => {
+  const baseRows = makeSyntheticSeries({ startYear: 2010, years: 16, annualGrowth: 0.14 });
+  const customAnchor = { anchorDate: '2020-06-15', anchorPrice: 365.4321 };
+  const targetMs = parseIsoDateUtc('2025-05-01');
+
+  const ds15y = buildChannelDataset('QQQ', baseRows, { windowId: '15y', priceBasis: 'totalReturn' });
+  const ds10y = buildChannelDataset('QQQ', baseRows, { windowId: '10y', priceBasis: 'totalReturn' });
+  const m15 = evaluateChannelModel(ds15y, { slopePct: 16.5, customAnchor });
+  const m10 = evaluateChannelModel(ds10y, { slopePct: 16.5, customAnchor });
+  const p15 = m15.priceFit((targetMs - ds15y.baseMs) / MS_PER_YEAR);
+  const p10 = m10.priceFit((targetMs - ds10y.baseMs) / MS_PER_YEAR);
+  assert.ok(Math.abs(p15 / p10 - 1) < 1e-9, '切换 15y / 10y 窗口应完全保留同一日历价格中枢');
+
+  // Append 90 future days with deviated price action so rolling pivots move.
+  const futureRows = [...baseRows];
+  const lastMs = parseIsoDateUtc(baseRows[baseRows.length - 1].date);
+  for (let d = 7; d <= 91; d += 7) {
+    const date = new Date(lastMs + d * 86400000).toISOString().slice(0, 10);
+    futureRows.push({ date, sourceClose: baseRows[baseRows.length - 1].sourceClose * 1.45, close: 999 });
+  }
+  const dsFuture = buildChannelDataset('QQQ', futureRows, { windowId: '15y', priceBasis: 'totalReturn' });
+  const mFuture = evaluateChannelModel(dsFuture, { slopePct: 16.5, customAnchor });
+  const pFuture = mFuture.priceFit((targetMs - dsFuture.baseMs) / MS_PER_YEAR);
+  assert.ok(Math.abs(pFuture / p15 - 1) < 1e-6, '行情快照新增 90 天后绝对锚定通道不应漂移');
+
+  const shifted = createShiftedCustomAnchor(ds15y, {
+    baseAnchorDate: customAnchor.anchorDate,
+    baseAnchorPrice: customAnchor.anchorPrice,
+    slopePct: 16.5,
+    deltaLn: Math.log(1.1)
+  });
+  assert.equal(shifted.customAnchor.anchorDate, customAnchor.anchorDate);
+  assert.ok(Math.abs(shifted.customAnchor.anchorPrice / (customAnchor.anchorPrice * 1.1) - 1) < 1e-4);
+
+  // Cross-date anchor (e.g. 2013 price shifted slightly downward) must not clamp upward against 2023 basePivot.price.
+  const crossDateShifted = createShiftedCustomAnchor(ds15y, {
+    baseAnchorDate: '2013-01-15',
+    baseAnchorPrice: 65,
+    slopePct: 15.0,
+    deltaLn: -0.002
+  });
+  assert.equal(crossDateShifted.customAnchor.anchorDate, '2013-01-15');
+  assert.ok(crossDateShifted.customAnchor.anchorPrice < 65 && crossDateShifted.customAnchor.anchorPrice > 64.5);
+});
+
+test('浏览器持久化：往返保存、旧版 v3 迁移、脏字段严格过滤与写入失败回退', () => {
+  function createMemoryStorage() {
+    const map = new Map();
+    return {
+      getItem: k => (map.has(k) ? map.get(k) : null),
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: k => { map.delete(k); }
+    };
+  }
+
+  const mem = createMemoryStorage();
+  assert.equal(probeChannelStorage(mem), true);
+
+  const state = createDefaultChannelState();
+  state.activeTab = 'QQQ';
+  state.windowId = '10y';
+  state.symbols.QQQ.slopePct = 17.8;
+  state.symbols.QQQ.anchorMode = ANCHOR_MODES.fullPivot;
+  state.symbols.QQQ.customAnchor = { anchorDate: '2021-03-15', anchorPrice: 325.125 };
+  state.symbols.SPY.slopePct = 11.5;
+
+  const saveRes = saveChannelState(state, mem);
+  assert.equal(saveRes.ok, true);
+
+  const loaded = loadChannelState(mem);
+  assert.equal(loaded.loadedFromKey, STORAGE_KEY);
+  assert.equal(loaded.storageReadable, true);
+  assert.equal(loaded.state.activeTab, 'QQQ');
+  assert.equal(loaded.state.windowId, '10y');
+  assert.equal(loaded.state.symbols.QQQ.slopePct, 17.8);
+  assert.equal(loaded.state.symbols.QQQ.anchorMode, ANCHOR_MODES.fullPivot);
+  assert.deepEqual(loaded.state.symbols.QQQ.customAnchor, { anchorDate: '2021-03-15', anchorPrice: 325.125 });
+  assert.equal(loaded.state.symbols.SPY.slopePct, 11.5);
+  assert.equal(loaded.state.symbols.SPY.anchorMode, ANCHOR_MODES.recent7y);
+
+  // Legacy flat v3 schema migration
+  const legacyRaw = JSON.stringify({
+    windowId: 'all',
+    anchorMode: ANCHOR_MODES.fullPivot,
+    slopes: { SPY: 9.5, QQQ: 16.0 },
+    offsets: { QQQ: -7.5 }
+  });
+  const migrated = parseChannelState(legacyRaw);
+  assert.equal(migrated.windowId, 'all');
+  assert.equal(migrated.symbols.SPY.slopePct, 9.5);
+  assert.equal(migrated.symbols.QQQ.slopePct, 16.0);
+  assert.equal(migrated.symbols.QQQ.offsetPct, -7.5);
+  assert.equal(migrated.symbols.QQQ.anchorMode, ANCHOR_MODES.fullPivot);
+
+  // Reject corrupt non-number values (null / "" / false / NaN) and invalid calendar/negative anchors without losing valid symbols
+  const corruptRaw = JSON.stringify({
+    schemaVersion: SCHEMA_VERSION,
+    activeTab: 'UNKNOWN',
+    symbols: {
+      QQQ: { slopePct: null, offsetPct: '', customAnchor: { anchorDate: 'bad-date', anchorPrice: 100 } },
+      SPY: { slopePct: false, offsetPct: NaN, customAnchor: { anchorDate: '2023-02-30', anchorPrice: 120 } },
+      VGT: { slopePct: 17.2, customAnchor: { anchorDate: '2023-05-26', anchorPrice: 410 } }
+    }
+  });
+  const sanitized = parseChannelState(corruptRaw);
+  assert.equal(sanitized.activeTab, 'SPY');
+  assert.equal(sanitized.symbols.QQQ.slopePct, 15);
+  assert.equal(sanitized.symbols.QQQ.offsetPct, 0);
+  assert.equal(sanitized.symbols.QQQ.customAnchor, null);
+  assert.equal(sanitized.symbols.SPY.slopePct, 10);
+  assert.equal(sanitized.symbols.SPY.customAnchor, null);
+  assert.equal(sanitized.symbols.VGT.slopePct, 17.2);
+  assert.deepEqual(sanitized.symbols.VGT.customAnchor, { anchorDate: '2023-05-26', anchorPrice: 410 });
+
+  // Simulate QuotaExceededError / private storage block
+  const failingStorage = {
+    getItem: () => null,
+    setItem: () => { throw new Error('QuotaExceededError'); },
+    removeItem: () => {}
+  };
+  assert.equal(probeChannelStorage(failingStorage), false);
+  assert.equal(saveChannelState(state, failingStorage).ok, false);
+});

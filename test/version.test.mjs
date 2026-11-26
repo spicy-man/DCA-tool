@@ -14,12 +14,13 @@ test('拒绝版本漂移，同步脚本修复生成字段并保留人工版本�
  await writeFile(path.join(root,'package.json'),JSON.stringify({version:'99.8.7'}));
  await writeFile(path.join(root,'public/index.html'),await readFile(path.join(projectRoot,'public/index.html')));
  await writeFile(path.join(root,'public/funds.html'),await readFile(path.join(projectRoot,'public/funds.html')));
+ await writeFile(path.join(root,'public/channel.html'),await readFile(path.join(projectRoot,'public/channel.html')));
  await writeFile(path.join(root,'public/style.css'),(await readFile(path.join(projectRoot,'public/style.css'),'utf8')).replace(/\?v=[^'")]+/g,''));
  const log=await readFile(path.join(projectRoot,'CHANGELOG.md'),'utf8');await writeFile(path.join(root,'CHANGELOG.md'),log.replace(/^(## [^\n]* )v\d+\.\d+\.\d+ /m,'$1v99.8.7 '));
  await writeFile(path.join(root,'package-lock.json'),JSON.stringify({version:'1.0.0',packages:{'':{version:'1.0.0'}}}));
  await assert.rejects(checkVersion(root),/徽标/);
  await syncVersion({root,date:'2026-10-17'});assert.equal(await checkVersion(root),'99.8.7');
- for(const page of ['public/index.html','public/funds.html']){
+ for(const page of ['public/index.html','public/funds.html','public/channel.html']){
   const pageHtml=await readFile(path.join(root,page),'utf8');
   assert.ok(pageHtml.includes('style.css?v=99.8.7'),page);
   assert.ok(pageHtml.includes('<meta name="app-version" content="99.8.7">'),page);
