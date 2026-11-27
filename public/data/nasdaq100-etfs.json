@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "source": "东方财富 / 天天基金",
-  "quoteSource": "东方财富",
-  "checkedAt": "2026-11-27T09:38:45.032Z",
-  "lastAttemptAt": "2026-11-27T09:38:45.032Z",
+  "source": "腾讯财经 / 天天基金",
+  "quoteSource": "腾讯财经",
+  "checkedAt": "2026-11-27T17:30:41.951Z",
+  "lastAttemptAt": "2026-11-27T17:30:41.951Z",
   "ok": true,
   "rows": [
     {
@@ -13,14 +13,14 @@
       "change": 3.29,
       "iopv": 1.3007,
       "premium": 20.78111785961405,
-      "amount": 1113717109.576,
-      "shares": 22984310272,
+      "amount": 1113717110,
+      "shares": 22984310164,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T07:34:42.000Z",
+      "quoteTime": "2026-11-27T08:14:42.000Z",
       "netAssets": 35053000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "159501",
@@ -29,14 +29,14 @@
       "change": 2.8,
       "iopv": 1.6351,
       "premium": 23.478686318879593,
-      "amount": 138728768.243,
-      "shares": 7214986496,
+      "amount": 138728768,
+      "shares": 7214986575,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T07:34:33.000Z",
+      "quoteTime": "2026-11-27T08:14:45.000Z",
       "netAssets": 13368000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "159696",
@@ -45,14 +45,14 @@
       "change": 2.67,
       "iopv": 1.6213,
       "premium": 23.35779929686055,
-      "amount": 92849230.896,
-      "shares": 3036824032,
+      "amount": 92849231,
+      "shares": 3036824034,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T07:34:48.000Z",
+      "quoteTime": "2026-11-27T08:14:48.000Z",
       "netAssets": 5705000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-11-27T09:38:45.032Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "159659",
@@ -61,14 +61,14 @@
       "change": 3.21,
       "iopv": 1.8824,
       "premium": 21.281342966425832,
-      "amount": 166880152.1,
+      "amount": 166880152.00000003,
       "shares": 4814744064,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T07:34:36.000Z",
+      "quoteTime": "2026-11-27T08:14:45.000Z",
       "netAssets": 10274000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-27T09:38:45.032Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "159660",
@@ -77,14 +77,14 @@
       "change": 3.74,
       "iopv": 1.9019,
       "premium": 20.984278879015726,
-      "amount": 234708696.652,
-      "shares": 2589151360,
+      "amount": 234708697,
+      "shares": 2589151363,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T07:34:39.000Z",
+      "quoteTime": "2026-11-27T08:14:39.000Z",
       "netAssets": 5774000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "159632",
@@ -93,14 +93,14 @@
       "change": 3.64,
       "iopv": 1.9776,
       "premium": 19.488268608414238,
-      "amount": 269779291.548,
-      "shares": 5291720704,
+      "amount": 269779292,
+      "shares": 5291720640,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T07:34:39.000Z",
+      "quoteTime": "2026-11-27T08:14:39.000Z",
       "netAssets": 11808000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-27T09:38:45.032Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "159513",
@@ -109,14 +109,14 @@
       "change": 3.62,
       "iopv": 1.4483,
       "premium": 18.621832493267966,
-      "amount": 341039494.56,
-      "shares": 5371549184,
+      "amount": 341039495,
+      "shares": 5371549100,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T07:34:57.000Z",
+      "quoteTime": "2026-11-27T08:14:57.000Z",
       "netAssets": 8247000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-11-27T09:38:45.032Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "513100",
@@ -126,13 +126,13 @@
       "iopv": 1.7407,
       "premium": 21.100706612282426,
       "amount": 139860161,
-      "shares": 9684610560,
+      "shares": 9684610600,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T08:11:47.000Z",
+      "quoteTime": "2026-11-27T08:14:47.000Z",
       "netAssets": 19766000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "513300",
@@ -142,13 +142,13 @@
       "iopv": 2.1578,
       "premium": 20.49309481879693,
       "amount": 530586154,
-      "shares": 5545421056,
+      "shares": 5546171000,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T08:11:49.000Z",
+      "quoteTime": "2026-11-27T08:14:51.000Z",
       "netAssets": 13913999999.999998,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "513390",
@@ -158,13 +158,13 @@
       "iopv": 1.9538,
       "premium": 19.9713379056198,
       "amount": 121647969,
-      "shares": 2806379104,
+      "shares": 2806379100,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T08:11:55.000Z",
+      "quoteTime": "2026-11-27T08:14:55.000Z",
       "netAssets": 5048000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.65,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "513870",
@@ -174,13 +174,13 @@
       "iopv": 1.6578,
       "premium": 21.124381710700924,
       "amount": 119187110,
-      "shares": 1594671008,
+      "shares": 1594671000,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T08:11:59.000Z",
+      "quoteTime": "2026-11-27T08:14:59.000Z",
       "netAssets": 2890000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.6,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     },
     {
       "code": "513110",
@@ -190,13 +190,13 @@
       "iopv": 1.9994,
       "premium": 18.235470641192354,
       "amount": 229802745,
-      "shares": 2288435008,
+      "shares": 2290435000,
       "quoteDate": "2026-11-27",
-      "quoteTime": "2026-11-27T08:11:45.000Z",
+      "quoteTime": "2026-11-27T08:15:00.000Z",
       "netAssets": 5206000000,
       "scaleDate": "2026-09-30",
       "annualFee": 1,
-      "profileCheckedAt": "2026-11-26T10:20:47.031Z"
+      "profileCheckedAt": "2026-11-27T17:30:41.951Z"
     }
   ],
   "performance": {
@@ -204,8 +204,8 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-25",
-    "checkedAt": "2026-11-27T09:38:45.032Z",
-    "lastAttemptAt": "2026-11-27T09:38:45.032Z",
+    "checkedAt": "2026-11-27T17:30:41.951Z",
+    "lastAttemptAt": "2026-11-27T17:30:41.951Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
