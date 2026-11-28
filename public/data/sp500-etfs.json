@@ -2,8 +2,8 @@
   "version": 1,
   "source": "腾讯财经 / 天天基金",
   "quoteSource": "腾讯财经",
-  "checkedAt": "2026-11-27T22:04:46.712Z",
-  "lastAttemptAt": "2026-11-27T22:04:46.712Z",
+  "checkedAt": "2026-11-28T08:53:04.471Z",
+  "lastAttemptAt": "2026-11-28T08:53:04.471Z",
   "ok": true,
   "rows": [
     {
@@ -20,7 +20,7 @@
       "netAssets": 25181000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.8,
-      "profileCheckedAt": "2026-11-27T22:04:46.712Z"
+      "profileCheckedAt": "2026-11-28T08:53:04.471Z"
     },
     {
       "code": "513650",
@@ -36,7 +36,7 @@
       "netAssets": 8711000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-27T22:04:46.712Z"
+      "profileCheckedAt": "2026-11-28T08:53:04.471Z"
     },
     {
       "code": "159612",
@@ -52,7 +52,7 @@
       "netAssets": 977999999.9999999,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-27T22:04:46.712Z"
+      "profileCheckedAt": "2026-11-28T08:53:04.471Z"
     },
     {
       "code": "159655",
@@ -68,7 +68,7 @@
       "netAssets": 4171000000,
       "scaleDate": "2026-09-30",
       "annualFee": 0.75,
-      "profileCheckedAt": "2026-11-27T22:04:46.712Z"
+      "profileCheckedAt": "2026-11-28T08:53:04.471Z"
     }
   ],
   "performance": {
@@ -76,14 +76,14 @@
     "ok": true,
     "complete": true,
     "endDate": "2026-11-25",
-    "checkedAt": "2026-11-27T22:04:46.712Z",
-    "lastAttemptAt": "2026-11-27T22:04:46.712Z",
+    "checkedAt": "2026-11-28T08:53:04.471Z",
+    "lastAttemptAt": "2026-11-28T08:53:04.471Z",
     "source": "Yahoo Finance",
     "currency": "native",
     "benchmark": {
       "code": "SPY",
       "currency": "USD",
-      "price": 728.3200073242188,
+      "price": 728.32,
       "quoteDate": "2026-11-27",
       "periods": {
         "1": {
@@ -98,14 +98,14 @@
           "years": 3,
           "startDate": "2023-11-24",
           "endDate": "2026-11-25",
-          "return": 63.22310508455728
+          "return": 63.2231164288116
         },
         "5": {
           "status": "ok",
           "years": 5,
           "startDate": "2021-11-24",
           "endDate": "2026-11-25",
-          "return": 63.23197677299841
+          "return": 63.23198811848596
         }
       }
     },
