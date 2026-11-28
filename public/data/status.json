@@ -1,9 +1,14 @@
 {
   "version": 1,
-  "checkedAt": "2026-11-27T23:27:15.047Z",
+  "checkedAt": "2026-11-28T01:26:10.081Z",
   "expectedDate": "2026-11-27",
   "requestedSources": [
-    "Fear & Greed"
+    "Fear & Greed",
+    "SPY",
+    "QQQ",
+    "VGT",
+    "SMH",
+    "BRK-B"
   ],
   "requestedComplete": true,
   "complete": true,
@@ -16,8 +21,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-27",
-      "checkedAt": "2026-11-27T23:27:15.047Z",
-      "lastSuccessAt": "2026-11-27T23:27:15.047Z"
+      "checkedAt": "2026-11-28T01:26:10.081Z",
+      "lastSuccessAt": "2026-11-28T01:26:10.081Z"
     },
     {
       "symbol": "SPY",
@@ -27,8 +32,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-27",
-      "checkedAt": "2026-11-27T19:07:47.371Z",
-      "lastSuccessAt": "2026-11-27T19:07:47.371Z"
+      "checkedAt": "2026-11-28T01:26:10.081Z",
+      "lastSuccessAt": "2026-11-28T01:26:10.081Z"
     },
     {
       "symbol": "QQQ",
@@ -38,8 +43,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-27",
-      "checkedAt": "2026-11-27T19:07:47.371Z",
-      "lastSuccessAt": "2026-11-27T19:07:47.371Z"
+      "checkedAt": "2026-11-28T01:26:10.081Z",
+      "lastSuccessAt": "2026-11-28T01:26:10.081Z"
     },
     {
       "symbol": "VGT",
@@ -49,8 +54,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-27",
-      "checkedAt": "2026-11-27T19:07:47.371Z",
-      "lastSuccessAt": "2026-11-27T19:07:47.371Z"
+      "checkedAt": "2026-11-28T01:26:10.081Z",
+      "lastSuccessAt": "2026-11-28T01:26:10.081Z"
     },
     {
       "symbol": "SMH",
@@ -60,8 +65,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-27",
-      "checkedAt": "2026-11-27T19:07:47.371Z",
-      "lastSuccessAt": "2026-11-27T19:07:47.371Z"
+      "checkedAt": "2026-11-28T01:26:10.081Z",
+      "lastSuccessAt": "2026-11-28T01:26:10.081Z"
     },
     {
       "symbol": "BRK-B",
@@ -71,8 +76,8 @@
       "ok": true,
       "fresh": true,
       "expectedDate": "2026-11-27",
-      "checkedAt": "2026-11-27T19:07:47.371Z",
-      "lastSuccessAt": "2026-11-27T19:07:47.371Z"
+      "checkedAt": "2026-11-28T01:26:10.081Z",
+      "lastSuccessAt": "2026-11-28T01:26:10.081Z"
     }
   ]
 }
